@@ -1,0 +1,157 @@
+name: Patched Nicegram Release
+
+on:
+  push:
+    branches: [ master ]
+
+jobs:
+  build:
+    runs-on: macos-12
+
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: 'recursive'
+          fetch-depth: '0'
+
+      - name: Set active Xcode path
+        run: |
+          XCODE_VERSION=$(cat versions.json | python3 -c 'import json,sys;obj=json.load(sys.stdin);print(obj["xcode"]);')
+          sudo xcode-select -s /Applications/Xcode_$XCODE_VERSION.app/Contents/Developer
+
+      - name: Create canonical source directory
+        run: |
+          set -x
+          sudo mkdir /Users/telegram
+          sudo chown -R $(whoami) /Users/telegram
+          cp -R $GITHUB_WORKSPACE /Users/telegram/
+          mv /Users/telegram/$(basename $GITHUB_WORKSPACE) /Users/telegram/telegram-ios
+          mkdir -p /Users/telegram/nicegram-bazel-cache
+
+      - name: Mount bazel cache
+        #uses: actions/cache@v3
+        uses: pat-s/always-upload-cache@v3.0.11
+        env:
+          cache-name: bazel-cache
+        with:
+          path: "/Users/telegram/nicegram-bazel-cache"
+          key: ${{ runner.os }}-${{ env.cache-name }}-${{ github.ref }}
+          restore-keys: |
+            ${{ runner.os }}-${{ env.cache-name }}-master
+
+      - name: Get Build Configuration
+        run: |
+          set -x
+          git clone https://github.com/NyaMisty/nicegram_build /Users/telegram/nicegram_build
+          appver=$(jq -r .app $SOURCE_PATH/versions.json)
+          echo "APP_VERSION=$appver" >> $GITHUB_ENV
+
+          CERTIFICATE_PATH=/Users/telegram/nicegram_build/provision/certs/NicegramSelfsigned_pwd123456.p12
+          P12_PASSWORD=123456
+          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+          KEYCHAIN_PASSWORD=123456
+
+          # create temporary keychain
+          security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+
+          # import certificate to keychain
+          security import $CERTIFICATE_PATH -P "$P12_PASSWORD" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
+          sudo security import $CERTIFICATE_PATH -P "$P12_PASSWORD" -A -t cert -f pkcs12 -k /Library/Keychains/System.keychain
+          #security import /Users/telegram/nicegram_build/provision/certs/Public.cer -A -t cert -k ~/Library/Keychains/login.keychain
+          #security import /Users/telegram/nicegram_build/provision/certs/NicegramSelfsigned_pwd123456.p12 -A -t cert -P123456 -f pkcs12 -k ~/Library/Keychains/login.keychain
+
+          #BAZEL_CPU_COUNT=3
+          #sed -i '' "s|os.cpu_count()|$BAZEL_CPU_COUNT|" build-system/Make/Make.py
+      - name: New build
+        run: |
+          set -x
+
+          cd $SOURCE_PATH
+
+          set +x
+          maxRetry=3
+          for ((retry=1; retry<=$maxRetry; retry++)); do
+              echo -----------------------------------
+              echo Bazel Build Round $retry
+              echo -----------------------------------
+              if python3 build-system/Make/Make.py \
+                --cacheDir /Users/telegram/nicegram-bazel-cache \
+                build \
+                --continueOnError \
+                --configurationPath /Users/telegram/nicegram_build/telegram-configuration.json --codesigningInformationPath /Users/telegram/nicegram_build/provision \
+                --configuration release_arm64 --buildNumber=0; then
+                echo -----------------------------------
+                echo ~~ Bazel Build SUCCEEDED ~~
+                echo -----------------------------------
+                break
+              else
+                echo -----------------------------------
+                echo !!!Bazel Build FAILED!!!
+                echo -----------------------------------
+                sleep 10
+                if [[ "$maxRetry" == "$retry" ]]; then
+                  exit 1
+                fi
+                if [[ "$retry" == "1" ]]; then
+                    sed -i '' "s|os.cpu_count()|3|" build-system/Make/Make.py
+                fi
+              fi
+          done
+          set -x
+
+          ipapath=$(find $SOURCE_PATH/bazel-out/ -type f -name "Telegram.ipa")
+          ipapath=$(readlink -f "$ipapath")
+
+          ARTIFACTS_PATH=$(dirname "$ipapath")
+          echo "ARTIFACTS_PATH=$ARTIFACTS_PATH" >> $GITHUB_ENV
+
+          IPA_PATH=$ARTIFACTS_PATH/Telegram.ipa
+          echo "IPA_PATH=$IPA_PATH" >> $GITHUB_ENV
+
+          (cd $ARTIFACTS_PATH; zip -r Telegram.DSYMs.zip Telegram.app.dSYM)
+          DSYMS_PATH=$ARTIFACTS_PATH/Telegram.DSYMs.zip
+          echo "DSYMS_PATH=$DSYMS_PATH" >> $GITHUB_ENV
+
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: build-${{ env.APP_VERSION }}-${{ github.sha }}
+          release_name: Nicegram ${{ env.APP_VERSION }} (${{ github.sha }})
+          body: |
+              Build of Nicegram for iOS ${{ env.APP_VERSION }} (${{ github.sha }})
+          draft: false
+          prerelease: false
+
+      - name: Upload Release IPA
+        id: upload-release-ipa
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ${{ env.IPA_PATH }}
+          asset_name: Nicegram.ipa
+          asset_content_type: application/zip
+
+      - name: Upload Release DSYM
+        id: upload-release-dsym
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ${{ env.DSYMS_PATH }}
+          asset_name: Nicegram.DSYMs.zip
+          asset_content_type: application/zip
+
+      - name: Setup tmate session
+        if: ${{ failure() }}
+        uses: mxschmitt/action-tmate@v3
+    env:
+      #BAZEL_USER_ROOT: /private/var/tmp/_bazel_telegram
+      SOURCE_PATH: /Users/telegram/telegram-ios
