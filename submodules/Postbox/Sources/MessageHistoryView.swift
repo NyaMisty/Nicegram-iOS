@@ -943,7 +943,7 @@ public final class MessageHistoryView {
     public let laterId: MessageIndex?
     public let holeEarlier: Bool
     public let holeLater: Bool
-    public let entries: [MessageHistoryEntry]
+    public var entries: [MessageHistoryEntry]
     public let maxReadIndex: MessageIndex?
     public let fixedReadStates: MessageHistoryViewReadState?
     public let transientReadStates: MessageHistoryViewReadState?

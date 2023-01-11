@@ -142,6 +142,9 @@ func chatHistoryEntriesForView(
         var adminRank: CachedChannelAdminRank?
         if let author = message.author {
             adminRank = adminRanks[author.id]
+//            if authorIdIsBlocked[author.id] ?? false {
+//                continue
+//            }
         }
         
         if presentationData.largeEmoji, message.media.isEmpty {

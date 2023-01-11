@@ -75,6 +75,7 @@ private enum EasyToggleType {
     case showProfileId
     case showRegDate
     case hideReactions
+    case blockUsersInGroups
 }
 
 
@@ -471,6 +472,8 @@ private enum NicegramSettingsControllerEntry: ItemListNodeEntry {
                     NGSettings.showRegDate = value
                 case .hideReactions:
                     VarSystemNGSettings.hideReactions = value
+                case .blockUsersInGroups:
+                    NGSettings.blockUsersInGroups = value
                 }
             })
         case let .unblockHeader(text):
@@ -654,6 +657,10 @@ private func nicegramSettingsControllerEntries(presentationData: PresentationDat
     toggleIndex += 1
     
     entries.append(.easyToggle(toggleIndex, .hideReactions, l("NicegramSettings.Other.hideReactions", locale), VarSystemNGSettings.hideReactions))
+    toggleIndex += 1
+    
+    entries.append(.easyToggle(toggleIndex, .blockUsersInGroups,
+        "Block users in groups", NGSettings.blockUsersInGroups))
     toggleIndex += 1
     
     entries.append(.shareChannelsInfoToggle(l("NicegramSettings.ShareChannelsInfoToggle", locale), isShareChannelsInfoEnabled()))

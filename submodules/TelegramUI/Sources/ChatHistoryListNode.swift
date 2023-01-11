@@ -870,7 +870,7 @@ public final class ChatHistoryListNode: ListView, ChatHistoryNode {
 
         let currentViewVersion = Atomic<Int?>(value: nil)
         
-        let historyViewUpdate: Signal<(ChatHistoryViewUpdate, Int, ChatHistoryLocationInput?, ClosedRange<Int32>?), NoError>
+        var historyViewUpdate: Signal<(ChatHistoryViewUpdate, Int, ChatHistoryLocationInput?, ClosedRange<Int32>?), NoError>
         var isFirstTime = true
         var updateAllOnEachVersion = false
         if case let .custom(messages, at, _) = source {
@@ -929,6 +929,33 @@ public final class ChatHistoryListNode: ListView, ChatHistoryNode {
                     })!
                     return (view, version, location, ignoreMessagesInTimestampRange)
                 }
+            }
+        }
+        
+        if NGSettings.blockUsersInGroups {
+            historyViewUpdate = historyViewUpdate |> mapToSignal {
+                (viewUpdate, version, location, ignoreMessagesInTimestampRange) -> Signal<(ChatHistoryViewUpdate, Int, ChatHistoryLocationInput?, ClosedRange<Int32>?), NoError> in
+                context.account.postbox.transaction {
+                    transaction in
+                    switch viewUpdate {
+                    case let .HistoryView(view, _, _, _, _, _, _):
+                        view.entries = view.entries.filter {
+                            entry in
+                            if let author = entry.message.author {
+                                if let cachedAuthorUserData = transaction.getPeerCachedData(peerId: author.id) as? CachedUserData {
+                                    if cachedAuthorUserData.isBlocked {
+                                        return false
+                                    }
+                                }
+                            }
+                            return true
+                        }
+
+                    default:
+                        break
+                    }
+                    return (viewUpdate, version, location, ignoreMessagesInTimestampRange)
+               }
             }
         }
         

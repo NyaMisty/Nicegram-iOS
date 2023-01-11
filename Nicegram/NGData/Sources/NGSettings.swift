@@ -95,6 +95,9 @@ public struct NGSettings {
     
     @NGStorage(key: "shareChannelsInfo", defaultValue: false)
     public static var shareChannelsInfo: Bool
+    
+    @NGStorage(key: "blockUsersInGroups", defaultValue: false)
+    public static var blockUsersInGroups: Bool
 }
 
 public struct NGWebSettings {
