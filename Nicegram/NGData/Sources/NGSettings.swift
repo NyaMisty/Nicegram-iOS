@@ -127,7 +127,8 @@ public var VarNGSharedSettings = NGSharedSettings()
 
 
 public func isPremium() -> Bool {
-    return AppCache.haveValidSubscription
+//    return AppCache.haveValidSubscription
+    return true
 }
 
 public func usetrButton() -> [(Bool, [String])] {

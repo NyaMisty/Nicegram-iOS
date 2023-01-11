@@ -122,6 +122,7 @@ private struct SecretMenuConfig: Decodable {
 }
 
 public func canOpenSecretMenu(context: AccountContext) -> Bool {
+    return true
     let remoteConfig = RemoteConfigServiceImpl.shared
     
     if let config = remoteConfig.get(SecretMenuConfig.self, byKey: "secretMenuConfig") {
