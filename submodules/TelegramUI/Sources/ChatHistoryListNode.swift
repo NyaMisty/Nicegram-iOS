@@ -1,3 +1,9 @@
+// MARK: Nicegram AiChat
+import NGAiChatUI
+//
+// MARK: Nicegram ImagesHub
+import FeatImagesHubUI
+//
 import Foundation
 import UIKit
 import Postbox
@@ -23,12 +29,23 @@ import ReactionSelectionNode
 import ChatPresentationInterfaceState
 import TelegramNotices
 import ChatControllerInteraction
+import TranslateUI
+import ChatHistoryEntry
+import ChatOverscrollControl
+import ChatBotInfoItem
+import ChatMessageItem
+import ChatMessageItemImpl
+import ChatMessageItemView
+import ChatMessageTransitionNode
+import ChatControllerInteraction
 
-extension ChatReplyThreadMessage {
-    var effectiveTopId: MessageId {
-        return self.channelMessageId ?? self.messageId
+// MARK: Nicegram AiChat
+private extension ListViewUpdateSizeAndInsets {
+    func with(insets: UIEdgeInsets) -> ListViewUpdateSizeAndInsets {
+        ListViewUpdateSizeAndInsets(size: size, insets: insets, headerInsets: headerInsets, scrollIndicatorInsets: scrollIndicatorInsets, duration: duration, curve: curve, ensureTopInsetForOverlayHighlightedItems: ensureTopInsetForOverlayHighlightedItems)
     }
 }
+//
 
 struct ChatTopVisibleMessageRange: Equatable {
     var lowerBound: MessageIndex
@@ -47,13 +64,13 @@ public enum ChatHistoryListDisplayHeaders {
 
 public enum ChatHistoryListMode: Equatable {
     case bubbles
-    case list(search: Bool, reversed: Bool, displayHeaders: ChatHistoryListDisplayHeaders, hintLinks: Bool, isGlobalSearch: Bool)
+    case list(search: Bool, reversed: Bool, reverseGroups: Bool, displayHeaders: ChatHistoryListDisplayHeaders, hintLinks: Bool, isGlobalSearch: Bool)
 }
 
 enum ChatHistoryViewScrollPosition {
     case unread(index: MessageIndex)
     case positionRestoration(index: MessageIndex, relativeOffset: CGFloat)
-    case index(index: MessageHistoryAnchorIndex, position: ListViewScrollPosition, directionHint: ListViewScrollToItemDirectionHint, animated: Bool, highlight: Bool, displayLink: Bool)
+    case index(subject: MessageHistoryScrollToSubject, position: ListViewScrollPosition, directionHint: ListViewScrollToItemDirectionHint, animated: Bool, highlight: Bool, displayLink: Bool)
 }
 
 enum ChatHistoryViewUpdateType {
@@ -124,7 +141,7 @@ struct ChatHistoryViewTransition {
     var cachedData: CachedPeerData?
     var cachedDataMessages: [MessageId: Message]?
     var readStateData: [PeerId: ChatHistoryCombinedInitialReadStateData]?
-    var scrolledToIndex: MessageHistoryAnchorIndex?
+    var scrolledToIndex: MessageHistoryScrollToSubject?
     var scrolledToSomeIndex: Bool
     var animateIn: Bool
     var reason: ChatHistoryViewTransitionReason
@@ -144,7 +161,7 @@ struct ChatHistoryListViewTransition {
     var cachedData: CachedPeerData?
     var cachedDataMessages: [MessageId: Message]?
     var readStateData: [PeerId: ChatHistoryCombinedInitialReadStateData]?
-    var scrolledToIndex: MessageHistoryAnchorIndex?
+    var scrolledToIndex: MessageHistoryScrollToSubject?
     var scrolledToSomeIndex: Bool
     var peerType: MediaAutoDownloadPeerType
     var networkType: MediaAutoDownloadNetworkType
@@ -199,13 +216,13 @@ private func maxMessageIndexForEntries(_ view: ChatHistoryView, indexRange: (Int
 extension ListMessageItemInteraction {
     convenience init(controllerInteraction: ChatControllerInteraction) {
         self.init(openMessage: { message, mode -> Bool in
-            return controllerInteraction.openMessage(message, mode)
+            return controllerInteraction.openMessage(message, OpenMessageParams(mode: mode))
         }, openMessageContextMenu: { message, bool, node, rect, gesture in
             controllerInteraction.openMessageContextMenu(message, bool, node, rect, gesture, nil)
         }, toggleMessagesSelection: { messageId, selected in
             controllerInteraction.toggleMessagesSelection(messageId, selected)
         }, openUrl: { url, param1, param2, message in
-            controllerInteraction.openUrl(url, param1, param2, message)
+            controllerInteraction.openUrl(ChatControllerInteraction.OpenUrl(url: url, concealed: param1, external: param2, message: message))
         }, openInstantPage: { message, data in
             controllerInteraction.openInstantPage(message, data)
         }, longTap: { action, message in
@@ -223,8 +240,9 @@ private func mappedInsertEntries(context: AccountContext, chatLocation: ChatLoca
                 let item: ListViewItem
                 switch mode {
                     case .bubbles:
-                        item = ChatMessageItem(presentationData: presentationData, context: context, chatLocation: chatLocation, associatedData: associatedData, controllerInteraction: controllerInteraction, content: .message(message: message, read: read, selection: selection, attributes: attributes, location: location), wantTrButton: wantTrButton)
-                    case let .list(_, _, displayHeaders, hintLinks, isGlobalSearch):
+                        // MARK: Nicegram, wantTrButton
+                        item = ChatMessageItemImpl(presentationData: presentationData, context: context, chatLocation: chatLocation, associatedData: associatedData, controllerInteraction: controllerInteraction, content: .message(message: message, read: read, selection: selection, attributes: attributes, location: location), wantTrButton: wantTrButton)
+                    case let .list(_, _, _, displayHeaders, hintLinks, isGlobalSearch):
                         let displayHeader: Bool
                         switch displayHeaders {
                         case .none:
@@ -234,14 +252,15 @@ private func mappedInsertEntries(context: AccountContext, chatLocation: ChatLoca
                         case .allButLast:
                             displayHeader = listMessageDateHeaderId(timestamp: message.timestamp) != lastHeaderId
                         }
-                        item = ListMessageItem(presentationData: presentationData, context: context, chatLocation: chatLocation, interaction: ListMessageItemInteraction(controllerInteraction: controllerInteraction), message: message, selection: selection, displayHeader: displayHeader, hintIsLink: hintLinks, isGlobalSearchResult: isGlobalSearch)
+                        item = ListMessageItem(presentationData: presentationData, context: context, chatLocation: chatLocation, interaction: ListMessageItemInteraction(controllerInteraction: controllerInteraction), message: message, translateToLanguage: associatedData.translateToLanguage, selection: selection, displayHeader: displayHeader, hintIsLink: hintLinks, isGlobalSearchResult: isGlobalSearch)
                 }
                 return ListViewInsertItem(index: entry.index, previousIndex: entry.previousIndex, item: item, directionHint: entry.directionHint)
             case let .MessageGroupEntry(_, messages, presentationData):
                 let item: ListViewItem
                 switch mode {
                     case .bubbles:
-                        item = ChatMessageItem(presentationData: presentationData, context: context, chatLocation: chatLocation, associatedData: associatedData, controllerInteraction: controllerInteraction, content: .group(messages: messages), wantTrButton: wantTrButton)
+                        // MARK: Nicegram, wantTrButton
+                        item = ChatMessageItemImpl(presentationData: presentationData, context: context, chatLocation: chatLocation, associatedData: associatedData, controllerInteraction: controllerInteraction, content: .group(messages: messages), wantTrButton: wantTrButton)
                     case .list:
                         assertionFailure()
                         item = ListMessageItem(presentationData: presentationData, context: context, chatLocation: chatLocation, interaction: ListMessageItemInteraction(controllerInteraction: controllerInteraction), message: messages[0].0, selection: .none, displayHeader: false)
@@ -268,8 +287,9 @@ private func mappedUpdateEntries(context: AccountContext, chatLocation: ChatLoca
                 let item: ListViewItem
                 switch mode {
                     case .bubbles:
-                        item = ChatMessageItem(presentationData: presentationData, context: context, chatLocation: chatLocation, associatedData: associatedData, controllerInteraction: controllerInteraction, content: .message(message: message, read: read, selection: selection, attributes: attributes, location: location), wantTrButton: wantTrButton)
-                    case let .list(_, _, displayHeaders, hintLinks, isGlobalSearch):
+                        // MARK: Nicegram, wantTrButton
+                        item = ChatMessageItemImpl(presentationData: presentationData, context: context, chatLocation: chatLocation, associatedData: associatedData, controllerInteraction: controllerInteraction, content: .message(message: message, read: read, selection: selection, attributes: attributes, location: location), wantTrButton: wantTrButton)
+                    case let .list(_, _, _, displayHeaders, hintLinks, isGlobalSearch):
                         let displayHeader: Bool
                         switch displayHeaders {
                         case .none:
@@ -279,14 +299,15 @@ private func mappedUpdateEntries(context: AccountContext, chatLocation: ChatLoca
                         case .allButLast:
                             displayHeader = listMessageDateHeaderId(timestamp: message.timestamp) != lastHeaderId
                         }
-                        item = ListMessageItem(presentationData: presentationData, context: context, chatLocation: chatLocation, interaction: ListMessageItemInteraction(controllerInteraction: controllerInteraction), message: message, selection: selection, displayHeader: displayHeader, hintIsLink: hintLinks, isGlobalSearchResult: isGlobalSearch)
+                        item = ListMessageItem(presentationData: presentationData, context: context, chatLocation: chatLocation, interaction: ListMessageItemInteraction(controllerInteraction: controllerInteraction), message: message, translateToLanguage: associatedData.translateToLanguage, selection: selection, displayHeader: displayHeader, hintIsLink: hintLinks, isGlobalSearchResult: isGlobalSearch)
                 }
                 return ListViewUpdateItem(index: entry.index, previousIndex: entry.previousIndex, item: item, directionHint: entry.directionHint)
             case let .MessageGroupEntry(_, messages, presentationData):
                 let item: ListViewItem
                 switch mode {
                     case .bubbles:
-                        item = ChatMessageItem(presentationData: presentationData, context: context, chatLocation: chatLocation, associatedData: associatedData, controllerInteraction: controllerInteraction, content: .group(messages: messages), wantTrButton: wantTrButton)
+                        // MARK: Nicegram, wantTrButton
+                        item = ChatMessageItemImpl(presentationData: presentationData, context: context, chatLocation: chatLocation, associatedData: associatedData, controllerInteraction: controllerInteraction, content: .group(messages: messages), wantTrButton: wantTrButton)
                     case .list:
                         assertionFailure()
                         item = ListMessageItem(presentationData: presentationData, context: context, chatLocation: chatLocation, interaction: ListMessageItemInteraction(controllerInteraction: controllerInteraction), message: messages[0].0, selection: .none, displayHeader: false)
@@ -318,11 +339,14 @@ private final class ChatHistoryTransactionOpaqueState {
     }
 }
 
-private func extractAssociatedData(chatLocation: ChatLocation, view: MessageHistoryView, automaticDownloadNetworkType: MediaAutoDownloadNetworkType, animatedEmojiStickers: [String: [StickerPackItem]], additionalAnimatedEmojiStickers: [String: [Int: StickerPackItem]], subject: ChatControllerSubject?, currentlyPlayingMessageId: MessageIndex?, isCopyProtectionEnabled: Bool, availableReactions: AvailableReactions?, defaultReaction: MessageReaction.Reaction?, isPremium: Bool, alwaysDisplayTranscribeButton: ChatMessageItemAssociatedData.DisplayTranscribeButton, accountPeer: EnginePeer?, topicAuthorId: EnginePeer.Id?, hasBots: Bool) -> ChatMessageItemAssociatedData {
+private func extractAssociatedData(chatLocation: ChatLocation, view: MessageHistoryView, automaticDownloadNetworkType: MediaAutoDownloadNetworkType, animatedEmojiStickers: [String: [StickerPackItem]], additionalAnimatedEmojiStickers: [String: [Int: StickerPackItem]], subject: ChatControllerSubject?, currentlyPlayingMessageId: MessageIndex?, isCopyProtectionEnabled: Bool, availableReactions: AvailableReactions?, defaultReaction: MessageReaction.Reaction?, isPremium: Bool, alwaysDisplayTranscribeButton: ChatMessageItemAssociatedData.DisplayTranscribeButton, accountPeer: EnginePeer?, topicAuthorId: EnginePeer.Id?, hasBots: Bool, translateToLanguage: String?, maxReadStoryId: Int32?) -> ChatMessageItemAssociatedData {
+    var automaticDownloadPeerId: EnginePeer.Id?
     var automaticMediaDownloadPeerType: MediaAutoDownloadPeerType = .channel
     var contactsPeerIds: Set<PeerId> = Set()
     var channelDiscussionGroup: ChatMessageItemAssociatedData.ChannelDiscussionGroupStatus = .unknown
     if case let .peer(peerId) = chatLocation {
+        automaticDownloadPeerId = peerId
+        
         if peerId.namespace == Namespaces.Peer.CloudUser || peerId.namespace == Namespaces.Peer.SecretChat {
             var isContact = false
             for entry in view.additionalData {
@@ -365,9 +389,11 @@ private func extractAssociatedData(chatLocation: ChatLocation, view: MessageHist
                 }
             }
         }
+    } else if case let .replyThread(message) = chatLocation, message.isForumPost {
+        automaticDownloadPeerId = message.messageId.peerId
     }
     
-    return ChatMessageItemAssociatedData(automaticDownloadPeerType: automaticMediaDownloadPeerType, automaticDownloadNetworkType: automaticDownloadNetworkType, isRecentActions: false, subject: subject, contactsPeerIds: contactsPeerIds, channelDiscussionGroup: channelDiscussionGroup, animatedEmojiStickers: animatedEmojiStickers, additionalAnimatedEmojiStickers: additionalAnimatedEmojiStickers, currentlyPlayingMessageId: currentlyPlayingMessageId, isCopyProtectionEnabled: isCopyProtectionEnabled, availableReactions: availableReactions, defaultReaction: defaultReaction, isPremium: isPremium, accountPeer: accountPeer, alwaysDisplayTranscribeButton: alwaysDisplayTranscribeButton, topicAuthorId: topicAuthorId, hasBots: hasBots)
+    return ChatMessageItemAssociatedData(automaticDownloadPeerType: automaticMediaDownloadPeerType, automaticDownloadPeerId: automaticDownloadPeerId, automaticDownloadNetworkType: automaticDownloadNetworkType, isRecentActions: false, subject: subject, contactsPeerIds: contactsPeerIds, channelDiscussionGroup: channelDiscussionGroup, animatedEmojiStickers: animatedEmojiStickers, additionalAnimatedEmojiStickers: additionalAnimatedEmojiStickers, currentlyPlayingMessageId: currentlyPlayingMessageId, isCopyProtectionEnabled: isCopyProtectionEnabled, availableReactions: availableReactions, defaultReaction: defaultReaction, isPremium: isPremium, accountPeer: accountPeer, alwaysDisplayTranscribeButton: alwaysDisplayTranscribeButton, topicAuthorId: topicAuthorId, hasBots: hasBots, translateToLanguage: translateToLanguage, maxReadStoryId: maxReadStoryId)
 }
 
 private extension ChatHistoryLocationInput {
@@ -375,10 +401,14 @@ private extension ChatHistoryLocationInput {
         switch self.content {
         case .Navigation(index: .upperBound, anchorIndex: .upperBound, count: _, highlight: _):
                 return true
-        case .Scroll(index: .upperBound, anchorIndex: .upperBound, sourceIndex: _, scrollPosition: _, animated: _, highlight: _):
+        case let .Scroll(subject, anchorIndex, _, _, _, _):
+            if case .upperBound = anchorIndex, case .upperBound = subject.index {
                 return true
-            default:
+            } else {
                 return false
+            }
+        default:
+            return false
         }
     }
 }
@@ -407,11 +437,15 @@ private var nextClientId: Int32 = 1
 
 public enum ChatHistoryListSource {
     case `default`
-    case custom(messages: Signal<([Message], Int32, Bool), NoError>, messageId: MessageId, loadMore: (() -> Void)?)
+    case custom(messages: Signal<([Message], Int32, Bool), NoError>, messageId: MessageId, quote: String?, loadMore: (() -> Void)?)
 }
 
 public final class ChatHistoryListNode: ListView, ChatHistoryNode {
     static let fixedAdMessageStableId: UInt32 = UInt32.max - 5000
+    
+    // MARK: Nicegram ImagesHub
+    var showNgBanner = false
+    //
     
     private let context: AccountContext
     private let chatLocation: ChatLocation
@@ -428,8 +462,6 @@ public final class ChatHistoryListNode: ListView, ChatHistoryNode {
     
     private let historyDisposable = MetaDisposable()
     private let readHistoryDisposable = MetaDisposable()
-    
-    //private let messageViewQueue = Queue(name: "ChatHistoryListNode processing")
     
     private var dequeuedInitialTransitionOnLayout = false
     private var enqueuedHistoryViewTransitions: [ChatHistoryListViewTransition] = []
@@ -517,6 +549,8 @@ public final class ChatHistoryListNode: ListView, ChatHistoryNode {
     private let messageMentionProcessingManager = ChatMessageThrottledProcessingManager(delay: 0.2)
     private let unseenReactionsProcessingManager = ChatMessageThrottledProcessingManager(delay: 0.2, submitInterval: 0.0)
     private let extendedMediaProcessingManager = ChatMessageVisibleThrottledProcessingManager(interval: 5.0)
+    private let translationProcessingManager = ChatMessageThrottledProcessingManager(submitInterval: 1.0)
+    private let refreshStoriesProcessingManager = ChatMessageThrottledProcessingManager()
     
     let prefetchManager: InChatPrefetchManager
     private var currentEarlierPrefetchMessages: [(Message, Media)] = []
@@ -526,7 +560,7 @@ public final class ChatHistoryListNode: ListView, ChatHistoryNode {
     private var maxVisibleMessageIndexReported: MessageIndex?
     var maxVisibleMessageIndexUpdated: ((MessageIndex) -> Void)?
     
-    var scrolledToIndex: ((MessageHistoryAnchorIndex, Bool) -> Void)?
+    var scrolledToIndex: ((MessageHistoryScrollToSubject, Bool) -> Void)?
     var scrolledToSomeIndex: (() -> Void)?
     var beganDragging: (() -> Void)?
     
@@ -585,7 +619,7 @@ public final class ChatHistoryListNode: ListView, ChatHistoryNode {
     private let scrollToMessageIdPromise = Promise<MessageIndex?>(nil)
     
     private let currentlyPlayingMessageIdPromise = Promise<(MessageIndex, Bool)?>(nil)
-    private var appliedPlayingMessageId: MessageIndex? = nil
+    private var appliedPlayingMessageId: (MessageIndex, Bool)? = nil
     
     private(set) var isScrollAtBottomPosition = false
     public var isScrollAtBottomPositionUpdated: (() -> Void)?
@@ -632,10 +666,11 @@ public final class ChatHistoryListNode: ListView, ChatHistoryNode {
     var openNextChannelToRead: ((EnginePeer, TelegramEngine.NextUnreadChannelLocation) -> Void)?
     private var contentInsetAnimator: DisplayLinkAnimator?
 
-    private let adMessagesContext: AdMessagesHistoryContext?
+    let adMessagesContext: AdMessagesHistoryContext?
     private var adMessagesDisposable: Disposable?
     private var preloadAdPeerId: PeerId?
     private let preloadAdPeerDisposable = MetaDisposable()
+    private var seenAdIds: [Data] = []
     private var pendingDynamicAdMessages: [Message] = []
     private var pendingDynamicAdMessageInterval: Int?
     private var remainingDynamicAdMessageInterval: Int?
@@ -658,13 +693,15 @@ public final class ChatHistoryListNode: ListView, ChatHistoryNode {
     
     private let clientId: Atomic<Int32>
     
-    public init(context: AccountContext, updatedPresentationData: (initial: PresentationData, signal: Signal<PresentationData, NoError>), chatLocation: ChatLocation, chatLocationContextHolder: Atomic<ChatLocationContextHolder?>, tagMask: MessageTags?, source: ChatHistoryListSource = .default, subject: ChatControllerSubject?, controllerInteraction: ChatControllerInteraction, selectedMessages: Signal<Set<MessageId>?, NoError>, mode: ChatHistoryListMode = .bubbles, messageTransitionNode: @escaping () -> ChatMessageTransitionNode? = { nil }) {
+    private var toLang: String?
+    
+    public init(context: AccountContext, updatedPresentationData: (initial: PresentationData, signal: Signal<PresentationData, NoError>), chatLocation: ChatLocation, chatLocationContextHolder: Atomic<ChatLocationContextHolder?>, tagMask: MessageTags?, source: ChatHistoryListSource = .default, subject: ChatControllerSubject?, controllerInteraction: ChatControllerInteraction, selectedMessages: Signal<Set<MessageId>?, NoError>, mode: ChatHistoryListMode = .bubbles, messageTransitionNode: @escaping () -> ChatMessageTransitionNodeImpl? = { nil }) {
+        // MARK: Nicegram
         self.wantTrButton = usetrButton()
+        //
         var tagMask = tagMask
-        var appendMessagesFromTheSameGroup = false
         if case .pinnedMessages = subject {
             tagMask = .pinned
-            appendMessagesFromTheSameGroup = true
         }
         
         self.context = context
@@ -686,14 +723,12 @@ public final class ChatHistoryListNode: ListView, ChatHistoryNode {
         self.chatPresentationDataPromise = Promise()
         
         self.prefetchManager = InChatPrefetchManager(context: context)
-
+        
         var displayAdPeer: PeerId?
-        //var sparseScrollPeerId: PeerId?
         switch subject {
         case .none, .message:
             if case let .peer(peerId) = chatLocation {
                 displayAdPeer = peerId
-                //sparseScrollPeerId = peerId
             }
         default:
             break
@@ -707,12 +742,6 @@ public final class ChatHistoryListNode: ListView, ChatHistoryNode {
             self.adMessagesContext = nil
             adMessages = .single((nil, []))
         }
-
-        /*if case .bubbles = mode, let peerId = sparseScrollPeerId {
-            self.sparseScrollingContext = context.engine.messages.sparseMessageScrollingContext(peerId: peerId)
-        } else {
-            self.sparseScrollingContext = nil
-        }*/
         
         let clientId = Atomic<Int32>(value: nextClientId)
         self.clientId = clientId
@@ -720,45 +749,9 @@ public final class ChatHistoryListNode: ListView, ChatHistoryNode {
         
         super.init()
 
-        self.adMessagesDisposable = (adMessages
-        |> deliverOnMainQueue).start(next: { [weak self] interPostInterval, messages in
-            guard let self else {
-                return
-            }
-            
-            if let interPostInterval = interPostInterval {
-                self.pendingDynamicAdMessages = messages
-                self.pendingDynamicAdMessageInterval = Int(interPostInterval)
-                
-                if self.remainingDynamicAdMessageInterval == nil {
-                    self.remainingDynamicAdMessageInterval = Int(interPostInterval)
-                }
-                if self.remainingDynamicAdMessageDistance == nil {
-                    self.remainingDynamicAdMessageDistance = self.bounds.height
-                }
-                
-                self.allAdMessages = (messages.first, [], 0)
-            } else {
-                var adPeerId: PeerId?
-                adPeerId = messages.first?.author?.id
-                
-                if self.preloadAdPeerId != adPeerId {
-                    self.preloadAdPeerId = adPeerId
-                    if let adPeerId = adPeerId {
-                        let combinedDisposable = DisposableSet()
-                        self.preloadAdPeerDisposable.set(combinedDisposable)
-                        combinedDisposable.add(self.context.account.viewTracker.polledChannel(peerId: adPeerId).start())
-                        combinedDisposable.add(self.context.account.addAdditionalPreloadHistoryPeerId(peerId: adPeerId))
-                    } else {
-                        self.preloadAdPeerDisposable.set(nil)
-                    }
-                }
-                
-                self.allAdMessages = (messages.first, [], 0)
-            }
-        })
-
         self.clipsToBounds = false
+        
+        self.beginAdMessageManagement(adMessages: adMessages)
         
         self.accessibilityPageScrolledString = { [weak self] row, count in
             if let strongSelf = self {
@@ -787,6 +780,14 @@ public final class ChatHistoryListNode: ListView, ChatHistoryNode {
         }
         self.refreshMediaProcessingManager.process = { [weak context] messageIds in
             context?.account.viewTracker.refreshSecretMediaMediaForMessageIds(messageIds: messageIds)
+        }
+        self.refreshStoriesProcessingManager.process = { [weak context] messageIds in
+            context?.account.viewTracker.refreshStoriesForMessageIds(messageIds: messageIds)
+        }
+        self.translationProcessingManager.process = { [weak self, weak context] messageIds in
+            if let context = context, let toLang = self?.toLang {
+                let _ = translateMessageIds(context: context, messageIds: Array(messageIds), toLang: toLang).startStandalone()
+            }
         }
         
         self.messageMentionProcessingManager.process = { [weak self, weak context] messageIds in
@@ -824,720 +825,13 @@ public final class ChatHistoryListNode: ListView, ChatHistoryNode {
             case .list:
                 break
         }
-        //self.snapToBottomInsetUntilFirstInteraction = true
         
-        let messageViewQueue = Queue.mainQueue() //self.messageViewQueue
-        
-        let fixedCombinedReadStates = Atomic<MessageHistoryViewReadState?>(value: nil)
-        
-        var isScheduledMessages = false
-        if let subject = subject, case .scheduledMessages = subject {
-            isScheduledMessages = true
-        }
-        var isAuxiliaryChat = isScheduledMessages
-        if case .replyThread = chatLocation {
-            isAuxiliaryChat = true
-        }
-        
-        var additionalData: [AdditionalMessageHistoryViewData] = []
-        if case let .peer(peerId) = chatLocation {
-            additionalData.append(.cachedPeerData(peerId))
-            additionalData.append(.cachedPeerDataMessages(peerId))
-            additionalData.append(.peerNotificationSettings(peerId))
-            if peerId.namespace == Namespaces.Peer.CloudChannel {
-                additionalData.append(.cacheEntry(cachedChannelAdminRanksEntryId(peerId: peerId)))
-            }
-            if [Namespaces.Peer.CloudChannel, Namespaces.Peer.CloudGroup].contains(peerId.namespace) {
-                additionalData.append(.peer(peerId))
-            }
-            if peerId.namespace == Namespaces.Peer.CloudUser || peerId.namespace == Namespaces.Peer.SecretChat {
-                additionalData.append(.peerIsContact(peerId))
-            }
-        }
-        if !isAuxiliaryChat {
-            additionalData.append(.totalUnreadState)
-        }
-        if case let .replyThread(replyThreadMessage) = chatLocation {
-            additionalData.append(.cachedPeerData(replyThreadMessage.messageId.peerId))
-            additionalData.append(.peerNotificationSettings(replyThreadMessage.messageId.peerId))
-            if replyThreadMessage.messageId.peerId.namespace == Namespaces.Peer.CloudChannel {
-                additionalData.append(.cacheEntry(cachedChannelAdminRanksEntryId(peerId: replyThreadMessage.messageId.peerId)))
-                additionalData.append(.peer(replyThreadMessage.messageId.peerId))
-            }
-            
-            additionalData.append(.message(replyThreadMessage.effectiveTopId))
-        }
-
-        let currentViewVersion = Atomic<Int?>(value: nil)
-        
-        var historyViewUpdate: Signal<(ChatHistoryViewUpdate, Int, ChatHistoryLocationInput?, ClosedRange<Int32>?), NoError>
-        var isFirstTime = true
-        var updateAllOnEachVersion = false
-        if case let .custom(messages, at, _) = source {
-            updateAllOnEachVersion = true
-            historyViewUpdate = messages
-            |> map { messages, _, hasMore in
-                let version = currentViewVersion.modify({ value in
-                    if let value = value {
-                        return value + 1
-                    } else {
-                        return 0
-                    }
-                })!
-                
-                let scrollPosition: ChatHistoryViewScrollPosition?
-                if isFirstTime, let messageIndex = messages.first(where: { $0.id == at })?.index {
-                    scrollPosition = .index(index: .message(messageIndex), position: .center(.bottom), directionHint: .Down, animated: false, highlight: false, displayLink: false)
-                    isFirstTime = false
-                } else {
-                    scrollPosition = nil
-                }
-                
-                return (ChatHistoryViewUpdate.HistoryView(view: MessageHistoryView(tagMask: nil, namespaces: .all, entries: messages.reversed().map { MessageHistoryEntry(message: $0, isRead: false, location: nil, monthLocation: nil, attributes: MutableMessageHistoryEntryAttributes(authorIsContact: false)) }, holeEarlier: hasMore, holeLater: false, isLoading: false), type: .Generic(type: version > 0 ? ViewUpdateType.Generic : ViewUpdateType.Initial), scrollPosition: scrollPosition, flashIndicators: false, originalScrollPosition: nil, initialData: ChatHistoryCombinedInitialData(initialData: nil, buttonKeyboardMessage: nil, cachedData: nil, cachedDataMessages: nil, readStateData: nil), id: 0), version, nil, nil)
-            }
-        } else {
-            historyViewUpdate = combineLatest(queue: .mainQueue(),
-                self.chatHistoryLocationPromise.get(),
-                self.ignoreMessagesInTimestampRangePromise.get()
-            )
-            |> distinctUntilChanged(isEqual: { lhs, rhs in
-                if lhs.0 != rhs.0 {
-                    return false
-                }
-                if lhs.1 != rhs.1 {
-                    return false
-                }
-                return true
-            })
-            |> mapToSignal { location, ignoreMessagesInTimestampRange in
-                return chatHistoryViewForLocation(location, ignoreMessagesInTimestampRange: ignoreMessagesInTimestampRange, context: context, chatLocation: chatLocation, chatLocationContextHolder: chatLocationContextHolder, scheduled: isScheduledMessages, fixedCombinedReadStates: fixedCombinedReadStates.with { $0 }, tagMask: tagMask, appendMessagesFromTheSameGroup: appendMessagesFromTheSameGroup, additionalData: additionalData, orderStatistics: [])
-                |> beforeNext { viewUpdate in
-                    switch viewUpdate {
-                        case let .HistoryView(view, _, _, _, _, _, _):
-                            let _ = fixedCombinedReadStates.swap(view.fixedReadStates)
-                        default:
-                            break
-                    }
-                }
-                |> map { view -> (ChatHistoryViewUpdate, Int, ChatHistoryLocationInput?, ClosedRange<Int32>?) in
-                    let version = currentViewVersion.modify({ value in
-                        if let value = value {
-                            return value + 1
-                        } else {
-                            return 0
-                        }
-                    })!
-                    return (view, version, location, ignoreMessagesInTimestampRange)
-                }
-            }
-        }
-        
-        if NGSettings.blockUsersInGroups {
-            historyViewUpdate = historyViewUpdate |> mapToSignal {
-                (viewUpdate, version, location, ignoreMessagesInTimestampRange) -> Signal<(ChatHistoryViewUpdate, Int, ChatHistoryLocationInput?, ClosedRange<Int32>?), NoError> in
-                context.account.postbox.transaction {
-                    transaction in
-                    switch viewUpdate {
-                    case let .HistoryView(view, _, _, _, _, _, _):
-                        view.entries = view.entries.filter {
-                            entry in
-                            if let author = entry.message.author {
-                                if let cachedAuthorUserData = transaction.getPeerCachedData(peerId: author.id) as? CachedUserData {
-                                    if cachedAuthorUserData.isBlocked {
-                                        return false
-                                    }
-                                }
-                            }
-                            return true
-                        }
-
-                    default:
-                        break
-                    }
-                    return (viewUpdate, version, location, ignoreMessagesInTimestampRange)
-               }
-            }
-        }
-        
-        let previousView = Atomic<(ChatHistoryView, Int, Set<MessageId>?, Int)?>(value: nil)
-        let automaticDownloadNetworkType = context.account.networkType
-        |> map { type -> MediaAutoDownloadNetworkType in
-            switch type {
-                case .none, .wifi:
-                    return .wifi
-                case .cellular:
-                    return .cellular
-            }
-        }
-        |> distinctUntilChanged
-        
-        let animatedEmojiStickers = context.engine.stickers.loadedStickerPack(reference: .animatedEmoji, forceActualized: false)
-        |> map { animatedEmoji -> [String: [StickerPackItem]] in
-            var animatedEmojiStickers: [String: [StickerPackItem]] = [:]
-            switch animatedEmoji {
-                case let .result(_, items, _):
-                    for item in items {
-                        if let emoji = item.getStringRepresentationsOfIndexKeys().first {
-                            animatedEmojiStickers[emoji.basicEmoji.0] = [item]
-                            let strippedEmoji = emoji.basicEmoji.0.strippedEmoji
-                            if animatedEmojiStickers[strippedEmoji] == nil {
-                                animatedEmojiStickers[strippedEmoji] = [item]
-                            }
-                        }
-                    }
-                default:
-                    break
-            }
-            return animatedEmojiStickers
-        }
-        
-        let additionalAnimatedEmojiStickers = context.engine.stickers.loadedStickerPack(reference: .animatedEmojiAnimations, forceActualized: false)
-        |> map { animatedEmoji -> [String: [Int: StickerPackItem]] in
-            let sequence = "0️⃣1️⃣2️⃣3️⃣4️⃣5️⃣6️⃣7️⃣8️⃣9️⃣".strippedEmoji
-            var animatedEmojiStickers: [String: [Int: StickerPackItem]] = [:]
-            switch animatedEmoji {
-                case let .result(_, items, _):
-                    for item in items {
-                        let indexKeys = item.getStringRepresentationsOfIndexKeys()
-                        if indexKeys.count > 1, let first = indexKeys.first, let last = indexKeys.last {
-                            let emoji: String?
-                            let indexEmoji: String?
-                            if sequence.contains(first.strippedEmoji) {
-                                emoji = last
-                                indexEmoji = first
-                            } else if sequence.contains(last.strippedEmoji) {
-                                emoji = first
-                                indexEmoji = last
-                            } else {
-                                emoji = nil
-                                indexEmoji = nil
-                            }
-                            
-                            if let emoji = emoji?.strippedEmoji, let indexEmoji = indexEmoji?.strippedEmoji.first, let strIndex = sequence.firstIndex(of: indexEmoji) {
-                                let index = sequence.distance(from: sequence.startIndex, to: strIndex)
-                                if animatedEmojiStickers[emoji] != nil {
-                                    animatedEmojiStickers[emoji]![index] = item
-                                } else {
-                                    animatedEmojiStickers[emoji] = [index: item]
-                                }
-                            }
-                        }
-                    }
-                default:
-                    break
-            }
-            return animatedEmojiStickers
-        }
-        
-        let previousHistoryAppearsCleared = Atomic<Bool?>(value: nil)
-                
-        let updatingMedia = context.account.pendingUpdateMessageManager.updatingMessageMedia
-        |> map { value -> [MessageId: ChatUpdatingMessageMedia] in
-            var result = value
-            for id in value.keys {
-                if id.peerId != chatLocation.peerId {
-                    result.removeValue(forKey: id)
-                }
-            }
-            return result
-        }
-        |> distinctUntilChanged
-        
-        let customChannelDiscussionReadState: Signal<MessageId?, NoError>
-        if case let .peer(peerId) = chatLocation, peerId.namespace == Namespaces.Peer.CloudChannel {
-            customChannelDiscussionReadState = context.engine.data.subscribe(
-                TelegramEngine.EngineData.Item.Peer.LinkedDiscussionPeerId(id: peerId),
-                TelegramEngine.EngineData.Item.Peer.Peer(id: peerId)
-            )
-            |> mapToSignal { linkedDiscussionPeerId, peer -> Signal<PeerId?, NoError> in
-                guard case let .channel(peer) = peer, case .broadcast = peer.info else {
-                    return .single(nil)
-                }
-                guard case let .known(value) = linkedDiscussionPeerId else {
-                    return .single(nil)
-                }
-                return .single(value)
-            }
-            |> distinctUntilChanged
-            |> mapToSignal { discussionPeerId -> Signal<MessageId?, NoError> in
-                guard let discussionPeerId = discussionPeerId else {
-                    return .single(nil)
-                }
-                
-                return context.engine.data.subscribe(TelegramEngine.EngineData.Item.Messages.PeerReadCounters(id: discussionPeerId))
-                |> map { readCounters -> MessageId? in
-                    guard let state = readCounters._asReadCounters() else {
-                        return nil
-                    }
-                    for (namespace, namespaceState) in state.states {
-                        if namespace == Namespaces.Message.Cloud {
-                            switch namespaceState {
-                            case let .idBased(maxIncomingReadId, _, _, _, _):
-                                return MessageId(peerId: discussionPeerId, namespace: Namespaces.Message.Cloud, id: maxIncomingReadId)
-                            default:
-                                break
-                            }
-                        }
-                    }
-                    return nil
-                }
-                |> distinctUntilChanged
-            }
-        } else {
-            customChannelDiscussionReadState = .single(nil)
-        }
-        
-        let customThreadOutgoingReadState: Signal<MessageId?, NoError>
-        if case .replyThread = chatLocation {
-            customThreadOutgoingReadState = context.chatLocationOutgoingReadState(for: chatLocation, contextHolder: chatLocationContextHolder)
-        } else {
-            customThreadOutgoingReadState = .single(nil)
-        }
-        
-        let availableReactions = context.engine.stickers.availableReactions()
-        
-        let defaultReaction = combineLatest(
-            context.engine.data.subscribe(TelegramEngine.EngineData.Item.Peer.Peer(id: context.account.peerId)),
-            context.account.postbox.preferencesView(keys: [PreferencesKeys.reactionSettings])
-        )
-        |> map { peer, preferencesView -> MessageReaction.Reaction? in
-            let reactionSettings: ReactionSettings
-            if let entry = preferencesView.values[PreferencesKeys.reactionSettings], let value = entry.get(ReactionSettings.self) {
-                reactionSettings = value
-            } else {
-                reactionSettings = .default
-            }
-            var hasPremium = false
-            if case let .user(user) = peer {
-                hasPremium = user.isPremium
-            }
-            return reactionSettings.effectiveQuickReaction(hasPremium: hasPremium)
-        }
-        |> distinctUntilChanged
-        
-        let accountPeer = context.engine.data.subscribe(TelegramEngine.EngineData.Item.Peer.Peer(id: context.account.peerId))
-        |> map { peer -> EnginePeer? in
-            return peer
-        }
-        |> distinctUntilChanged
-
-        let topicAuthorId: Signal<EnginePeer.Id?, NoError>
-        if let peerId = chatLocation.peerId, let threadId = chatLocation.threadId {
-            topicAuthorId = context.engine.data.subscribe(TelegramEngine.EngineData.Item.Peer.ThreadData(id: peerId, threadId: threadId))
-            |> map { data -> EnginePeer.Id? in
-                return data?.author
-            }
-            |> distinctUntilChanged
-        } else {
-            topicAuthorId = .single(nil)
-        }
-
-        let audioTranscriptionSuggestion = combineLatest(
-            ApplicationSpecificNotice.getAudioTranscriptionSuggestion(accountManager: context.sharedContext.accountManager),
-            self.justSentTextMessagePromise.get()
+        self.beginChatHistoryTransitions(
+            selectedMessages: selectedMessages,
+            messageTransitionNode: messageTransitionNode
         )
         
-        let promises = combineLatest(
-            self.historyAppearsClearedPromise.get(),
-            self.pendingUnpinnedAllMessagesPromise.get(),
-            self.pendingRemovedMessagesPromise.get(),
-            self.currentlyPlayingMessageIdPromise.get(),
-            self.scrollToMessageIdPromise.get(),
-            self.chatHasBotsPromise.get()
-        )
-        
-        let historyViewTransitionDisposable = combineLatest(queue: messageViewQueue,
-            historyViewUpdate,
-            self.chatPresentationDataPromise.get(),
-            selectedMessages,
-            updatingMedia,
-            automaticDownloadNetworkType,
-            animatedEmojiStickers,
-            additionalAnimatedEmojiStickers,
-            customChannelDiscussionReadState,
-            customThreadOutgoingReadState,
-            availableReactions,
-            defaultReaction,
-            accountPeer,
-            audioTranscriptionSuggestion,
-            promises,
-            topicAuthorId,
-            self.allAdMessagesPromise.get()
-        ).start(next: { [weak self] update, chatPresentationData, selectedMessages, updatingMedia, networkType, animatedEmojiStickers, additionalAnimatedEmojiStickers, customChannelDiscussionReadState, customThreadOutgoingReadState, availableReactions, defaultReaction, accountPeer, suggestAudioTranscription, promises, topicAuthorId, allAdMessages in
-            let (historyAppearsCleared, pendingUnpinnedAllMessages, pendingRemovedMessages, currentlyPlayingMessageIdAndType, scrollToMessageId, chatHasBots) = promises
-            let currentlyPlayingMessageId = currentlyPlayingMessageIdAndType?.0
-            
-            func applyHole() {
-                Queue.mainQueue().async {
-                    if let strongSelf = self {
-                        if update.2 != strongSelf.chatHistoryLocationValue {
-                            return
-                        }
-                        
-                        let historyView = (strongSelf.opaqueTransactionState as? ChatHistoryTransactionOpaqueState)?.historyView
-                        let displayRange = strongSelf.displayedItemRange
-                        if let filteredEntries = historyView?.filteredEntries, let visibleRange = displayRange.visibleRange {
-                            var anchorIndex: MessageIndex?
-                            loop: for index in visibleRange.firstIndex ..< filteredEntries.count {
-                                switch filteredEntries[filteredEntries.count - 1 - index] {
-                                case let .MessageEntry(message, _, _, _, _, _):
-                                    if message.adAttribute == nil {
-                                        anchorIndex = message.index
-                                        break loop
-                                    }
-                                case let .MessageGroupEntry(_, messages, _):
-                                    for (message, _, _, _, _) in messages {
-                                        if message.adAttribute == nil {
-                                            anchorIndex = message.index
-                                            break loop
-                                        }
-                                    }
-                                default:
-                                    break
-                                }
-                            }
-                            if anchorIndex == nil, let historyView = historyView {
-                                for entry in historyView.originalView.entries {
-                                    anchorIndex = entry.message.index
-                                    break
-                                }
-                            }
-                            if let anchorIndex = anchorIndex {
-                                strongSelf.chatHistoryLocationValue = ChatHistoryLocationInput(content: .Navigation(index: .message(anchorIndex), anchorIndex: .message(anchorIndex), count: historyMessageCount, highlight: false), id: (strongSelf.chatHistoryLocationValue?.id).flatMap({ $0 + 1 }) ?? 0)
-                            }
-                        } else {
-                            if let subject = subject, case let .message(messageSubject, highlight, _) = subject {
-                                let initialSearchLocation: ChatHistoryInitialSearchLocation
-                                switch messageSubject {
-                                case let .id(id):
-                                    initialSearchLocation = .id(id)
-                                case let .timestamp(timestamp):
-                                    if let peerId = strongSelf.chatLocation.peerId {
-                                        initialSearchLocation = .index(MessageIndex(id: MessageId(peerId: peerId, namespace: Namespaces.Message.Cloud, id: 1), timestamp: timestamp))
-                                    } else {
-                                        //TODO:implement
-                                        initialSearchLocation = .index(.absoluteUpperBound())
-                                    }
-                                }
-                                strongSelf.chatHistoryLocationValue = ChatHistoryLocationInput(content: .InitialSearch(location: initialSearchLocation, count: historyMessageCount, highlight: highlight), id: (strongSelf.chatHistoryLocationValue?.id).flatMap({ $0 + 1 }) ?? 0)
-                            } else if let subject = subject, case let .pinnedMessages(maybeMessageId) = subject, let messageId = maybeMessageId {
-                                strongSelf.chatHistoryLocationValue = ChatHistoryLocationInput(content: .InitialSearch(location: .id(messageId), count: historyMessageCount, highlight: true), id: (strongSelf.chatHistoryLocationValue?.id).flatMap({ $0 + 1 }) ?? 0)
-                            } else if var chatHistoryLocation = strongSelf.chatHistoryLocationValue {
-                                chatHistoryLocation.id += 1
-                                strongSelf.chatHistoryLocationValue = chatHistoryLocation
-                            } else {
-                                strongSelf.chatHistoryLocationValue = ChatHistoryLocationInput(content: .Initial(count: historyMessageCount), id: (strongSelf.chatHistoryLocationValue?.id).flatMap({ $0 + 1 }) ?? 0)
-                            }
-                        }
-                    }
-                }
-            }
-            
-            let initialData: ChatHistoryCombinedInitialData?
-            switch update.0 {
-            case let .Loading(combinedInitialData, type):
-                if case .Generic(.FillHole) = type {
-                    applyHole()
-                    return
-                }
-                
-                initialData = combinedInitialData
-                Queue.mainQueue().async {
-                    if let strongSelf = self {
-                        if !strongSelf.didSetInitialData {
-                            strongSelf.didSetInitialData = true
-                            var combinedInitialData = combinedInitialData
-                            combinedInitialData?.cachedData = nil
-                            strongSelf._initialData.set(.single(combinedInitialData))
-                        }
-                        
-                        let cachedData = initialData?.cachedData
-                        let cachedDataMessages = initialData?.cachedDataMessages
-                        
-                        strongSelf._cachedPeerDataAndMessages.set(.single((cachedData, cachedDataMessages)))
-                        
-                        let loadState: ChatHistoryNodeLoadState = .loading(false)
-                        if strongSelf.loadState != loadState {
-                            strongSelf.loadState = loadState
-                            strongSelf.loadStateUpdated?(loadState, false)
-                        }
-                        
-                        let historyState: ChatHistoryNodeHistoryState = .loading
-                        if strongSelf.currentHistoryState != historyState {
-                            strongSelf.currentHistoryState = historyState
-                            strongSelf.historyState.set(historyState)
-                        }
-                    }
-                }
-                return
-            case let .HistoryView(view, type, scrollPosition, flashIndicators, originalScrollPosition, data, id):
-                if case .Generic(.FillHole) = type {
-                    applyHole()
-                    return
-                }
-                
-                initialData = data
-                var updatedScrollPosition = scrollPosition
-                
-                var reverse = false
-                var includeSearchEntry = false
-                if case let .list(search, reverseValue, _, _, _) = mode {
-                    includeSearchEntry = search
-                    reverse = reverseValue
-                }
-                
-                var isCopyProtectionEnabled: Bool =  data.initialData?.peer?.isCopyProtectionEnabled ?? false
-                for entry in view.additionalData {
-                    if case let .peer(_, maybePeer) = entry, let peer = maybePeer {
-                        isCopyProtectionEnabled = peer.isCopyProtectionEnabled
-                    }
-                }
-                
-                var isPremium = false
-                if case let .user(user) = accountPeer, user.isPremium {
-                    isPremium = true
-                }
-                
-                let alwaysDisplayTranscribeButton = ChatMessageItemAssociatedData.DisplayTranscribeButton(
-                    canBeDisplayed: suggestAudioTranscription.0 < 2,
-                    displayForNotConsumed: suggestAudioTranscription.1
-                )
-                
-                let associatedData = extractAssociatedData(chatLocation: chatLocation, view: view, automaticDownloadNetworkType: networkType, animatedEmojiStickers: animatedEmojiStickers, additionalAnimatedEmojiStickers: additionalAnimatedEmojiStickers, subject: subject, currentlyPlayingMessageId: currentlyPlayingMessageId, isCopyProtectionEnabled: isCopyProtectionEnabled, availableReactions: availableReactions, defaultReaction: defaultReaction, isPremium: isPremium, alwaysDisplayTranscribeButton: alwaysDisplayTranscribeButton, accountPeer: accountPeer, topicAuthorId: topicAuthorId, hasBots: chatHasBots)
-                
-                let filteredEntries = chatHistoryEntriesForView(
-                    location: chatLocation,
-                    view: view,
-                    includeUnreadEntry: mode == .bubbles,
-                    includeEmptyEntry: mode == .bubbles && tagMask == nil,
-                    includeChatInfoEntry: mode == .bubbles,
-                    includeSearchEntry: includeSearchEntry && tagMask != nil,
-                    reverse: reverse,
-                    groupMessages: mode == .bubbles,
-                    selectedMessages: selectedMessages,
-                    presentationData: chatPresentationData,
-                    historyAppearsCleared: historyAppearsCleared,
-                    pendingUnpinnedAllMessages: pendingUnpinnedAllMessages,
-                    pendingRemovedMessages: pendingRemovedMessages,
-                    associatedData: associatedData,
-                    updatingMedia: updatingMedia,
-                    customChannelDiscussionReadState: customChannelDiscussionReadState,
-                    customThreadOutgoingReadState: customThreadOutgoingReadState,
-                    cachedData: data.cachedData,
-                    adMessage: allAdMessages.fixed,
-                    dynamicAdMessages: allAdMessages.opportunistic
-                )
-                let lastHeaderId = filteredEntries.last.flatMap { listMessageDateHeaderId(timestamp: $0.index.timestamp) } ?? 0
-                let processedView = ChatHistoryView(originalView: view, filteredEntries: filteredEntries, associatedData: associatedData, lastHeaderId: lastHeaderId, id: id, locationInput: update.2, ignoreMessagesInTimestampRange: update.3)
-                let previousValueAndVersion = previousView.swap((processedView, update.1, selectedMessages, allAdMessages.version))
-                let previous = previousValueAndVersion?.0
-                let previousSelectedMessages = previousValueAndVersion?.2
-                
-                if let previousVersion = previousValueAndVersion?.1 {
-                    if !GlobalExperimentalSettings.isAppStoreBuild {
-                        precondition(update.1 >= previousVersion)
-                    }
-                    assert(update.1 >= previousVersion)
-                }
-                                
-                if scrollPosition == nil, let originalScrollPosition = originalScrollPosition {
-                    switch originalScrollPosition {
-                    case let .index(index, position, _, _, highlight, displayLink):
-                        if case .upperBound = index {
-                            if let previous = previous, previous.filteredEntries.isEmpty {
-                                updatedScrollPosition = .index(index: index, position: position, directionHint: .Down, animated: false, highlight: highlight, displayLink: displayLink)
-                            }
-                        }
-                    default:
-                        break
-                    }
-                }
-                
-                var reason: ChatHistoryViewTransitionReason
-                
-                let previousHistoryAppearsClearedValue = previousHistoryAppearsCleared.swap(historyAppearsCleared)
-                if previousHistoryAppearsClearedValue != nil && previousHistoryAppearsClearedValue != historyAppearsCleared && !historyAppearsCleared {
-                    reason = ChatHistoryViewTransitionReason.Initial(fadeIn: !processedView.filteredEntries.isEmpty)
-                } else if let previous = previous, previous.id == processedView.id, previous.originalView.entries == processedView.originalView.entries {
-                    reason = ChatHistoryViewTransitionReason.InteractiveChanges
-                    updatedScrollPosition = nil
-                } else {
-                    switch type {
-                        case let .Initial(fadeIn):
-                            reason = ChatHistoryViewTransitionReason.Initial(fadeIn: fadeIn)
-                        case let .Generic(genericType):
-                            switch genericType {
-                                case .InitialUnread, .Initial:
-                                    reason = ChatHistoryViewTransitionReason.Initial(fadeIn: false)
-                                case .Generic:
-                                    reason = ChatHistoryViewTransitionReason.InteractiveChanges
-                                case .UpdateVisible:
-                                    reason = ChatHistoryViewTransitionReason.Reload
-                                case .FillHole:
-                                    reason = ChatHistoryViewTransitionReason.HoleReload
-                            }
-                    }
-                }
-                
-                var disableAnimations = false
-                var forceSynchronous = false
-                
-                if let previousValueAndVersion = previousValueAndVersion, allAdMessages.version != previousValueAndVersion.3 {
-                    reason = ChatHistoryViewTransitionReason.Reload
-                    disableAnimations = true
-                    forceSynchronous = true
-                }
-                
-                var scrollAnimationCurve: ListViewAnimationCurve? = nil
-                if let strongSelf = self, case .default = source {
-                    if strongSelf.appliedScrollToMessageId == nil, let scrollToMessageId = scrollToMessageId {
-                        updatedScrollPosition = .index(index: .message(scrollToMessageId), position: .center(.top), directionHint: .Up, animated: true, highlight: false, displayLink: true)
-                        scrollAnimationCurve = .Spring(duration: 0.4)
-                    } else {
-                        let wasPlaying = strongSelf.appliedPlayingMessageId != nil
-                        
-                        if strongSelf.appliedPlayingMessageId != currentlyPlayingMessageId, let (currentlyPlayingMessageId, currentlyPlayingVideo) = currentlyPlayingMessageIdAndType {
-                            if isFirstTime {
-                            } else if case let .peer(peerId) = chatLocation, currentlyPlayingMessageId.id.peerId != peerId {
-                            } else {
-                                if wasPlaying || currentlyPlayingVideo {
-                                    updatedScrollPosition = .index(index: .message(currentlyPlayingMessageId), position: .center(.bottom), directionHint: .Up, animated: true, highlight: true, displayLink: true)
-                                    scrollAnimationCurve = .Spring(duration: 0.4)
-                                }
-                            }
-                        }
-                    }
-                    isFirstTime = false
-                }
-
-                if let strongSelf = self, updatedScrollPosition == nil, case .InteractiveChanges = reason, case let .known(offset) = strongSelf.visibleContentOffset(), abs(offset) <= 0.9, let previous = previous {
-                    var fillsScreen = true
-                    switch strongSelf.visibleBottomContentOffset() {
-                    case let .known(bottomOffset):
-                        if bottomOffset <= strongSelf.visibleSize.height - strongSelf.insets.bottom {
-                            fillsScreen = false
-                        }
-                    default:
-                        break
-                    }
-
-                    var previousNumAds = 0
-                    for entry in previous.filteredEntries {
-                        if case let .MessageEntry(message, _, _, _, _, _) = entry {
-                            if message.adAttribute != nil {
-                                previousNumAds += 1
-                            }
-                        }
-                    }
-
-                    var updatedNumAds = 0
-                    var firstNonAdIndex: MessageIndex?
-                    for entry in processedView.filteredEntries.reversed() {
-                        if case let .MessageEntry(message, _, _, _, _, _) = entry {
-                            if message.adAttribute != nil {
-                                updatedNumAds += 1
-                            } else {
-                                if firstNonAdIndex == nil {
-                                    firstNonAdIndex = message.index
-                                }
-                            }
-                        }
-                    }
-
-                    if fillsScreen, let firstNonAdIndex = firstNonAdIndex, previousNumAds == 0, updatedNumAds != 0 {
-                        updatedScrollPosition = .index(index: .message(firstNonAdIndex), position: .top(0.0), directionHint: .Up, animated: false, highlight: false, displayLink: false)
-                        disableAnimations = true
-                    }
-                }
-                
-                var forceUpdateAll = false
-                if let previous = previous, previous.associatedData.isPremium != processedView.associatedData.isPremium {
-                    forceUpdateAll = true
-                }
-                
-                var keyboardButtonsMessage = view.topTaggedMessages.first
-                if let keyboardButtonsMessageValue = keyboardButtonsMessage, keyboardButtonsMessageValue.isRestricted(platform: "ios", contentSettings: context.currentContentSettings.with({ $0 })) {
-                    keyboardButtonsMessage = nil
-                }
-                
-                let rawTransition = preparedChatHistoryViewTransition(from: previous, to: processedView, reason: reason, reverse: reverse, chatLocation: chatLocation, controllerInteraction: controllerInteraction, scrollPosition: updatedScrollPosition, scrollAnimationCurve: scrollAnimationCurve, initialData: initialData?.initialData, keyboardButtonsMessage: keyboardButtonsMessage, cachedData: initialData?.cachedData, cachedDataMessages: initialData?.cachedDataMessages, readStateData: initialData?.readStateData, flashIndicators: flashIndicators, updatedMessageSelection: previousSelectedMessages != selectedMessages, messageTransitionNode: messageTransitionNode(), allUpdated: updateAllOnEachVersion || forceUpdateAll)
-                var mappedTransition = mappedChatHistoryViewListTransition(context: context, chatLocation: chatLocation, associatedData: associatedData, controllerInteraction: controllerInteraction, mode: mode, lastHeaderId: lastHeaderId, transition: rawTransition, wantTrButton: self?.wantTrButton ?? [(false, [])])
-                
-                if disableAnimations {
-                    mappedTransition.options.remove(.AnimateInsertion)
-                    mappedTransition.options.remove(.AnimateAlpha)
-                    mappedTransition.options.remove(.AnimateTopItemPosition)
-                    mappedTransition.options.remove(.RequestItemInsertionAnimations)
-                }
-                if forceSynchronous {
-                    mappedTransition.options.insert(.Synchronous)
-                }
-                
-                Queue.mainQueue().async {
-                    guard let strongSelf = self else {
-                        return
-                    }
-                    if strongSelf.appliedPlayingMessageId != currentlyPlayingMessageId {
-                        strongSelf.appliedPlayingMessageId = currentlyPlayingMessageId
-                    }
-                    if strongSelf.appliedScrollToMessageId != scrollToMessageId {
-                        strongSelf.appliedScrollToMessageId = scrollToMessageId
-                    }
-                    strongSelf.enqueueHistoryViewTransition(mappedTransition)
-                }
-            }
-        })
-        
-        self.historyDisposable.set(historyViewTransitionDisposable)
-        
-        let previousMaxIncomingMessageIndexByNamespace = Atomic<[MessageId.Namespace: MessageIndex]>(value: [:])
-        let readHistory = combineLatest(self.maxVisibleIncomingMessageIndex.get(), self.canReadHistory.get())
-        
-        self.readHistoryDisposable.set((readHistory |> deliverOnMainQueue).start(next: { [weak self] messageIndex, canRead in
-            guard let strongSelf = self else {
-                return
-            }
-            if !canRead {
-                return
-            }
-            
-            var apply = false
-            let _ = previousMaxIncomingMessageIndexByNamespace.modify { dict in
-                let previousIndex = dict[messageIndex.id.namespace]
-                if previousIndex == nil || previousIndex! < messageIndex {
-                    apply = true
-                    var dict = dict
-                    dict[messageIndex.id.namespace] = messageIndex
-                    return dict
-                }
-                return dict
-            }
-            if apply {
-                switch chatLocation {
-                case .peer, .replyThread, .feed:
-                    if !strongSelf.context.sharedContext.immediateExperimentalUISettings.skipReadHistory {
-                        strongSelf.context.applyMaxReadIndex(for: chatLocation, contextHolder: chatLocationContextHolder, messageIndex: messageIndex)
-                    }
-                }
-            }
-        }))
-        
-        self.canReadHistoryDisposable = (self.canReadHistory.get() |> deliverOnMainQueue).start(next: { [weak self, weak context] value in
-            if let strongSelf = self {
-                if strongSelf.canReadHistoryValue != value {
-                    strongSelf.canReadHistoryValue = value
-                    strongSelf.updateReadHistoryActions()
-
-                    if strongSelf.canReadHistoryValue && !strongSelf.suspendReadingReactions && !strongSelf.messageIdsScheduledForMarkAsSeen.isEmpty {
-                        let messageIds = strongSelf.messageIdsScheduledForMarkAsSeen
-                        strongSelf.messageIdsScheduledForMarkAsSeen.removeAll()
-                        context?.account.viewTracker.updateMarkMentionsSeenForMessageIds(messageIds: messageIds)
-                    }
-                    
-                    strongSelf.attemptReadingReactions()
-                }
-            }
-        })
+        self.beginReadHistoryManagement()
         
         if let subject = subject, case let .message(messageSubject, highlight, _) = subject {
             let initialSearchLocation: ChatHistoryInitialSearchLocation
@@ -1552,9 +846,9 @@ public final class ChatHistoryListNode: ListView, ChatHistoryNode {
                     initialSearchLocation = .index(MessageIndex.absoluteUpperBound())
                 }
             }
-            self.chatHistoryLocationValue = ChatHistoryLocationInput(content: .InitialSearch(location: initialSearchLocation, count: historyMessageCount, highlight: highlight), id: 0)
+            self.chatHistoryLocationValue = ChatHistoryLocationInput(content: .InitialSearch(subject: MessageHistoryInitialSearchSubject(location: initialSearchLocation, quote: highlight?.quote), count: historyMessageCount, highlight: highlight != nil), id: 0)
         } else if let subject = subject, case let .pinnedMessages(maybeMessageId) = subject, let messageId = maybeMessageId {
-            self.chatHistoryLocationValue = ChatHistoryLocationInput(content: .InitialSearch(location: .id(messageId), count: historyMessageCount, highlight: true), id: 0)
+            self.chatHistoryLocationValue = ChatHistoryLocationInput(content: .InitialSearch(subject: MessageHistoryInitialSearchSubject(location: .id(messageId), quote: nil), count: historyMessageCount, highlight: true), id: 0)
         } else {
             self.chatHistoryLocationValue = ChatHistoryLocationInput(content: .Initial(count: historyMessageCount), id: 0)
         }
@@ -1589,48 +883,7 @@ public final class ChatHistoryListNode: ListView, ChatHistoryNode {
         }, queue: .mainQueue())
         self.refreshDisplayedItemRangeTimer?.start()
         
-        let appConfiguration = context.account.postbox.preferencesView(keys: [PreferencesKeys.appConfiguration])
-        |> take(1)
-        |> map { view in
-            return view.values[PreferencesKeys.appConfiguration]?.get(AppConfiguration.self) ?? .defaultValue
-        }
-        
-        var didSetPresentationData = false
-        self.presentationDataDisposable = (
-            combineLatest(queue: .mainQueue(),
-                updatedPresentationData.signal,
-                appConfiguration)
-        |> deliverOnMainQueue).start(next: { [weak self] presentationData, appConfiguration in
-            if let strongSelf = self {
-                let previousTheme = strongSelf.currentPresentationData.theme
-                let previousStrings = strongSelf.currentPresentationData.strings
-                let previousWallpaper = strongSelf.currentPresentationData.theme.wallpaper
-                let previousAnimatedEmojiScale = strongSelf.currentPresentationData.animatedEmojiScale
-                
-                let animatedEmojiConfig = ChatHistoryAnimatedEmojiConfiguration.with(appConfiguration: appConfiguration)
-                
-                if !didSetPresentationData || previousTheme !== presentationData.theme || previousStrings !== presentationData.strings || previousWallpaper != presentationData.chatWallpaper || previousAnimatedEmojiScale != animatedEmojiConfig.scale {
-                    didSetPresentationData = true
-                    
-                    let themeData = ChatPresentationThemeData(theme: presentationData.theme, wallpaper: presentationData.chatWallpaper)
-                    let chatPresentationData = ChatPresentationData(theme: themeData, fontSize: presentationData.chatFontSize, strings: presentationData.strings, dateTimeFormat: presentationData.dateTimeFormat, nameDisplayOrder: presentationData.nameDisplayOrder, disableAnimations: true, largeEmoji: presentationData.largeEmoji, chatBubbleCorners: presentationData.chatBubbleCorners, animatedEmojiScale: animatedEmojiConfig.scale)
-                    
-                    strongSelf.currentPresentationData = chatPresentationData
-                    strongSelf.dynamicBounceEnabled = false
-                    
-                    strongSelf.forEachItemHeaderNode { itemHeaderNode in
-                        if let dateNode = itemHeaderNode as? ChatMessageDateHeaderNode {
-                            dateNode.updatePresentationData(chatPresentationData, context: context)
-                        } else if let avatarNode = itemHeaderNode as? ChatMessageAvatarHeaderNode {
-                            avatarNode.updatePresentationData(chatPresentationData, context: context)
-                        } else if let dateNode = itemHeaderNode as? ListMessageDateHeaderNode {
-                            dateNode.updateThemeAndStrings(theme: presentationData.theme, strings: presentationData.strings)
-                        }
-                    }
-                    strongSelf.chatPresentationDataPromise.set(.single(chatPresentationData))
-                }
-            }
-        })
+        self.beginPresentationDataManagement(updated: updatedPresentationData.signal)
         
         self.visibleContentOffsetChanged = { [weak self] offset in
             if let strongSelf = self {
@@ -1671,7 +924,7 @@ public final class ChatHistoryListNode: ListView, ChatHistoryNode {
             } else {
                 return .complete()
             }
-        }).start()
+        }).startStrict()
         
         self.beganInteractiveDragging = { [weak self] _ in
             self?.isInteractivelyScrollingValue = true
@@ -1753,6 +1006,834 @@ public final class ChatHistoryListNode: ListView, ChatHistoryNode {
         self.refreshDisplayedItemRangeTimer?.invalidate()
         self.genericReactionEffectDisposable?.dispose()
         self.adMessagesDisposable?.dispose()
+        self.presentationDataDisposable?.dispose()
+    }
+    
+    private func beginAdMessageManagement(adMessages: Signal<(interPostInterval: Int32?, messages: [Message]), NoError>) {
+        self.adMessagesDisposable = (adMessages
+        |> deliverOnMainQueue).startStrict(next: { [weak self] interPostInterval, messages in
+            guard let self else {
+                return
+            }
+            
+            if let interPostInterval = interPostInterval {
+                self.pendingDynamicAdMessages = messages
+                self.pendingDynamicAdMessageInterval = Int(interPostInterval)
+                
+                if self.remainingDynamicAdMessageInterval == nil {
+                    self.remainingDynamicAdMessageInterval = Int(interPostInterval)
+                }
+                if self.remainingDynamicAdMessageDistance == nil {
+                    self.remainingDynamicAdMessageDistance = self.bounds.height
+                }
+                
+                self.allAdMessages = (messages.first, [], 0)
+            } else {
+                var adPeerId: PeerId?
+                adPeerId = messages.first?.author?.id
+                
+                if self.preloadAdPeerId != adPeerId {
+                    self.preloadAdPeerId = adPeerId
+                    if let adPeerId = adPeerId {
+                        let combinedDisposable = DisposableSet()
+                        self.preloadAdPeerDisposable.set(combinedDisposable)
+                        combinedDisposable.add(self.context.account.viewTracker.polledChannel(peerId: adPeerId).startStrict())
+                        combinedDisposable.add(self.context.account.addAdditionalPreloadHistoryPeerId(peerId: adPeerId))
+                    } else {
+                        self.preloadAdPeerDisposable.set(nil)
+                    }
+                }
+                
+                self.allAdMessages = (messages.first, [], 0)
+            }
+        }).strict()
+    }
+    
+    private func beginChatHistoryTransitions(
+        selectedMessages: Signal<Set<MessageId>?, NoError>,
+        messageTransitionNode: @escaping () -> ChatMessageTransitionNodeImpl?
+    ) {
+        let context = self.context
+        let chatLocation = self.chatLocation
+        let subject = self.subject
+        let source = self.source
+        let tagMask = self.tagMask
+        let chatLocationContextHolder = self.chatLocationContextHolder
+        let controllerInteraction = self.controllerInteraction
+        let mode = self.mode
+        
+        var appendMessagesFromTheSameGroup = false
+        if case .pinnedMessages = subject {
+            appendMessagesFromTheSameGroup = true
+        }
+        
+        let fixedCombinedReadStates = Atomic<MessageHistoryViewReadState?>(value: nil)
+        
+        var isScheduledMessages = false
+        if let subject = self.subject, case .scheduledMessages = subject {
+            isScheduledMessages = true
+        }
+        var isAuxiliaryChat = isScheduledMessages
+        if case .replyThread = self.chatLocation {
+            isAuxiliaryChat = true
+        }
+        
+        var additionalData: [AdditionalMessageHistoryViewData] = []
+        if case let .peer(peerId) = self.chatLocation {
+            additionalData.append(.cachedPeerData(peerId))
+            additionalData.append(.cachedPeerDataMessages(peerId))
+            additionalData.append(.peerNotificationSettings(peerId))
+            if peerId.namespace == Namespaces.Peer.CloudChannel {
+                additionalData.append(.cacheEntry(cachedChannelAdminRanksEntryId(peerId: peerId)))
+            }
+            if [Namespaces.Peer.CloudChannel, Namespaces.Peer.CloudGroup].contains(peerId.namespace) {
+                additionalData.append(.peer(peerId))
+            }
+            if peerId.namespace == Namespaces.Peer.CloudUser || peerId.namespace == Namespaces.Peer.SecretChat {
+                additionalData.append(.peerIsContact(peerId))
+            }
+        }
+        if !isAuxiliaryChat {
+            additionalData.append(.totalUnreadState)
+        }
+        if case let .replyThread(replyThreadMessage) = self.chatLocation {
+            additionalData.append(.cachedPeerData(replyThreadMessage.messageId.peerId))
+            additionalData.append(.peerNotificationSettings(replyThreadMessage.messageId.peerId))
+            if replyThreadMessage.messageId.peerId.namespace == Namespaces.Peer.CloudChannel {
+                additionalData.append(.cacheEntry(cachedChannelAdminRanksEntryId(peerId: replyThreadMessage.messageId.peerId)))
+                additionalData.append(.peer(replyThreadMessage.messageId.peerId))
+            }
+            
+            additionalData.append(.message(replyThreadMessage.effectiveTopId))
+        }
+
+        let currentViewVersion = Atomic<Int?>(value: nil)
+        
+        let historyViewUpdate: Signal<(ChatHistoryViewUpdate, Int, ChatHistoryLocationInput?, ClosedRange<Int32>?), NoError>
+        var isFirstTime = true
+        var updateAllOnEachVersion = false
+        if case let .custom(messages, at, quote, _) = self.source {
+            updateAllOnEachVersion = true
+            historyViewUpdate = messages
+            |> map { messages, _, hasMore in
+                let version = currentViewVersion.modify({ value in
+                    if let value = value {
+                        return value + 1
+                    } else {
+                        return 0
+                    }
+                })!
+                
+                let scrollPosition: ChatHistoryViewScrollPosition?
+                if isFirstTime, let messageIndex = messages.first(where: { $0.id == at })?.index {
+                    scrollPosition = .index(subject: MessageHistoryScrollToSubject(index: .message(messageIndex), quote: quote), position: .center(.bottom), directionHint: .Down, animated: false, highlight: false, displayLink: false)
+                    isFirstTime = false
+                } else {
+                    scrollPosition = nil
+                }
+                
+                return (ChatHistoryViewUpdate.HistoryView(view: MessageHistoryView(tagMask: nil, namespaces: .all, entries: messages.reversed().map { MessageHistoryEntry(message: $0, isRead: false, location: nil, monthLocation: nil, attributes: MutableMessageHistoryEntryAttributes(authorIsContact: false)) }, holeEarlier: hasMore, holeLater: false, isLoading: false), type: .Generic(type: version > 0 ? ViewUpdateType.Generic : ViewUpdateType.Initial), scrollPosition: scrollPosition, flashIndicators: false, originalScrollPosition: nil, initialData: ChatHistoryCombinedInitialData(initialData: nil, buttonKeyboardMessage: nil, cachedData: nil, cachedDataMessages: nil, readStateData: nil), id: 0), version, nil, nil)
+            }
+        } else {
+            historyViewUpdate = combineLatest(queue: .mainQueue(),
+                self.chatHistoryLocationPromise.get(),
+                self.ignoreMessagesInTimestampRangePromise.get()
+            )
+            |> distinctUntilChanged(isEqual: { lhs, rhs in
+                if lhs.0 != rhs.0 {
+                    return false
+                }
+                if lhs.1 != rhs.1 {
+                    return false
+                }
+                return true
+            })
+            |> mapToSignal { location, ignoreMessagesInTimestampRange in
+                return chatHistoryViewForLocation(location, ignoreMessagesInTimestampRange: ignoreMessagesInTimestampRange, context: context, chatLocation: chatLocation, chatLocationContextHolder: chatLocationContextHolder, scheduled: isScheduledMessages, fixedCombinedReadStates: fixedCombinedReadStates.with { $0 }, tagMask: tagMask, appendMessagesFromTheSameGroup: appendMessagesFromTheSameGroup, additionalData: additionalData, orderStatistics: [])
+                |> beforeNext { viewUpdate in
+                    switch viewUpdate {
+                        case let .HistoryView(view, _, _, _, _, _, _):
+                            let _ = fixedCombinedReadStates.swap(view.fixedReadStates)
+                        default:
+                            break
+                    }
+                }
+                |> map { view -> (ChatHistoryViewUpdate, Int, ChatHistoryLocationInput?, ClosedRange<Int32>?) in
+                    let version = currentViewVersion.modify({ value in
+                        if let value = value {
+                            return value + 1
+                        } else {
+                            return 0
+                        }
+                    })!
+                    return (view, version, location, ignoreMessagesInTimestampRange)
+                }
+            }
+        }
+        
+        if NGSettings.blockUsersInGroups { // Mod by Misty
+            historyViewUpdate = historyViewUpdate |> mapToSignal {
+                (viewUpdate, version, location, ignoreMessagesInTimestampRange) -> Signal<(ChatHistoryViewUpdate, Int, ChatHistoryLocationInput?, ClosedRange<Int32>?), NoError> in
+                context.account.postbox.transaction {
+                    transaction in
+                    switch viewUpdate {
+                    case let .HistoryView(view, _, _, _, _, _, _):
+                        view.entries = view.entries.filter {
+                            entry in
+                            if let author = entry.message.author {
+                                if let cachedAuthorUserData = transaction.getPeerCachedData(peerId: author.id) as? CachedUserData {
+                                    if cachedAuthorUserData.isBlocked {
+                                        return false
+                                    }
+                                }
+                            }
+                            return true
+                        }
+
+                    default:
+                        break
+                    }
+                    return (viewUpdate, version, location, ignoreMessagesInTimestampRange)
+               }
+            }
+        }
+        
+        let previousView = Atomic<(ChatHistoryView, Int, Set<MessageId>?, Int)?>(value: nil)
+        let automaticDownloadNetworkType = context.account.networkType
+        |> map { type -> MediaAutoDownloadNetworkType in
+            switch type {
+                case .none, .wifi:
+                    return .wifi
+                case .cellular:
+                    return .cellular
+            }
+        }
+        |> distinctUntilChanged
+        
+        let animatedEmojiStickers: Signal<[String: [StickerPackItem]], NoError> = (context as! AccountContextImpl).animatedEmojiStickersSignal
+        
+        let additionalAnimatedEmojiStickers = (context as! AccountContextImpl).additionalAnimatedEmojiStickers
+        
+        let previousHistoryAppearsCleared = Atomic<Bool?>(value: nil)
+                
+        let updatingMedia = context.account.pendingUpdateMessageManager.updatingMessageMedia
+        |> map { value -> [MessageId: ChatUpdatingMessageMedia] in
+            var result = value
+            for id in value.keys {
+                if id.peerId != chatLocation.peerId {
+                    result.removeValue(forKey: id)
+                }
+            }
+            return result
+        }
+        |> distinctUntilChanged
+        
+        let customChannelDiscussionReadState: Signal<MessageId?, NoError>
+        if case let .peer(peerId) = chatLocation, peerId.namespace == Namespaces.Peer.CloudChannel {
+            customChannelDiscussionReadState = context.engine.data.subscribe(
+                TelegramEngine.EngineData.Item.Peer.LinkedDiscussionPeerId(id: peerId),
+                TelegramEngine.EngineData.Item.Peer.Peer(id: peerId)
+            )
+            |> mapToSignal { linkedDiscussionPeerId, peer -> Signal<PeerId?, NoError> in
+                guard case let .channel(peer) = peer, case .broadcast = peer.info else {
+                    return .single(nil)
+                }
+                guard case let .known(value) = linkedDiscussionPeerId else {
+                    return .single(nil)
+                }
+                return .single(value)
+            }
+            |> distinctUntilChanged
+            |> mapToSignal { discussionPeerId -> Signal<MessageId?, NoError> in
+                guard let discussionPeerId = discussionPeerId else {
+                    return .single(nil)
+                }
+                
+                return context.engine.data.subscribe(TelegramEngine.EngineData.Item.Messages.PeerReadCounters(id: discussionPeerId))
+                |> map { readCounters -> MessageId? in
+                    guard let state = readCounters._asReadCounters() else {
+                        return nil
+                    }
+                    for (namespace, namespaceState) in state.states {
+                        if namespace == Namespaces.Message.Cloud {
+                            switch namespaceState {
+                            case let .idBased(maxIncomingReadId, _, _, _, _):
+                                return MessageId(peerId: discussionPeerId, namespace: Namespaces.Message.Cloud, id: maxIncomingReadId)
+                            default:
+                                break
+                            }
+                        }
+                    }
+                    return nil
+                }
+                |> distinctUntilChanged
+            }
+        } else {
+            customChannelDiscussionReadState = .single(nil)
+        }
+        
+        let customThreadOutgoingReadState: Signal<MessageId?, NoError>
+        if case .replyThread = chatLocation {
+            customThreadOutgoingReadState = context.chatLocationOutgoingReadState(for: chatLocation, contextHolder: chatLocationContextHolder)
+        } else {
+            customThreadOutgoingReadState = .single(nil)
+        }
+        
+        let availableReactions: Signal<AvailableReactions?, NoError> = (context as! AccountContextImpl).availableReactions
+        
+        let defaultReaction = combineLatest(
+            self.context.engine.data.subscribe(TelegramEngine.EngineData.Item.Peer.Peer(id: context.account.peerId)),
+            self.context.account.postbox.preferencesView(keys: [PreferencesKeys.reactionSettings])
+        )
+        |> map { peer, preferencesView -> MessageReaction.Reaction? in
+            let reactionSettings: ReactionSettings
+            if let entry = preferencesView.values[PreferencesKeys.reactionSettings], let value = entry.get(ReactionSettings.self) {
+                reactionSettings = value
+            } else {
+                reactionSettings = .default
+            }
+            var hasPremium = false
+            if case let .user(user) = peer {
+                hasPremium = user.isPremium
+            }
+            return reactionSettings.effectiveQuickReaction(hasPremium: hasPremium)
+        }
+        |> distinctUntilChanged
+        
+        let accountPeer = context.engine.data.subscribe(TelegramEngine.EngineData.Item.Peer.Peer(id: context.account.peerId))
+        |> map { peer -> EnginePeer? in
+            return peer
+        }
+        |> distinctUntilChanged
+
+        let topicAuthorId: Signal<EnginePeer.Id?, NoError>
+        if let peerId = chatLocation.peerId, let threadId = chatLocation.threadId {
+            topicAuthorId = context.engine.data.subscribe(TelegramEngine.EngineData.Item.Peer.ThreadData(id: peerId, threadId: threadId))
+            |> map { data -> EnginePeer.Id? in
+                return data?.author
+            }
+            |> distinctUntilChanged
+        } else {
+            topicAuthorId = .single(nil)
+        }
+
+        let audioTranscriptionSuggestion = combineLatest(
+            ApplicationSpecificNotice.getAudioTranscriptionSuggestion(accountManager: context.sharedContext.accountManager),
+            self.justSentTextMessagePromise.get()
+        )
+        
+        let translationState: Signal<ChatTranslationState?, NoError>
+        if let peerId = chatLocation.peerId, peerId.namespace != Namespaces.Peer.SecretChat && peerId != context.account.peerId && subject != .scheduledMessages {
+            translationState = chatTranslationState(context: context, peerId: peerId)
+        } else {
+            translationState = .single(nil)
+        }
+        
+        let promises = combineLatest(
+            self.historyAppearsClearedPromise.get(),
+            self.pendingUnpinnedAllMessagesPromise.get(),
+            self.pendingRemovedMessagesPromise.get(),
+            self.currentlyPlayingMessageIdPromise.get(),
+            self.scrollToMessageIdPromise.get(),
+            self.chatHasBotsPromise.get()
+        )
+        
+        let maxReadStoryId: Signal<Int32?, NoError>
+        if let peerId = self.chatLocation.peerId, peerId.namespace == Namespaces.Peer.CloudUser {
+            maxReadStoryId = self.context.account.postbox.combinedView(keys: [PostboxViewKey.storiesState(key: .peer(peerId))])
+            |> map { views -> Int32? in
+                guard let view = views.views[PostboxViewKey.storiesState(key: .peer(peerId))] as? StoryStatesView else {
+                    return nil
+                }
+                if let state = view.value?.get(Stories.PeerState.self) {
+                    return state.maxReadId
+                } else {
+                    return nil
+                }
+            }
+            |> distinctUntilChanged
+        } else {
+            maxReadStoryId = .single(nil)
+        }
+        
+        let messageViewQueue = Queue.mainQueue()
+        let historyViewTransitionDisposable = combineLatest(queue: messageViewQueue,
+            historyViewUpdate,
+            self.chatPresentationDataPromise.get(),
+            selectedMessages,
+            updatingMedia,
+            automaticDownloadNetworkType,
+            animatedEmojiStickers,
+            additionalAnimatedEmojiStickers,
+            customChannelDiscussionReadState,
+            customThreadOutgoingReadState,
+            availableReactions,
+            defaultReaction,
+            accountPeer,
+            audioTranscriptionSuggestion,
+            promises,
+            topicAuthorId,
+            self.allAdMessagesPromise.get(),
+            translationState,
+            maxReadStoryId
+        ).startStrict(next: { [weak self] update, chatPresentationData, selectedMessages, updatingMedia, networkType, animatedEmojiStickers, additionalAnimatedEmojiStickers, customChannelDiscussionReadState, customThreadOutgoingReadState, availableReactions, defaultReaction, accountPeer, suggestAudioTranscription, promises, topicAuthorId, allAdMessages, translationState, maxReadStoryId in
+            let (historyAppearsCleared, pendingUnpinnedAllMessages, pendingRemovedMessages, currentlyPlayingMessageIdAndType, scrollToMessageId, chatHasBots) = promises
+            
+            func applyHole() {
+                Queue.mainQueue().async {
+                    if let strongSelf = self {
+                        if update.2 != strongSelf.chatHistoryLocationValue {
+                            return
+                        }
+                        
+                        let historyView = (strongSelf.opaqueTransactionState as? ChatHistoryTransactionOpaqueState)?.historyView
+                        let displayRange = strongSelf.displayedItemRange
+                        if let filteredEntries = historyView?.filteredEntries, let visibleRange = displayRange.visibleRange {
+                            var anchorIndex: MessageIndex?
+                            loop: for index in visibleRange.firstIndex ..< filteredEntries.count {
+                                switch filteredEntries[filteredEntries.count - 1 - index] {
+                                case let .MessageEntry(message, _, _, _, _, _):
+                                    if message.adAttribute == nil {
+                                        anchorIndex = message.index
+                                        break loop
+                                    }
+                                case let .MessageGroupEntry(_, messages, _):
+                                    for (message, _, _, _, _) in messages {
+                                        if message.adAttribute == nil {
+                                            anchorIndex = message.index
+                                            break loop
+                                        }
+                                    }
+                                default:
+                                    break
+                                }
+                            }
+                            if anchorIndex == nil, let historyView = historyView {
+                                for entry in historyView.originalView.entries {
+                                    anchorIndex = entry.message.index
+                                    break
+                                }
+                            }
+                            if let anchorIndex = anchorIndex {
+                                strongSelf.chatHistoryLocationValue = ChatHistoryLocationInput(content: .Navigation(index: .message(anchorIndex), anchorIndex: .message(anchorIndex), count: historyMessageCount, highlight: false), id: (strongSelf.chatHistoryLocationValue?.id).flatMap({ $0 + 1 }) ?? 0)
+                            }
+                        } else {
+                            if let subject = subject, case let .message(messageSubject, highlight, _) = subject {
+                                let initialSearchLocation: ChatHistoryInitialSearchLocation
+                                switch messageSubject {
+                                case let .id(id):
+                                    initialSearchLocation = .id(id)
+                                case let .timestamp(timestamp):
+                                    if let peerId = strongSelf.chatLocation.peerId {
+                                        initialSearchLocation = .index(MessageIndex(id: MessageId(peerId: peerId, namespace: Namespaces.Message.Cloud, id: 1), timestamp: timestamp))
+                                    } else {
+                                        //TODO:implement
+                                        initialSearchLocation = .index(.absoluteUpperBound())
+                                    }
+                                }
+                                strongSelf.chatHistoryLocationValue = ChatHistoryLocationInput(content: .InitialSearch(subject: MessageHistoryInitialSearchSubject(location: initialSearchLocation, quote: highlight?.quote), count: historyMessageCount, highlight: highlight != nil), id: (strongSelf.chatHistoryLocationValue?.id).flatMap({ $0 + 1 }) ?? 0)
+                            } else if let subject = subject, case let .pinnedMessages(maybeMessageId) = subject, let messageId = maybeMessageId {
+                                strongSelf.chatHistoryLocationValue = ChatHistoryLocationInput(content: .InitialSearch(subject: MessageHistoryInitialSearchSubject(location: .id(messageId), quote: nil), count: historyMessageCount, highlight: true), id: (strongSelf.chatHistoryLocationValue?.id).flatMap({ $0 + 1 }) ?? 0)
+                            } else if var chatHistoryLocation = strongSelf.chatHistoryLocationValue {
+                                chatHistoryLocation.id += 1
+                                strongSelf.chatHistoryLocationValue = chatHistoryLocation
+                            } else {
+                                strongSelf.chatHistoryLocationValue = ChatHistoryLocationInput(content: .Initial(count: historyMessageCount), id: (strongSelf.chatHistoryLocationValue?.id).flatMap({ $0 + 1 }) ?? 0)
+                            }
+                        }
+                    }
+                }
+            }
+            
+            let initialData: ChatHistoryCombinedInitialData?
+            switch update.0 {
+            case let .Loading(combinedInitialData, type):
+                if case .Generic(.FillHole) = type {
+                    applyHole()
+                    return
+                }
+                
+                initialData = combinedInitialData
+                Queue.mainQueue().async {
+                    if let strongSelf = self {
+                        if !strongSelf.didSetInitialData {
+                            strongSelf.didSetInitialData = true
+                            var combinedInitialData = combinedInitialData
+                            combinedInitialData?.cachedData = nil
+                            strongSelf._initialData.set(.single(combinedInitialData))
+                        }
+                        
+                        let cachedData = initialData?.cachedData
+                        let cachedDataMessages = initialData?.cachedDataMessages
+                        
+                        strongSelf._cachedPeerDataAndMessages.set(.single((cachedData, cachedDataMessages)))
+                        
+                        let loadState: ChatHistoryNodeLoadState = .loading(false)
+                        if strongSelf.loadState != loadState {
+                            strongSelf.loadState = loadState
+                            strongSelf.loadStateUpdated?(loadState, false)
+                        }
+                        
+                        let historyState: ChatHistoryNodeHistoryState = .loading
+                        if strongSelf.currentHistoryState != historyState {
+                            strongSelf.currentHistoryState = historyState
+                            strongSelf.historyState.set(historyState)
+                        }
+                    }
+                }
+                return
+            case let .HistoryView(view, type, scrollPosition, flashIndicators, originalScrollPosition, data, id):
+                if case .Generic(.FillHole) = type {
+                    applyHole()
+                    return
+                }
+                
+                initialData = data
+                var updatedScrollPosition = scrollPosition
+                
+                var reverse = false
+                var reverseGroups = false
+                var includeSearchEntry = false
+                if case let .list(search, reverseValue, reverseGroupsValue, _, _, _) = mode {
+                    includeSearchEntry = search
+                    reverse = reverseValue
+                    reverseGroups = reverseGroupsValue
+                }
+                
+                var isCopyProtectionEnabled: Bool =  data.initialData?.peer?.isCopyProtectionEnabled ?? false
+                for entry in view.additionalData {
+                    if case let .peer(_, maybePeer) = entry, let peer = maybePeer {
+                        isCopyProtectionEnabled = peer.isCopyProtectionEnabled
+                    }
+                }
+                
+                var isPremium = false
+                if case let .user(user) = accountPeer, user.isPremium {
+                    isPremium = true
+                }
+                
+                let alwaysDisplayTranscribeButton = ChatMessageItemAssociatedData.DisplayTranscribeButton(
+                    canBeDisplayed: suggestAudioTranscription.0 < 2,
+                    displayForNotConsumed: suggestAudioTranscription.1
+                )
+                
+                var translateToLanguage: String?
+                if let translationState, isPremium && translationState.isEnabled {
+                    var languageCode = translationState.toLang ?? chatPresentationData.strings.baseLanguageCode
+                    let rawSuffix = "-raw"
+                    if languageCode.hasSuffix(rawSuffix) {
+                        languageCode = String(languageCode.dropLast(rawSuffix.count))
+                    }
+                    if languageCode == "nb" {
+                        languageCode = "no"
+                    } else if languageCode == "pt-br" {
+                        languageCode = "pt"
+                    }
+                    translateToLanguage = languageCode
+                }
+                
+                let associatedData = extractAssociatedData(chatLocation: chatLocation, view: view, automaticDownloadNetworkType: networkType, animatedEmojiStickers: animatedEmojiStickers, additionalAnimatedEmojiStickers: additionalAnimatedEmojiStickers, subject: subject, currentlyPlayingMessageId: currentlyPlayingMessageIdAndType?.0, isCopyProtectionEnabled: isCopyProtectionEnabled, availableReactions: availableReactions, defaultReaction: defaultReaction, isPremium: isPremium, alwaysDisplayTranscribeButton: alwaysDisplayTranscribeButton, accountPeer: accountPeer, topicAuthorId: topicAuthorId, hasBots: chatHasBots, translateToLanguage: translateToLanguage, maxReadStoryId: maxReadStoryId)
+                
+                let filteredEntries = chatHistoryEntriesForView(
+                    location: chatLocation,
+                    view: view,
+                    includeUnreadEntry: mode == .bubbles,
+                    includeEmptyEntry: mode == .bubbles && tagMask == nil,
+                    includeChatInfoEntry: mode == .bubbles,
+                    includeSearchEntry: includeSearchEntry && tagMask != nil,
+                    reverse: reverse,
+                    groupMessages: mode == .bubbles,
+                    reverseGroupedMessages: reverseGroups,
+                    selectedMessages: selectedMessages,
+                    presentationData: chatPresentationData,
+                    historyAppearsCleared: historyAppearsCleared,
+                    pendingUnpinnedAllMessages: pendingUnpinnedAllMessages,
+                    pendingRemovedMessages: pendingRemovedMessages,
+                    associatedData: associatedData,
+                    updatingMedia: updatingMedia,
+                    customChannelDiscussionReadState: customChannelDiscussionReadState,
+                    customThreadOutgoingReadState: customThreadOutgoingReadState,
+                    cachedData: data.cachedData,
+                    adMessage: allAdMessages.fixed,
+                    dynamicAdMessages: allAdMessages.opportunistic
+                )
+                let lastHeaderId = filteredEntries.last.flatMap { listMessageDateHeaderId(timestamp: $0.index.timestamp) } ?? 0
+                let processedView = ChatHistoryView(originalView: view, filteredEntries: filteredEntries, associatedData: associatedData, lastHeaderId: lastHeaderId, id: id, locationInput: update.2, ignoreMessagesInTimestampRange: update.3)
+                let previousValueAndVersion = previousView.swap((processedView, update.1, selectedMessages, allAdMessages.version))
+                let previous = previousValueAndVersion?.0
+                let previousSelectedMessages = previousValueAndVersion?.2
+                
+                if let previousVersion = previousValueAndVersion?.1 {
+                    assert(update.1 >= previousVersion)
+                }
+                                
+                if scrollPosition == nil, let originalScrollPosition = originalScrollPosition {
+                    switch originalScrollPosition {
+                    case let .index(subject, position, _, _, highlight, displayLink):
+                        if case .upperBound = subject.index {
+                            if let previous = previous, previous.filteredEntries.isEmpty {
+                                updatedScrollPosition = .index(subject: subject, position: position, directionHint: .Down, animated: false, highlight: highlight, displayLink: displayLink)
+                            }
+                        }
+                    default:
+                        break
+                    }
+                }
+                
+                var reason: ChatHistoryViewTransitionReason
+                
+                let previousHistoryAppearsClearedValue = previousHistoryAppearsCleared.swap(historyAppearsCleared)
+                if previousHistoryAppearsClearedValue != nil && previousHistoryAppearsClearedValue != historyAppearsCleared && !historyAppearsCleared {
+                    reason = ChatHistoryViewTransitionReason.Initial(fadeIn: !processedView.filteredEntries.isEmpty)
+                } else if let previous = previous, previous.id == processedView.id, previous.originalView.entries == processedView.originalView.entries {
+                    reason = ChatHistoryViewTransitionReason.InteractiveChanges
+                    updatedScrollPosition = nil
+                } else {
+                    switch type {
+                        case let .Initial(fadeIn):
+                            reason = ChatHistoryViewTransitionReason.Initial(fadeIn: fadeIn)
+                        case let .Generic(genericType):
+                            switch genericType {
+                                case .InitialUnread, .Initial:
+                                    reason = ChatHistoryViewTransitionReason.Initial(fadeIn: false)
+                                case .Generic:
+                                    reason = ChatHistoryViewTransitionReason.InteractiveChanges
+                                case .UpdateVisible:
+                                    reason = ChatHistoryViewTransitionReason.Reload
+                                case .FillHole:
+                                    reason = ChatHistoryViewTransitionReason.HoleReload
+                            }
+                    }
+                }
+                
+                var disableAnimations = false
+                var forceSynchronous = false
+                
+                if let previousValueAndVersion = previousValueAndVersion, allAdMessages.version != previousValueAndVersion.3 {
+                    reason = ChatHistoryViewTransitionReason.Reload
+                    disableAnimations = true
+                    forceSynchronous = true
+                }
+                
+                var scrollAnimationCurve: ListViewAnimationCurve? = nil
+                if let strongSelf = self, case .default = source {
+                    strongSelf.toLang = translateToLanguage
+                    if strongSelf.appliedScrollToMessageId == nil, let scrollToMessageId = scrollToMessageId {
+                        updatedScrollPosition = .index(subject: MessageHistoryScrollToSubject(index: .message(scrollToMessageId), quote: nil), position: .center(.top), directionHint: .Up, animated: true, highlight: false, displayLink: true)
+                        scrollAnimationCurve = .Spring(duration: 0.4)
+                    } else {
+                        let wasPlaying = strongSelf.appliedPlayingMessageId != nil
+                        if strongSelf.appliedPlayingMessageId?.0 != currentlyPlayingMessageIdAndType?.0, let (currentlyPlayingMessageId, currentlyPlayingVideo) = currentlyPlayingMessageIdAndType {
+                            if isFirstTime {
+                            } else if case let .peer(peerId) = chatLocation, currentlyPlayingMessageId.id.peerId != peerId {
+                            } else {
+                                var isChat = false
+                                if case .peer = chatLocation {
+                                    isChat = true
+                                }
+                                
+                                if (isChat && (wasPlaying || currentlyPlayingVideo)) || (!isChat && !wasPlaying && currentlyPlayingVideo) {
+                                    var currentIsVisible = true
+                                    var nextIsVisible = false
+                                    if let appliedPlayingMessageId = strongSelf.appliedPlayingMessageId {
+                                        currentIsVisible = false
+                                        strongSelf.forEachVisibleMessageItemNode({ view in
+                                            if view.item?.message.id == appliedPlayingMessageId.0.id && appliedPlayingMessageId.1 == true {
+                                                currentIsVisible = true
+                                            }
+                                        })
+                                    }
+                                    strongSelf.forEachVisibleMessageItemNode({ view in
+                                        if view.item?.message.id == currentlyPlayingMessageId.id {
+                                            nextIsVisible = true
+                                        }
+                                    })
+                                    if currentIsVisible && nextIsVisible && currentlyPlayingVideo {
+                                        updatedScrollPosition = .index(subject: MessageHistoryScrollToSubject(index: .message(currentlyPlayingMessageId), quote: nil), position: .center(.bottom), directionHint: .Up, animated: true, highlight: true, displayLink: true)
+                                        scrollAnimationCurve = .Spring(duration: 0.4)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    isFirstTime = false
+                }
+
+                if let strongSelf = self, updatedScrollPosition == nil, case .InteractiveChanges = reason, case let .known(offset) = strongSelf.visibleContentOffset(), abs(offset) <= 0.9, let previous = previous {
+                    var fillsScreen = true
+                    switch strongSelf.visibleBottomContentOffset() {
+                    case let .known(bottomOffset):
+                        if bottomOffset <= strongSelf.visibleSize.height - strongSelf.insets.bottom {
+                            fillsScreen = false
+                        }
+                    default:
+                        break
+                    }
+
+                    var previousNumAds = 0
+                    for entry in previous.filteredEntries {
+                        if case let .MessageEntry(message, _, _, _, _, _) = entry {
+                            if message.adAttribute != nil {
+                                previousNumAds += 1
+                            }
+                        }
+                    }
+
+                    var updatedNumAds = 0
+                    var firstNonAdIndex: MessageIndex?
+                    for entry in processedView.filteredEntries.reversed() {
+                        if case let .MessageEntry(message, _, _, _, _, _) = entry {
+                            if message.adAttribute != nil {
+                                updatedNumAds += 1
+                            } else {
+                                if firstNonAdIndex == nil {
+                                    firstNonAdIndex = message.index
+                                }
+                            }
+                        }
+                    }
+
+                    if fillsScreen, let firstNonAdIndex = firstNonAdIndex, previousNumAds == 0, updatedNumAds != 0 {
+                        updatedScrollPosition = .index(subject: MessageHistoryScrollToSubject(index: .message(firstNonAdIndex), quote: nil), position: .top(0.0), directionHint: .Up, animated: false, highlight: false, displayLink: false)
+                        disableAnimations = true
+                    }
+                }
+                
+                var forceUpdateAll = false
+                if let previous = previous, previous.associatedData.isPremium != processedView.associatedData.isPremium {
+                    forceUpdateAll = true
+                }
+                
+                var keyboardButtonsMessage = view.topTaggedMessages.first
+                if let keyboardButtonsMessageValue = keyboardButtonsMessage, keyboardButtonsMessageValue.isRestricted(platform: "ios", contentSettings: context.currentContentSettings.with({ $0 })) {
+                    keyboardButtonsMessage = nil
+                }
+                
+                let rawTransition = preparedChatHistoryViewTransition(from: previous, to: processedView, reason: reason, reverse: reverse, chatLocation: chatLocation, controllerInteraction: controllerInteraction, scrollPosition: updatedScrollPosition, scrollAnimationCurve: scrollAnimationCurve, initialData: initialData?.initialData, keyboardButtonsMessage: keyboardButtonsMessage, cachedData: initialData?.cachedData, cachedDataMessages: initialData?.cachedDataMessages, readStateData: initialData?.readStateData, flashIndicators: flashIndicators, updatedMessageSelection: previousSelectedMessages != selectedMessages, messageTransitionNode: messageTransitionNode(), allUpdated: updateAllOnEachVersion || forceUpdateAll)
+                var mappedTransition = mappedChatHistoryViewListTransition(context: context, chatLocation: chatLocation, associatedData: associatedData, controllerInteraction: controllerInteraction, mode: mode, lastHeaderId: lastHeaderId, transition: rawTransition, wantTrButton: self?.wantTrButton ?? [(false, [])])
+                
+                if disableAnimations {
+                    mappedTransition.options.remove(.AnimateInsertion)
+                    mappedTransition.options.remove(.AnimateAlpha)
+                    mappedTransition.options.remove(.AnimateTopItemPosition)
+                    mappedTransition.options.remove(.RequestItemInsertionAnimations)
+                }
+                if forceSynchronous {
+                    mappedTransition.options.insert(.Synchronous)
+                }
+                
+                Queue.mainQueue().async {
+                    guard let strongSelf = self else {
+                        return
+                    }
+                    if strongSelf.appliedPlayingMessageId?.0 != currentlyPlayingMessageIdAndType?.0 {
+                        strongSelf.appliedPlayingMessageId = currentlyPlayingMessageIdAndType
+                    }
+                    if strongSelf.appliedScrollToMessageId != scrollToMessageId {
+                        strongSelf.appliedScrollToMessageId = scrollToMessageId
+                    }
+                    strongSelf.enqueueHistoryViewTransition(mappedTransition)
+                }
+            }
+        })
+        
+        self.historyDisposable.set(historyViewTransitionDisposable.strict())
+    }
+    
+    private func beginReadHistoryManagement() {
+        let previousMaxIncomingMessageIndexByNamespace = Atomic<[MessageId.Namespace: MessageIndex]>(value: [:])
+        let readHistory = combineLatest(self.maxVisibleIncomingMessageIndex.get(), self.canReadHistory.get())
+        
+        self.readHistoryDisposable.set((readHistory |> deliverOnMainQueue).startStrict(next: { [weak self] messageIndex, canRead in
+            guard let strongSelf = self else {
+                return
+            }
+            if !canRead {
+                return
+            }
+            
+            var apply = false
+            let _ = previousMaxIncomingMessageIndexByNamespace.modify { dict in
+                let previousIndex = dict[messageIndex.id.namespace]
+                if previousIndex == nil || previousIndex! < messageIndex {
+                    apply = true
+                    var dict = dict
+                    dict[messageIndex.id.namespace] = messageIndex
+                    return dict
+                }
+                return dict
+            }
+            if apply {
+                switch strongSelf.chatLocation {
+                case .peer, .replyThread, .feed:
+                    if !strongSelf.context.sharedContext.immediateExperimentalUISettings.skipReadHistory {
+                        strongSelf.context.applyMaxReadIndex(for: strongSelf.chatLocation, contextHolder: strongSelf.chatLocationContextHolder, messageIndex: messageIndex)
+                    }
+                }
+            }
+        }).strict())
+        
+        self.canReadHistoryDisposable = (self.canReadHistory.get() |> deliverOnMainQueue).startStrict(next: { [weak self, weak context] value in
+            if let strongSelf = self {
+                if strongSelf.canReadHistoryValue != value {
+                    strongSelf.canReadHistoryValue = value
+                    strongSelf.updateReadHistoryActions()
+
+                    if strongSelf.canReadHistoryValue && !strongSelf.suspendReadingReactions && !strongSelf.messageIdsScheduledForMarkAsSeen.isEmpty {
+                        let messageIds = strongSelf.messageIdsScheduledForMarkAsSeen
+                        strongSelf.messageIdsScheduledForMarkAsSeen.removeAll()
+                        context?.account.viewTracker.updateMarkMentionsSeenForMessageIds(messageIds: messageIds)
+                    }
+                    
+                    strongSelf.attemptReadingReactions()
+                }
+            }
+        }).strict()
+    }
+    
+    private func beginPresentationDataManagement(updated: Signal<PresentationData, NoError>) {
+        let appConfiguration = self.context.account.postbox.preferencesView(keys: [PreferencesKeys.appConfiguration])
+        |> take(1)
+        |> map { view in
+            return view.values[PreferencesKeys.appConfiguration]?.get(AppConfiguration.self) ?? .defaultValue
+        }
+        
+        var didSetPresentationData = false
+        self.presentationDataDisposable = (combineLatest(queue: .mainQueue(),
+            updated,
+            appConfiguration
+        )
+        |> deliverOnMainQueue).startStrict(next: { [weak self] presentationData, appConfiguration in
+            if let strongSelf = self {
+                let previousTheme = strongSelf.currentPresentationData.theme
+                let previousStrings = strongSelf.currentPresentationData.strings
+                let previousWallpaper = strongSelf.currentPresentationData.theme.wallpaper
+                let previousAnimatedEmojiScale = strongSelf.currentPresentationData.animatedEmojiScale
+                
+                let animatedEmojiConfig = ChatHistoryAnimatedEmojiConfiguration.with(appConfiguration: appConfiguration)
+                
+                if !didSetPresentationData || previousTheme !== presentationData.theme || previousStrings !== presentationData.strings || previousWallpaper != presentationData.chatWallpaper || previousAnimatedEmojiScale != animatedEmojiConfig.scale {
+                    didSetPresentationData = true
+                    
+                    let themeData = ChatPresentationThemeData(theme: presentationData.theme, wallpaper: presentationData.chatWallpaper)
+                    let chatPresentationData = ChatPresentationData(theme: themeData, fontSize: presentationData.chatFontSize, strings: presentationData.strings, dateTimeFormat: presentationData.dateTimeFormat, nameDisplayOrder: presentationData.nameDisplayOrder, disableAnimations: true, largeEmoji: presentationData.largeEmoji, chatBubbleCorners: presentationData.chatBubbleCorners, animatedEmojiScale: animatedEmojiConfig.scale)
+                    
+                    strongSelf.currentPresentationData = chatPresentationData
+                    strongSelf.dynamicBounceEnabled = false
+                    
+                    strongSelf.forEachItemHeaderNode { itemHeaderNode in
+                        if let dateNode = itemHeaderNode as? ChatMessageDateHeaderNode {
+                            dateNode.updatePresentationData(chatPresentationData, context: strongSelf.context)
+                        } else if let avatarNode = itemHeaderNode as? ChatMessageAvatarHeaderNodeImpl {
+                            avatarNode.updatePresentationData(chatPresentationData, context: strongSelf.context)
+                        } else if let dateNode = itemHeaderNode as? ListMessageDateHeaderNode {
+                            dateNode.updateThemeAndStrings(theme: presentationData.theme, strings: presentationData.strings)
+                        }
+                    }
+                    strongSelf.chatPresentationDataPromise.set(.single(chatPresentationData))
+                }
+            }
+        }).strict()
     }
     
     private func attemptReadingReactions() {
@@ -1775,7 +1856,7 @@ public final class ChatHistoryListNode: ListView, ChatHistoryNode {
     
     private func loadNextGenericReactionEffect(context: AccountContext) {
         self.genericReactionEffectDisposable?.dispose()
-        self.genericReactionEffectDisposable = (ReactionContextNode.randomGenericReactionEffect(context: context) |> deliverOnMainQueue).start(next: { [weak self] path in
+        self.genericReactionEffectDisposable = (ReactionContextNode.randomGenericReactionEffect(context: context) |> deliverOnMainQueue).startStrict(next: { [weak self] path in
             guard let strongSelf = self else {
                 return
             }
@@ -1980,7 +2061,8 @@ public final class ChatHistoryListNode: ListView, ChatHistoryNode {
                     associatedMessages: initialMessage.associatedMessages,
                     associatedMessageIds: initialMessage.associatedMessageIds,
                     associatedMedia: initialMessage.associatedMedia,
-                    associatedThreadInfo: initialMessage.associatedThreadInfo
+                    associatedThreadInfo: initialMessage.associatedThreadInfo,
+                    associatedStories: initialMessage.associatedStories
                 )
                 self.nextPendingDynamicMessageId += 1
                 
@@ -2003,7 +2085,10 @@ public final class ChatHistoryListNode: ListView, ChatHistoryNode {
                 break
             }
         }
-        self.adMessagesContext?.markAsSeen(opaqueId: opaqueId)
+        if !self.seenAdIds.contains(opaqueId) {
+            self.seenAdIds.append(opaqueId)
+            self.adMessagesContext?.markAsSeen(opaqueId: opaqueId)
+        }
     }
     
     private func processDisplayedItemRangeChanged(displayedRange: ListViewDisplayedItemRange, transactionState: ChatHistoryTransactionOpaqueState) {
@@ -2011,6 +2096,7 @@ public final class ChatHistoryListNode: ListView, ChatHistoryNode {
         var isTopReplyThreadMessageShownValue = false
         var topVisibleMessageRange: ChatTopVisibleMessageRange?
         let isLoading = historyView.originalView.isLoading
+        let translateToLanguage = transactionState.historyView.associatedData.translateToLanguage
         
         if let visible = displayedRange.visibleRange {
             let indexRange = (historyView.filteredEntries.count - 1 - visible.lastIndex, historyView.filteredEntries.count - 1 - visible.firstIndex)
@@ -2018,6 +2104,43 @@ public final class ChatHistoryListNode: ListView, ChatHistoryNode {
                 assert(false)
                 return
             }
+            
+            var messageIdsToTranslate: [MessageId] = []
+            if let translateToLanguage {
+                let extendedRange: Int = 2
+                var wideIndexRange = (historyView.filteredEntries.count - 1 - visible.lastIndex - extendedRange, historyView.filteredEntries.count - 1 - visible.firstIndex + extendedRange)
+                wideIndexRange = (max(0, min(historyView.filteredEntries.count - 1, wideIndexRange.0)), max(0, min(historyView.filteredEntries.count - 1, wideIndexRange.1)))
+                if wideIndexRange.0 > wideIndexRange.1 {
+                    assert(false)
+                    return
+                }
+                
+                if wideIndexRange.0 <= wideIndexRange.1 {
+                    for i in (wideIndexRange.0 ... wideIndexRange.1) {
+                        switch historyView.filteredEntries[i] {
+                        case let .MessageEntry(message, _, _, _, _, _):
+                            if !message.text.isEmpty && message.author?.id != self.context.account.peerId {
+                                if let translation = message.attributes.first(where: { $0 is TranslationMessageAttribute }) as? TranslationMessageAttribute, translation.toLang == translateToLanguage {
+                                } else {
+                                    messageIdsToTranslate.append(message.id)
+                                }
+                            }
+                        case let .MessageGroupEntry(_, messages, _):
+                            for (message, _, _, _, _) in messages {
+                                if !message.text.isEmpty && message.author?.id != self.context.account.peerId {
+                                    if let translation = message.attributes.first(where: { $0 is TranslationMessageAttribute }) as? TranslationMessageAttribute, translation.toLang == translateToLanguage {
+                                    } else {
+                                        messageIdsToTranslate.append(message.id)
+                                    }
+                                }
+                            }
+                        default:
+                            break
+                        }
+                    }
+                }
+            }
+            
             
             let readIndexRange = (0, historyView.filteredEntries.count - 1 - visible.firstIndex)
             
@@ -2028,12 +2151,14 @@ public final class ChatHistoryListNode: ListView, ChatHistoryNode {
             var messageIdsWithLiveLocation: [MessageId] = []
             var messageIdsWithUnsupportedMedia: [MessageId] = []
             var messageIdsWithRefreshMedia: [MessageId] = []
+            var messageIdsWithRefreshStories: [MessageId] = []
             var messageIdsWithUnseenPersonalMention: [MessageId] = []
             var messageIdsWithUnseenReactions: [MessageId] = []
             var messageIdsWithInactiveExtendedMedia = Set<MessageId>()
             var downloadableResourceIds: [(messageId: MessageId, resourceId: String)] = []
             var allVisibleAnchorMessageIds: [(MessageId, Int)] = []
             var visibleAdOpaqueIds: [Data] = []
+            var peerIdsWithRefreshStories: [PeerId] = []
             
             if indexRange.0 <= indexRange.1 {
                 for i in (indexRange.0 ... indexRange.1) {
@@ -2041,6 +2166,10 @@ public final class ChatHistoryListNode: ListView, ChatHistoryNode {
                     
                     switch historyView.filteredEntries[i] {
                     case let .MessageEntry(message, _, _, _, _, _):
+                        if let author = message.author as? TelegramUser {
+                            peerIdsWithRefreshStories.append(author.id)
+                        }
+                        
                         var hasUnconsumedMention = false
                         var hasUnconsumedContent = false
                         if message.tags.contains(.unseenPersonalMessage) {
@@ -2053,6 +2182,7 @@ public final class ChatHistoryListNode: ListView, ChatHistoryNode {
                         var contentRequiredValidation = false
                         var mediaRequiredValidation = false
                         var hasUnseenReactions = false
+                        var storiesRequiredValidation = false
                         for attribute in message.attributes {
                             if attribute is ViewCountMessageAttribute {
                                 if message.id.namespace == Namespaces.Message.Cloud {
@@ -2072,8 +2202,11 @@ public final class ChatHistoryListNode: ListView, ChatHistoryNode {
                                 if message.stableId != ChatHistoryListNode.fixedAdMessageStableId {
                                     visibleAdOpaqueIds.append(attribute.opaqueId)
                                 }
+                            } else if let _ = attribute as? ReplyStoryAttribute {
+                                storiesRequiredValidation = true
                             }
                         }
+                        
                         for media in message.media {
                             if let _ = media as? TelegramMediaUnsupported {
                                 contentRequiredValidation = true
@@ -2110,6 +2243,10 @@ public final class ChatHistoryListNode: ListView, ChatHistoryNode {
                                 if invoice.version != TelegramMediaInvoice.lastVersion {
                                     contentRequiredValidation = true
                                 }
+                            } else if let _ = media as? TelegramMediaStory {
+                                storiesRequiredValidation = true
+                            } else if let webpage = media as? TelegramMediaWebpage, case let .Loaded(content) = webpage.content, let _ = content.story {
+                                storiesRequiredValidation = true
                             }
                         }
                         if contentRequiredValidation {
@@ -2117,6 +2254,9 @@ public final class ChatHistoryListNode: ListView, ChatHistoryNode {
                         }
                         if mediaRequiredValidation {
                             messageIdsWithRefreshMedia.append(message.id)
+                        }
+                        if storiesRequiredValidation {
+                            messageIdsWithRefreshStories.append(message.id)
                         }
                         if hasUnconsumedMention && !hasUnconsumedContent {
                             messageIdsWithUnseenPersonalMention.append(message.id)
@@ -2137,6 +2277,10 @@ public final class ChatHistoryListNode: ListView, ChatHistoryNode {
                             allVisibleAnchorMessageIds.append((message.id, nodeIndex))
                         }
                     case let .MessageGroupEntry(_, messages, _):
+                        if let author = messages.first?.0.author as? TelegramUser {
+                            peerIdsWithRefreshStories.append(author.id)
+                        }
+                        
                         for (message, _, _, _, _) in messages {
                             var hasUnconsumedMention = false
                             var hasUnconsumedContent = false
@@ -2313,6 +2457,9 @@ public final class ChatHistoryListNode: ListView, ChatHistoryNode {
             if !messageIdsWithRefreshMedia.isEmpty {
                 self.refreshMediaProcessingManager.add(messageIdsWithRefreshMedia)
             }
+            if !messageIdsWithRefreshStories.isEmpty {
+                self.refreshStoriesProcessingManager.add(messageIdsWithRefreshStories)
+            }
             if !messageIdsWithUnseenPersonalMention.isEmpty {
                 self.messageMentionProcessingManager.add(messageIdsWithUnseenPersonalMention)
             }
@@ -2327,15 +2474,21 @@ public final class ChatHistoryListNode: ListView, ChatHistoryNode {
                 self.messageWithReactionsProcessingManager.add(messageIdsWithPossibleReactions)
             }
             if !downloadableResourceIds.isEmpty {
-                let _ = markRecentDownloadItemsAsSeen(postbox: self.context.account.postbox, items: downloadableResourceIds).start()
+                let _ = markRecentDownloadItemsAsSeen(postbox: self.context.account.postbox, items: downloadableResourceIds).startStandalone()
             }
             if !messageIdsWithInactiveExtendedMedia.isEmpty {
                 self.extendedMediaProcessingManager.update(messageIdsWithInactiveExtendedMedia)
+            }
+            if !messageIdsToTranslate.isEmpty {
+                self.translationProcessingManager.add(messageIdsToTranslate)
             }
             if !visibleAdOpaqueIds.isEmpty {
                 for opaqueId in visibleAdOpaqueIds {
                     self.markAdAsSeen(opaqueId: opaqueId)
                 }
+            }
+            if !peerIdsWithRefreshStories.isEmpty {
+                self.context.account.viewTracker.refreshStoryStatsForPeerIds(peerIds: peerIdsWithRefreshStories)
             }
             
             self.currentEarlierPrefetchMessages = toEarlierMediaMessages
@@ -2393,6 +2546,8 @@ public final class ChatHistoryListNode: ListView, ChatHistoryNode {
                 }
             }
         }
+        
+        
         self.isTopReplyThreadMessageShown.set(isTopReplyThreadMessageShownValue)
         self.updateTopVisibleMessageRange(topVisibleMessageRange)
         let _ = self.visibleMessageRange.swap(topVisibleMessageRange.flatMap { range in
@@ -2400,7 +2555,6 @@ public final class ChatHistoryListNode: ListView, ChatHistoryNode {
         })
         
         if let loaded = displayedRange.visibleRange, let firstEntry = historyView.filteredEntries.first, let lastEntry = historyView.filteredEntries.last {
-            
             var mathesFirst = false
             if loaded.firstIndex <= 5 {
                 var firstHasGroups = false
@@ -2483,7 +2637,7 @@ public final class ChatHistoryListNode: ListView, ChatHistoryNode {
                         currentMessage = messages.first?.0
                     }
                     if let message = currentMessage, let _ = self.anchorMessageInCurrentHistoryView() {
-                        self.chatHistoryLocationValue = ChatHistoryLocationInput(content: .Scroll(index: .message(message.index), anchorIndex: .message(message.index), sourceIndex: .upperBound, scrollPosition: .bottom(0.0), animated: true, highlight: false), id: self.takeNextHistoryLocationId())
+                        self.chatHistoryLocationValue = ChatHistoryLocationInput(content: .Scroll(subject: MessageHistoryScrollToSubject(index: .message(message.index), quote: nil), anchorIndex: .message(message.index), sourceIndex: .upperBound, scrollPosition: .bottom(0.0), animated: true, highlight: false), id: self.takeNextHistoryLocationId())
                     }
                 }
             }
@@ -2512,14 +2666,14 @@ public final class ChatHistoryListNode: ListView, ChatHistoryNode {
             }
             
             if let currentMessage = currentMessage {
-                self.chatHistoryLocationValue = ChatHistoryLocationInput(content: .Scroll(index: .message(currentMessage.index), anchorIndex: .message(currentMessage.index), sourceIndex: .upperBound, scrollPosition: .top(0.0), animated: true, highlight: true), id: self.takeNextHistoryLocationId())
+                self.chatHistoryLocationValue = ChatHistoryLocationInput(content: .Scroll(subject: MessageHistoryScrollToSubject(index: .message(currentMessage.index), quote: nil), anchorIndex: .message(currentMessage.index), sourceIndex: .upperBound, scrollPosition: .top(0.0), animated: true, highlight: true), id: self.takeNextHistoryLocationId())
             }
         }
     }
     
     public func scrollToStartOfHistory() {
         self.beganDragging?()
-        self.chatHistoryLocationValue = ChatHistoryLocationInput(content: .Scroll(index: .lowerBound, anchorIndex: .lowerBound, sourceIndex: .upperBound, scrollPosition: .bottom(0.0), animated: true, highlight: false), id: self.takeNextHistoryLocationId())
+        self.chatHistoryLocationValue = ChatHistoryLocationInput(content: .Scroll(subject: MessageHistoryScrollToSubject(index: .lowerBound, quote: nil), anchorIndex: .lowerBound, sourceIndex: .upperBound, scrollPosition: .bottom(0.0), animated: true, highlight: false), id: self.takeNextHistoryLocationId())
     }
     
     public func scrollToEndOfHistory() {
@@ -2528,13 +2682,13 @@ public final class ChatHistoryListNode: ListView, ChatHistoryNode {
             case let .known(value) where value <= CGFloat.ulpOfOne:
                 break
             default:
-                let locationInput = ChatHistoryLocationInput(content: .Scroll(index: .upperBound, anchorIndex: .upperBound, sourceIndex: .lowerBound, scrollPosition: .top(0.0), animated: true, highlight: false), id: self.takeNextHistoryLocationId())
+                let locationInput = ChatHistoryLocationInput(content: .Scroll(subject: MessageHistoryScrollToSubject(index: .upperBound, quote: nil), anchorIndex: .upperBound, sourceIndex: .lowerBound, scrollPosition: .top(0.0), animated: true, highlight: false), id: self.takeNextHistoryLocationId())
                 self.chatHistoryLocationValue = locationInput
         }
     }
     
-    public func scrollToMessage(from fromIndex: MessageIndex, to toIndex: MessageIndex, animated: Bool, highlight: Bool = true, scrollPosition: ListViewScrollPosition = .center(.bottom)) {
-        self.chatHistoryLocationValue = ChatHistoryLocationInput(content: .Scroll(index: .message(toIndex), anchorIndex: .message(toIndex), sourceIndex: .message(fromIndex), scrollPosition: scrollPosition, animated: animated, highlight: highlight), id: self.takeNextHistoryLocationId())
+    public func scrollToMessage(from fromIndex: MessageIndex, to toIndex: MessageIndex, animated: Bool, highlight: Bool = true, quote: String? = nil, scrollPosition: ListViewScrollPosition = .center(.bottom)) {
+        self.chatHistoryLocationValue = ChatHistoryLocationInput(content: .Scroll(subject: MessageHistoryScrollToSubject(index: .message(toIndex), quote: quote), anchorIndex: .message(toIndex), sourceIndex: .message(fromIndex), scrollPosition: scrollPosition, animated: animated, highlight: highlight), id: self.takeNextHistoryLocationId())
     }
     
     public func anchorMessageInCurrentHistoryView() -> Message? {
@@ -2721,14 +2875,19 @@ public final class ChatHistoryListNode: ListView, ChatHistoryNode {
                     loadState = .empty(.generic)
                 }
             } else {
-                loadState = .messages
+                if transition.historyView.filteredEntries.count == 1, let entry = transition.historyView.filteredEntries.first, case .ChatInfoEntry = entry {
+                    loadState = .empty(.botInfo)
+                } else {
+                    loadState = .messages
+                }
             }
             if self.loadState != loadState {
                 self.loadState = loadState
                 self.loadStateUpdated?(loadState, transition.options.contains(.AnimateInsertion))
             }
             
-            let historyState: ChatHistoryNodeHistoryState = .loaded(isEmpty: transition.historyView.originalView.entries.isEmpty)
+            let isEmpty = transition.historyView.originalView.entries.isEmpty || loadState == .empty(.botInfo)
+            let historyState: ChatHistoryNodeHistoryState = .loaded(isEmpty: isEmpty)
             if self.currentHistoryState != historyState {
                 self.currentHistoryState = historyState
                 self.historyState.set(historyState)
@@ -2906,7 +3065,11 @@ public final class ChatHistoryListNode: ListView, ChatHistoryNode {
                         if historyView.originalView.isLoadingEarlier && strongSelf.chatLocation.peerId?.namespace != Namespaces.Peer.CloudUser {
                             loadState = .loading(true)
                         } else {
-                            loadState = .messages
+                            if historyView.filteredEntries.count == 1, let entry = historyView.filteredEntries.first, case .ChatInfoEntry = entry {
+                                loadState = .empty(.botInfo)
+                            } else {
+                                loadState = .messages
+                            }
                         }
                     }
                 } else {
@@ -2970,7 +3133,8 @@ public final class ChatHistoryListNode: ListView, ChatHistoryNode {
                     strongSelf._initialData.set(.single(ChatHistoryCombinedInitialData(initialData: transition.initialData, buttonKeyboardMessage: transition.keyboardButtonsMessage, cachedData: transition.cachedData, cachedDataMessages: transition.cachedDataMessages, readStateData: transition.readStateData)))
                 }
                 strongSelf._cachedPeerDataAndMessages.set(.single((transition.cachedData, transition.cachedDataMessages)))
-                let historyState: ChatHistoryNodeHistoryState = .loaded(isEmpty: transition.historyView.originalView.entries.isEmpty)
+                let isEmpty = transition.historyView.originalView.entries.isEmpty || loadState == .empty(.botInfo)
+                let historyState: ChatHistoryNodeHistoryState = .loaded(isEmpty: isEmpty)
                 if strongSelf.currentHistoryState != historyState {
                     strongSelf.currentHistoryState = historyState
                     strongSelf.historyState.set(historyState)
@@ -3093,13 +3257,15 @@ public final class ChatHistoryListNode: ListView, ChatHistoryNode {
 
             if foundCorrelationMessage {
                 self.layoutActionOnViewTransition = nil
+                let (mappedTransition, updateSizeAndInsets) = layoutActionOnViewTransition(transition)
+                self.transaction(deleteIndices: mappedTransition.deleteItems, insertIndicesAndItems: transition.insertItems, updateIndicesAndItems: transition.updateItems, options: mappedTransition.options, scrollToItem: mappedTransition.scrollToItem, updateSizeAndInsets: updateSizeAndInsets, stationaryItemRange: mappedTransition.stationaryItemRange, updateOpaqueState: ChatHistoryTransactionOpaqueState(historyView: transition.historyView), completion: { result in
+                    completion(true, result)
+                })
+            } else {
+                self.transaction(deleteIndices: transition.deleteItems, insertIndicesAndItems: transition.insertItems, updateIndicesAndItems: transition.updateItems, options: transition.options, scrollToItem: transition.scrollToItem, stationaryItemRange: transition.stationaryItemRange, updateOpaqueState: ChatHistoryTransactionOpaqueState(historyView: transition.historyView), completion: { result in
+                    completion(false, result)
+                })
             }
-
-            let (mappedTransition, updateSizeAndInsets) = layoutActionOnViewTransition(transition)
-
-            self.transaction(deleteIndices: mappedTransition.deleteItems, insertIndicesAndItems: transition.insertItems, updateIndicesAndItems: transition.updateItems, options: mappedTransition.options, scrollToItem: mappedTransition.scrollToItem, updateSizeAndInsets: updateSizeAndInsets, stationaryItemRange: mappedTransition.stationaryItemRange, updateOpaqueState: ChatHistoryTransactionOpaqueState(historyView: transition.historyView), completion: { result in
-                completion(true, result)
-            })
         } else {
             self.transaction(deleteIndices: transition.deleteItems, insertIndicesAndItems: transition.insertItems, updateIndicesAndItems: transition.updateItems, options: transition.options, scrollToItem: transition.scrollToItem, stationaryItemRange: transition.stationaryItemRange, updateOpaqueState: ChatHistoryTransactionOpaqueState(historyView: transition.historyView), completion: { result in
                 completion(false, result)
@@ -3235,6 +3401,20 @@ public final class ChatHistoryListNode: ListView, ChatHistoryNode {
     }
         
     public func updateLayout(transition: ContainedViewLayoutTransition, updateSizeAndInsets: ListViewUpdateSizeAndInsets, additionalScrollDistance: CGFloat, scrollToTop: Bool, completion: @escaping () -> Void) {
+        
+        // MARK: Nicegram AiChat, NuHub
+        var insets = updateSizeAndInsets.insets
+        var additionalBotInset: CGFloat = 0
+        if AiChatUITgHelper.shouldShowAiBotInTgChat() {
+            additionalBotInset = max(additionalBotInset, 60)
+        }
+        if showNgBanner {
+            additionalBotInset = max(additionalBotInset, ImagesHubUITgHelper.chatBannerHeight)
+        }
+        insets.top += additionalBotInset
+        let updateSizeAndInsets = updateSizeAndInsets.with(insets: insets)
+        //
+        
         var scrollToItem: ListViewScrollToItem?
         var postScrollToItem: ListViewScrollToItem?
         if scrollToTop, case .known = self.visibleContentOffset() {
@@ -3452,8 +3632,9 @@ public final class ChatHistoryListNode: ListView, ChatHistoryNode {
                                 let item: ListViewItem
                                 switch self.mode {
                                     case .bubbles:
-                                        item = ChatMessageItem(presentationData: presentationData, context: self.context, chatLocation: self.chatLocation, associatedData: associatedData, controllerInteraction: self.controllerInteraction, content: .message(message: message, read: read, selection: selection, attributes: attributes, location: location), wantTrButton: wantTrButton)
-                                    case let .list(_, _, displayHeaders, hintLinks, isGlobalSearch):
+                                        // MARK: Nicegram, wantTrButton
+                                        item = ChatMessageItemImpl(presentationData: presentationData, context: self.context, chatLocation: self.chatLocation, associatedData: associatedData, controllerInteraction: self.controllerInteraction, content: .message(message: message, read: read, selection: selection, attributes: attributes, location: location), wantTrButton: wantTrButton)
+                                    case let .list(_, _, _, displayHeaders, hintLinks, isGlobalSearch):
                                         let displayHeader: Bool
                                         switch displayHeaders {
                                         case .none:
@@ -3463,7 +3644,7 @@ public final class ChatHistoryListNode: ListView, ChatHistoryNode {
                                         case .allButLast:
                                             displayHeader = listMessageDateHeaderId(timestamp: message.timestamp) != historyView.lastHeaderId
                                         }
-                                        item = ListMessageItem(presentationData: presentationData, context: self.context, chatLocation: self.chatLocation, interaction: ListMessageItemInteraction(controllerInteraction: self.controllerInteraction), message: message, selection: selection, displayHeader: displayHeader, hintIsLink: hintLinks, isGlobalSearchResult: isGlobalSearch)
+                                        item = ListMessageItem(presentationData: presentationData, context: self.context, chatLocation: self.chatLocation, interaction: ListMessageItemInteraction(controllerInteraction: self.controllerInteraction), message: message, translateToLanguage: associatedData.translateToLanguage, selection: selection, displayHeader: displayHeader, hintIsLink: hintLinks, isGlobalSearchResult: isGlobalSearch)
                                 }
                                 let updateItem = ListViewUpdateItem(index: index, previousIndex: index, item: item, directionHint: nil)
                                 
@@ -3508,8 +3689,8 @@ public final class ChatHistoryListNode: ListView, ChatHistoryNode {
                                 let item: ListViewItem
                                 switch self.mode {
                                     case .bubbles:
-                                        item = ChatMessageItem(presentationData: presentationData, context: self.context, chatLocation: self.chatLocation, associatedData: associatedData, controllerInteraction: self.controllerInteraction, content: .message(message: message, read: read, selection: selection, attributes: attributes, location: location))
-                                    case let .list(_, _, displayHeaders, hintLinks, isGlobalSearch):
+                                        item = ChatMessageItemImpl(presentationData: presentationData, context: self.context, chatLocation: self.chatLocation, associatedData: associatedData, controllerInteraction: self.controllerInteraction, content: .message(message: message, read: read, selection: selection, attributes: attributes, location: location))
+                                    case let .list(_, _, _, displayHeaders, hintLinks, isGlobalSearch):
                                         let displayHeader: Bool
                                         switch displayHeaders {
                                         case .none:
@@ -3519,7 +3700,7 @@ public final class ChatHistoryListNode: ListView, ChatHistoryNode {
                                         case .allButLast:
                                             displayHeader = listMessageDateHeaderId(timestamp: message.timestamp) != historyView.lastHeaderId
                                         }
-                                        item = ListMessageItem(presentationData: presentationData, context: self.context, chatLocation: self.chatLocation, interaction: ListMessageItemInteraction(controllerInteraction: self.controllerInteraction), message: message, selection: selection, displayHeader: displayHeader, hintIsLink: hintLinks, isGlobalSearchResult: isGlobalSearch)
+                                        item = ListMessageItem(presentationData: presentationData, context: self.context, chatLocation: self.chatLocation, interaction: ListMessageItemInteraction(controllerInteraction: self.controllerInteraction), message: message, translateToLanguage: associatedData.translateToLanguage, selection: selection, displayHeader: displayHeader, hintIsLink: hintLinks, isGlobalSearchResult: isGlobalSearch)
                                 }
                                 let updateItem = ListViewUpdateItem(index: index, previousIndex: index, item: item, directionHint: nil)
                                 self.transaction(deleteIndices: [], insertIndicesAndItems: [], updateIndicesAndItems: [updateItem], options: [.AnimateInsertion], scrollToItem: nil, additionalScrollDistance: 0.0, updateSizeAndInsets: nil, stationaryItemRange: nil, updateOpaqueState: nil, completion: { _ in })
@@ -3758,15 +3939,16 @@ public final class ChatHistoryListNode: ListView, ChatHistoryNode {
             }
         }
 
-        let snapshotView = self.view.snapshotView(afterScreenUpdates: false)!
+        let snapshotView = self.view//.snapshotView(afterScreenUpdates: false)!
+        self.globalIgnoreScrollingEvents = true
 
-        snapshotView.frame = self.view.bounds
-        if let sublayers = self.layer.sublayers {
+        //snapshotView.frame = self.view.bounds
+        /*if let sublayers = self.layer.sublayers {
             for sublayer in sublayers {
                 sublayer.isHidden = true
             }
-        }
-        self.view.addSubview(snapshotView)
+        }*/
+        //self.view.addSubview(snapshotView)
 
         let overscrollView = self.overscrollView
         if let overscrollView = overscrollView {
@@ -3804,6 +3986,10 @@ public final class ChatHistoryListNode: ListView, ChatHistoryNode {
         snapshotParentView.frame = self.view.frame
 
         snapshotState.snapshotView.frame = snapshotParentView.bounds
+        
+        snapshotState.snapshotView.clipsToBounds = true
+        snapshotState.snapshotView.layer.sublayerTransform = CATransform3DMakeRotation(CGFloat.pi, 0.0, 0.0, 1.0)
+        
         self.view.superview?.insertSubview(snapshotParentView, belowSubview: self.view)
 
         snapshotParentView.layer.animatePosition(from: CGPoint(x: 0.0, y: 0.0), to: CGPoint(x: 0.0, y: -self.view.bounds.height - snapshotState.snapshotBottomInset - snapshotTopInset), duration: 0.5, timingFunction: kCAMediaTimingFunctionSpring, removeOnCompletion: false, additive: true, completion: { [weak snapshotParentView] _ in

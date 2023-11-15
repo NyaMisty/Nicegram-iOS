@@ -1,50 +1,45 @@
-import Display
 import Foundation
 import UIKit
+import NGAiChat
 import NGData
+import NGPremiumUI
 import NGStrings
-import NGSubscription
-import NGUIUtils
 
 public func onboardingController(languageCode: String, onComplete: @escaping () -> Void) -> UIViewController {
-    var routeToSubscription: (() -> Void)?
-    
     let controller = OnboardingViewController(
         items: onboardingPages(languageCode: languageCode),
         languageCode: languageCode,
         onComplete: {
             if isPremium() {
                 onComplete()
+            } else if #available(iOS 13.0, *) {
+                PremiumUITgHelper.routeToPremium(onComplete: onComplete)
             } else {
-                routeToSubscription?()
+                onComplete()
             }
         }
-    )
-    
-    routeToSubscription = { [weak controller] in
-        let c = subscriptionController(onComplete: onComplete)
-        c.modalPresentationStyle = .fullScreen
-        controller?.present(c, animated: true)
-    }
-    
-    return controller
-}
-
-private func subscriptionController(onComplete: @escaping () -> Void) -> UIViewController {
-    let builder: SubscriptionBuilder = SubscriptionBuilderImpl(languageCode: Locale.currentAppLocale.langCode)
-    let controller = builder.build(
-        handlers: SubscriptionHandlers(
-            onSuccessPurchase: onComplete,
-            onSuccessRestore: onComplete,
-            onClose: onComplete
-        )
     )
     
     return controller
 }
 
 private func onboardingPages(languageCode: String) -> [OnboardingPageViewModel] {
-    (1...5).map { index in
+    let aiPageIndex = 6
+    
+    var pages = Array(1...6)
+    
+    let isAiAvailable: Bool
+    if #available(iOS 13.0, *) {
+        let getAiAvailabilityUseCase = AiChatContainer.shared.getAiAvailabilityUseCase()
+        isAiAvailable = getAiAvailabilityUseCase()
+    } else {
+        isAiAvailable = false
+    }
+    if !isAiAvailable {
+        pages.removeAll { $0 == aiPageIndex }
+    }
+    
+    return pages.map { index in
         OnboardingPageViewModel(
             title: l("NicegramOnboarding.\(index).Title", languageCode),
             description: l("NicegramOnboarding.\(index).Desc", languageCode),

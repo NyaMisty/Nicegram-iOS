@@ -215,7 +215,7 @@ static const NSUInteger MTMaxUnacknowledgedMessageCount = 64;
             _mtState |= MTProtoStatePaused;
             
             [self setMtState:_mtState | MTProtoStatePaused];
-            [self setTransport:nil];
+            [self setTransport:nil keepTransportActive:false];
         }
     }];
 }
@@ -251,7 +251,7 @@ static const NSUInteger MTMaxUnacknowledgedMessageCount = 64;
             {
                 _transport.delegate = nil;
                 [_transport stop];
-                [self setTransport:nil];
+                [self setTransport:nil  keepTransportActive:false];
             }
         }
     }];
@@ -276,7 +276,7 @@ static const NSUInteger MTMaxUnacknowledgedMessageCount = 64;
     }];
 }
 
-- (void)setTransport:(MTTransport *)transport
+- (void)setTransport:(MTTransport *)transport keepTransportActive:(bool)keepTransportActive
 {
     [[MTProto managerQueue] dispatchOnQueue:^
     {
@@ -298,7 +298,9 @@ static const NSUInteger MTMaxUnacknowledgedMessageCount = 64;
             [self removeMessageService:_transport];
         
         _transport = transport;
-        [previousTransport stop];
+        if (!keepTransportActive) {
+            [previousTransport stop];
+        }
         
         if (_transport != nil)
             [self addMessageService:_transport];
@@ -318,40 +320,55 @@ static const NSUInteger MTMaxUnacknowledgedMessageCount = 64;
         {
             _transport.delegate = nil;
             [_transport stop];
-            [self setTransport:nil];
+            [self setTransport:nil keepTransportActive:false];
         }
         
-        NSArray<MTTransportScheme *> *transportSchemes = [_context transportSchemesForDatacenterWithId:_datacenterId media:_media enforceMedia:_enforceMedia isProxy:_apiEnvironment.socksProxySettings != nil];
-        
-        if (transportSchemes.count == 0) {
-            if ((_mtState & MTProtoStateAwaitingDatacenterScheme) == 0) {
-                [self setMtState:_mtState | MTProtoStateAwaitingDatacenterScheme];
-                
-                [_context transportSchemeForDatacenterWithIdRequired:_datacenterId media:_media];
-            }
-        }
-        else if (_requiredAuthToken != nil && !_useUnauthorizedMode && ![_requiredAuthToken isEqual:[_context authTokenForDatacenterWithId:_datacenterId]]) {
-            if ((_mtState & MTProtoStateAwaitingDatacenterAuthToken) == 0) {
-                [self setMtState:_mtState | MTProtoStateAwaitingDatacenterAuthToken];
-                
-                [_context authTokenForDatacenterWithIdRequired:_datacenterId authToken:_requiredAuthToken masterDatacenterId:_authTokenMasterDatacenterId];
-            }
+        if (_tempConnectionForReuse != nil) {
+            MTTransport *tempTransport = _tempConnectionForReuse;
+            _tempConnectionForReuse = nil;
+            tempTransport.delegate = self;
+            [self setTransport:tempTransport keepTransportActive:false];
         } else {
-            assert(transportSchemes.count != 0);
-            MTTransport *transport = [[MTTcpTransport alloc] initWithDelegate:self context:_context datacenterId:_datacenterId schemes:transportSchemes proxySettings:_context.apiEnvironment.socksProxySettings usageCalculationInfo:_usageCalculationInfo getLogPrefix:_getLogPrefix];
+            NSArray<MTTransportScheme *> *transportSchemes = [_context transportSchemesForDatacenterWithId:_datacenterId media:_media enforceMedia:_enforceMedia isProxy:_apiEnvironment.socksProxySettings != nil];
             
-            [self setTransport:transport];
+            if (transportSchemes.count == 0) {
+                if ((_mtState & MTProtoStateAwaitingDatacenterScheme) == 0) {
+                    [self setMtState:_mtState | MTProtoStateAwaitingDatacenterScheme];
+                    
+                    [_context transportSchemeForDatacenterWithIdRequired:_datacenterId media:_media];
+                }
+            }
+            else if (_requiredAuthToken != nil && !_useUnauthorizedMode && ![_requiredAuthToken isEqual:[_context authTokenForDatacenterWithId:_datacenterId]]) {
+                if ((_mtState & MTProtoStateAwaitingDatacenterAuthToken) == 0) {
+                    [self setMtState:_mtState | MTProtoStateAwaitingDatacenterAuthToken];
+                    
+                    [_context authTokenForDatacenterWithIdRequired:_datacenterId authToken:_requiredAuthToken masterDatacenterId:_authTokenMasterDatacenterId];
+                }
+            } else {
+                assert(transportSchemes.count != 0);
+                MTTransport *transport = [[MTTcpTransport alloc] initWithDelegate:self context:_context datacenterId:_datacenterId schemes:transportSchemes proxySettings:_context.apiEnvironment.socksProxySettings usageCalculationInfo:_usageCalculationInfo getLogPrefix:_getLogPrefix];
+                
+                [self setTransport:transport keepTransportActive:false];
+            }
         }
     }];
 }
 
-- (void)resetSessionInfo
+- (void)resetSessionInfo:(bool)ifActive
 {
     [[MTProto managerQueue] dispatchOnQueue:^
     {
         if (MTLogEnabled()) {
             MTLogWithPrefix(_getLogPrefix, @"[MTProto#%p@%p resetting session]", self, _context);
         }
+        
+        if (ifActive) {
+            if (![self canAskForTransactions]) {
+                MTShortLog(@"[MTProto#%p@%p not resetting session: !canAskForTransactions]", self, _context);
+                return;
+            }
+        }
+        
         MTShortLog(@"[MTProto#%p@%p resetting session]", self, _context);
         
         _sessionInfo = [[MTSessionInfo alloc] initWithRandomSessionIdAndContext:_context];
@@ -657,6 +674,24 @@ static const NSUInteger MTMaxUnacknowledgedMessageCount = 64;
     }];
 }
 
+- (void)simulateDisconnection {
+    [[MTProto managerQueue] dispatchOnQueue:^
+    {
+        if (_transport != nil) {
+            [_transport simulateDisconnection];
+        }
+    }];
+}
+
+- (MTTransport *)takeConnectionForReusing {
+    __block MTTransport *result = nil;
+    [[MTProto managerQueue] dispatchOnQueue:^{
+        result = _transport;
+        [self setTransport:nil keepTransportActive:true];
+    } synchronous:true];
+    return result;
+}
+
 - (bool)canAskForTransactions
 {
     return (_mtState & (MTProtoStateAwaitingDatacenterScheme | MTProtoStateAwaitingDatacenterAuthorization | MTProtoStateAwaitingDatacenterAuthToken | MTProtoStateAwaitingTimeFixAndSalts | MTProtoStateStopped)) == 0;
@@ -707,8 +742,12 @@ static const NSUInteger MTMaxUnacknowledgedMessageCount = 64;
 
 - (void)transportConnectionFailed:(MTTransport *)transport scheme:(MTTransportScheme *)scheme {
     [[MTProto managerQueue] dispatchOnQueue:^{
-        if (transport != _transport)
+        if (transport != _transport) {
             return;
+        }
+        if (_useUnauthorizedMode) {
+            return;
+        }
         [_context reportTransportSchemeFailureForDatacenterId:_datacenterId transportScheme:scheme];
     }];
 }
@@ -769,6 +808,12 @@ static const NSUInteger MTMaxUnacknowledgedMessageCount = 64;
         if (_transport != transport) {
             return;
         }
+        if (_useUnauthorizedMode) {
+#if DEBUG
+#else
+            return;
+#endif
+        }
         
         if (hasConnectionProblems) {
             [_context reportTransportSchemeFailureForDatacenterId:_datacenterId transportScheme:scheme];
@@ -793,7 +838,10 @@ static const NSUInteger MTMaxUnacknowledgedMessageCount = 64;
                 __weak MTProto *weakSelf = self;
                 MTSignal *checkSignal = [[MTConnectionProbing probeProxyWithContext:_context datacenterId:_datacenterId settings:transport.proxySettings] delay:5.0 onQueue:[MTQueue concurrentDefaultQueue]];
                 checkSignal = [[checkSignal then:[[MTSignal complete] delay:20.0 onQueue:[MTQueue concurrentDefaultQueue]]] restart];
-                [_probingDisposable setDisposable:[checkSignal startWithNext:^(NSNumber *next) {
+                if (_probingDisposable == nil) {
+                    _probingDisposable = [[MTMetaDisposable alloc] init];
+                }
+                [_probingDisposable setDisposable:[checkSignal startWithNextStrict:^(NSNumber *next) {
                     [[MTProto managerQueue] dispatchOnQueue:^{
                         __strong MTProto *strongSelf = weakSelf;
                         if (strongSelf == nil) {
@@ -804,7 +852,7 @@ static const NSUInteger MTMaxUnacknowledgedMessageCount = 64;
                             [strongSelf _updateConnectionIssuesStatus:[strongSelf->_probingStatus boolValue]];
                         }
                     }];
-                }]];
+                } file:__FILE_NAME__ line:__LINE__]];
             }
         }
     }];
@@ -820,9 +868,9 @@ static const NSUInteger MTMaxUnacknowledgedMessageCount = 64;
     }
 }
 
-- (NSString *)outgoingMessageDescription:(MTOutgoingMessage *)message messageId:(int64_t)messageId messageSeqNo:(int32_t)messageSeqNo
+- (NSString *)outgoingMessageDescription:(MTOutgoingMessage *)message messageId:(int64_t)messageId messageSeqNo:(int32_t)messageSeqNo authKeyId:(int64_t)authKeyId
 {
-    return [[NSString alloc] initWithFormat:@"%@%@ (%" PRId64 "/%" PRId32 ")", message.metadata, message.additionalDebugDescription != nil ? message.additionalDebugDescription : @"", message.messageId == 0 ? messageId : message.messageId, message.messageSeqNo == 0 ? message.messageSeqNo : messageSeqNo];
+    return [[NSString alloc] initWithFormat:@"%@%@ (%" PRId64 "/%" PRId32 " %" PRId64 ")", message.metadata, message.additionalDebugDescription != nil ? message.additionalDebugDescription : @"", message.messageId == 0 ? messageId : message.messageId, message.messageSeqNo == 0 ? message.messageSeqNo : messageSeqNo, authKeyId];
 }
 
 - (NSString *)outgoingShortMessageDescription:(MTOutgoingMessage *)message messageId:(int64_t)messageId messageSeqNo:(int32_t)messageSeqNo
@@ -843,13 +891,13 @@ static const NSUInteger MTMaxUnacknowledgedMessageCount = 64;
         }
         
         if (_validAuthInfo != nil && _validAuthInfo.selector == selector) {
-            return [[MTDatacenterAuthKey alloc] initWithAuthKey:_validAuthInfo.authInfo.authKey authKeyId:_validAuthInfo.authInfo.authKeyId notBound:false];
+            return [[MTDatacenterAuthKey alloc] initWithAuthKey:_validAuthInfo.authInfo.authKey authKeyId:_validAuthInfo.authInfo.authKeyId validUntilTimestamp:_validAuthInfo.authInfo.validUntilTimestamp notBound:false];
         }
         
-        MTDatacenterAuthInfo *authInfo = [[MTDatacenterAuthInfo alloc] initWithAuthKey:_useExplicitAuthKey.authKey authKeyId:_useExplicitAuthKey.authKeyId saltSet:@[[[MTDatacenterSaltInfo alloc] initWithSalt:0 firstValidMessageId:0 lastValidMessageId:0]] authKeyAttributes:nil];
+        MTDatacenterAuthInfo *authInfo = [[MTDatacenterAuthInfo alloc] initWithAuthKey:_useExplicitAuthKey.authKey authKeyId:_useExplicitAuthKey.authKeyId validUntilTimestamp:_useExplicitAuthKey.validUntilTimestamp saltSet:@[[[MTDatacenterSaltInfo alloc] initWithSalt:0 firstValidMessageId:0 lastValidMessageId:0]] authKeyAttributes:nil];
         
         _validAuthInfo = [[MTProtoValidAuthInfo alloc] initWithAuthInfo:authInfo selector:selector];
-        return [[MTDatacenterAuthKey alloc] initWithAuthKey:_validAuthInfo.authInfo.authKey authKeyId:_validAuthInfo.authInfo.authKeyId notBound:false];
+        return [[MTDatacenterAuthKey alloc] initWithAuthKey:_validAuthInfo.authInfo.authKey authKeyId:_validAuthInfo.authInfo.authKeyId validUntilTimestamp:_validAuthInfo.authInfo.validUntilTimestamp notBound:false];
     } else {
         MTDatacenterAuthInfoSelector selector = MTDatacenterAuthInfoSelectorPersistent;
         
@@ -872,14 +920,14 @@ static const NSUInteger MTMaxUnacknowledgedMessageCount = 64;
         }
         
         if (_validAuthInfo != nil && _validAuthInfo.selector == selector) {
-            return [[MTDatacenterAuthKey alloc] initWithAuthKey:_validAuthInfo.authInfo.authKey authKeyId:_validAuthInfo.authInfo.authKeyId notBound:false];
+            return [[MTDatacenterAuthKey alloc] initWithAuthKey:_validAuthInfo.authInfo.authKey authKeyId:_validAuthInfo.authInfo.authKeyId validUntilTimestamp:_validAuthInfo.authInfo.validUntilTimestamp notBound:false];
         } else {
             _validAuthInfo = nil;
             if (createIfNeeded) {
                 MTDatacenterAuthInfo *authInfo = [_context authInfoForDatacenterWithId:_datacenterId selector:selector];
                 if (authInfo != nil) {
                     _validAuthInfo = [[MTProtoValidAuthInfo alloc] initWithAuthInfo:authInfo selector:selector];
-                    return [[MTDatacenterAuthKey alloc] initWithAuthKey:_validAuthInfo.authInfo.authKey authKeyId:_validAuthInfo.authInfo.authKeyId notBound:false];
+                    return [[MTDatacenterAuthKey alloc] initWithAuthKey:_validAuthInfo.authInfo.authKey authKeyId:_validAuthInfo.authInfo.authKeyId validUntilTimestamp:_validAuthInfo.authInfo.validUntilTimestamp notBound:false];
                 } else {
                     [_context performBatchUpdates:^{
                         [_context updateAuthInfoForDatacenterWithId:_datacenterId authInfo:nil selector:selector];
@@ -1055,7 +1103,7 @@ static const NSUInteger MTMaxUnacknowledgedMessageCount = 64;
                     NSData *data = messageData;
                     
                     if (MTLogEnabled()) {
-                        NSString *messageDescription = [self outgoingMessageDescription:outgoingMessage messageId:messageId messageSeqNo:messageSeqNo];
+                        NSString *messageDescription = [self outgoingMessageDescription:outgoingMessage messageId:messageId messageSeqNo:messageSeqNo authKeyId:authKey.authKeyId];
                         MTLogWithPrefix(_getLogPrefix, @"[MTProto#%p@%p preparing %@]", self, _context, messageDescription);
                     }
                     NSString *shortMessageDescription = [self outgoingShortMessageDescription:outgoingMessage messageId:messageId messageSeqNo:messageSeqNo];
@@ -1106,7 +1154,7 @@ static const NSUInteger MTMaxUnacknowledgedMessageCount = 64;
                     }
                     MTShortLog(@"[MTProto#%p@%p client message id monotonity violated]", self, _context);
                     
-                    [self resetSessionInfo];
+                    [self resetSessionInfo:false];
                 }
                 else if (saltSetEmpty)
                     [self initiateTimeSync];
@@ -1889,6 +1937,20 @@ static const NSUInteger MTMaxUnacknowledgedMessageCount = 64;
     }];
 }
 
+- (void)transportActivityUpdated:(MTTransport * _Nonnull)transport {
+    [[MTProto managerQueue] dispatchOnQueue:^
+    {
+        if (transport != _transport)
+            return;
+        
+        for (id<MTMessageService> messageService in _messageServices)
+        {
+            if ([messageService respondsToSelector:@selector(mtProtoTransportActivityUpdated:)])
+                [messageService mtProtoTransportActivityUpdated:self];
+        }
+    }];
+}
+
 - (void)transportTransactionsSucceeded:(NSArray *)transactionIds
 {
     [[MTProto managerQueue] dispatchOnQueue:^
@@ -1915,7 +1977,7 @@ static NSString *dumpHexString(NSData *data, int maxLength) {
     return hexString;
 }
 
-- (void)transportHasIncomingData:(MTTransport *)transport scheme:(MTTransportScheme *)scheme data:(NSData *)data transactionId:(id)transactionId requestTransactionAfterProcessing:(bool)requestTransactionAfterProcessing decodeResult:(void (^)(id transactionId, bool success))decodeResult
+- (void)transportHasIncomingData:(MTTransport *)transport scheme:(MTTransportScheme *)scheme networkType:(int32_t)networkType data:(NSData *)data transactionId:(id)transactionId requestTransactionAfterProcessing:(bool)requestTransactionAfterProcessing decodeResult:(void (^)(id transactionId, bool success))decodeResult
 {
     /*__block bool simulateError = false;
     static dispatch_once_t onceToken;
@@ -2034,17 +2096,19 @@ static NSString *dumpHexString(NSData *data, int maxLength) {
                 }
                 MTShortLog(@"[MTProto#%p@%p incoming data parse error, header: %d:%@]", self, _context, (int)decryptedData.length, dumpHexString(decryptedData, 128));
                 
-                [_context reportTransportSchemeFailureForDatacenterId:_datacenterId transportScheme:scheme];
+                if (!_useUnauthorizedMode) {
+                    [_context reportTransportSchemeFailureForDatacenterId:_datacenterId transportScheme:scheme];
+                }
                 [self transportTransactionsMayHaveFailed:transport transactionIds:@[transactionId]];
                 
-                [self resetSessionInfo];
+                [self resetSessionInfo:false];
             } else {
                 [_context reportTransportSchemeSuccessForDatacenterId:_datacenterId transportScheme:scheme];
                 [self transportTransactionsSucceeded:@[transactionId]];
                 
                 for (MTIncomingMessage *incomingMessage in parsedMessages)
                 {
-                    [self _processIncomingMessage:incomingMessage totalSize:(int)data.length withTransactionId:transactionId address:scheme.address authInfoSelector:authInfoSelector];
+                    [self _processIncomingMessage:incomingMessage totalSize:(int)data.length withTransactionId:transactionId address:scheme.address authInfoSelector:authInfoSelector networkType:networkType];
                 }
                 
                 if (requestTransactionAfterProcessing)
@@ -2060,7 +2124,9 @@ static NSString *dumpHexString(NSData *data, int maxLength) {
                 decodeResult(transactionId, false);
             
             [self transportTransactionsMayHaveFailed:transport transactionIds:@[transactionId]];
-            [_context reportTransportSchemeFailureForDatacenterId:_datacenterId transportScheme:scheme];
+            if (!_useUnauthorizedMode) {
+                [_context reportTransportSchemeFailureForDatacenterId:_datacenterId transportScheme:scheme];
+            }
             
             [self requestSecureTransportReset];
         }
@@ -2367,7 +2433,7 @@ static bool isDataEqualToDataConstTime(NSData *data1, NSData *data2) {
     return messages;
 }
 
-- (void)_processIncomingMessage:(MTIncomingMessage *)incomingMessage totalSize:(int)totalSize withTransactionId:(id)transactionId address:(MTDatacenterAddress *)address authInfoSelector:(MTDatacenterAuthInfoSelector)authInfoSelector
+- (void)_processIncomingMessage:(MTIncomingMessage *)incomingMessage totalSize:(int)totalSize withTransactionId:(id)transactionId address:(MTDatacenterAddress *)address authInfoSelector:(MTDatacenterAuthInfoSelector)authInfoSelector networkType:(int32_t)networkType
 {
     if ([_sessionInfo messageProcessed:incomingMessage.messageId])
     {
@@ -2441,7 +2507,7 @@ static bool isDataEqualToDataConstTime(NSData *data1, NSData *data2) {
                 case 32:
                 case 33:
                 {
-                    [self resetSessionInfo];
+                    [self resetSessionInfo:false];
                     [self initiateTimeSync];
                     
                     break;
@@ -2550,8 +2616,8 @@ static bool isDataEqualToDataConstTime(NSData *data1, NSData *data2) {
         {
             id<MTMessageService> messageService = _messageServices[(NSUInteger)i];
             
-            if ([messageService respondsToSelector:@selector(mtProto:receivedMessage:authInfoSelector:)])
-                [messageService mtProto:self receivedMessage:incomingMessage authInfoSelector:authInfoSelector];
+            if ([messageService respondsToSelector:@selector(mtProto:receivedMessage:authInfoSelector:networkType:)])
+                [messageService mtProto:self receivedMessage:incomingMessage authInfoSelector:authInfoSelector networkType:networkType];
         }
         
         if (_timeFixContext != nil && [incomingMessage.body isKindOfClass:[MTPongMessage class]] && ((MTPongMessage *)incomingMessage.body).messageId == _timeFixContext.messageId)

@@ -30,7 +30,26 @@ import PremiumUI
 import StickerPackPreviewUI
 import ChatControllerInteraction
 import ChatPresentationInterfaceState
+import StorageUsageScreen
+import DebugSettingsUI
+import MediaPickerUI
+import Photos
+import TextFormat
+import ChatTextLinkEditUI
+import AttachmentTextInputPanelNode
+import ChatEntityKeyboardInputNode
+import HashtagSearchUI
+import PeerInfoStoryGridScreen
+import TelegramAccountAuxiliaryMethods
+import PeerSelectionController
+import LegacyMessageInputPanel
+import StatisticsUI
+import ChatHistoryEntry
+import ChatMessageItem
+import ChatMessageItemImpl
+import ChatRecentActionsController
 
+import NGCore
 import NGData
 
 private final class AccountUserInterfaceInUseContext {
@@ -72,6 +91,13 @@ public final class SharedAccountContextImpl: SharedAccountContext {
     
     private let apsNotificationToken: Signal<Data?, NoError>
     private let voipNotificationToken: Signal<Data?, NoError>
+    
+    public let firebaseSecretStream: Signal<[String: String], NoError>
+    
+    private let authorizationPushConfigurationValue = Promise<AuthorizationCodePushNotificationConfiguration?>(nil)
+    public var authorizationPushConfiguration: Signal<AuthorizationCodePushNotificationConfiguration?, NoError> {
+        return self.authorizationPushConfigurationValue.get()
+    }
     
     private var activeAccountsValue: (primary: AccountContext?, accounts: [(AccountRecordId, AccountContext, Int32)], currentAuth: UnauthorizedAccount?)?
     private let activeAccountsPromise = Promise<(primary: AccountContext?, accounts: [(AccountRecordId, AccountContext, Int32)], currentAuth: UnauthorizedAccount?)>()
@@ -124,6 +150,9 @@ public final class SharedAccountContextImpl: SharedAccountContext {
     }
     private var hasOngoingCallDisposable: Disposable?
     
+    public let enablePreloads = Promise<Bool>()
+    public let hasPreloadBlockingContent = Promise<Bool>(false)
+    
     private var accountUserInterfaceInUseContexts: [AccountRecordId: AccountUserInterfaceInUseContext] = [:]
     
     var switchingData: (settingsController: (SettingsController & ViewController)?, chatListController: ChatListController?, chatListBadge: String?) = (nil, nil, nil)
@@ -141,11 +170,13 @@ public final class SharedAccountContextImpl: SharedAccountContext {
     public let currentInAppNotificationSettings: Atomic<InAppNotificationSettings>
     private var inAppNotificationSettingsDisposable: Disposable?
     
-    public let currentAutomaticMediaDownloadSettings: Atomic<MediaAutoDownloadSettings>
+    public var currentAutomaticMediaDownloadSettings: MediaAutoDownloadSettings
     private let _automaticMediaDownloadSettings = Promise<MediaAutoDownloadSettings>()
     public var automaticMediaDownloadSettings: Signal<MediaAutoDownloadSettings, NoError> {
         return self._automaticMediaDownloadSettings.get()
     }
+    
+    public private(set) var energyUsageSettings: EnergyUsageSettings
     
     public let currentAutodownloadSettings: Atomic<AutodownloadSettings>
     private let _autodownloadSettings = Promise<AutodownloadSettings>()
@@ -153,6 +184,12 @@ public final class SharedAccountContextImpl: SharedAccountContext {
     
     public let currentMediaInputSettings: Atomic<MediaInputSettings>
     private var mediaInputSettingsDisposable: Disposable?
+    
+    public let currentMediaDisplaySettings: Atomic<MediaDisplaySettings>
+    private var mediaDisplaySettingsDisposable: Disposable?
+    
+    public let currentStickerSettings: Atomic<StickerSettings>
+    private var stickerSettingsDisposable: Disposable?
     
     private let automaticMediaDownloadSettingsDisposable = MetaDisposable()
     
@@ -170,7 +207,7 @@ public final class SharedAccountContextImpl: SharedAccountContext {
     private var spotlightDataContext: SpotlightDataContext?
     private var widgetDataContext: WidgetDataContext?
     
-    // MARK: Nicegram DB Changes
+    // MARK: Nicegram DB Changes, additional properties
     private let networkArguments: NetworkInitializationArguments
     private let encryptionParameters: ValueBoxEncryptionParameters
     private let rootPath: String
@@ -180,13 +217,21 @@ public final class SharedAccountContextImpl: SharedAccountContext {
     
     private var applicationInForeground = true
     private var applicationInForegroundDisposable: Disposable?
+    //
+    private weak var appDelegate: AppDelegate?
     
-    public init(mainWindow: Window1?, sharedContainerPath: String, basePath: String, encryptionParameters: ValueBoxEncryptionParameters, accountManager: AccountManager<TelegramAccountManagerTypes>, appLockContext: AppLockContext, applicationBindings: TelegramApplicationBindings, initialPresentationDataAndSettings: InitialPresentationDataAndSettings, networkArguments: NetworkInitializationArguments, hasInAppPurchases: Bool, rootPath: String, legacyBasePath: String?, apsNotificationToken: Signal<Data?, NoError>, voipNotificationToken: Signal<Data?, NoError>, setNotificationCall: @escaping (PresentationCall?) -> Void, navigateToChat: @escaping (AccountRecordId, PeerId, MessageId?) -> Void, displayUpgradeProgress: @escaping (Float?) -> Void = { _ in }, openDoubleBottomFlow: @escaping (AccountContext) -> Void) {
+    private var invalidatedApsToken: Data?
+    
+    private let energyUsageAutomaticDisposable = MetaDisposable()
+    
+    // MARK: Nicegram DB Changes, openDoubleBottomFlow added
+    init(mainWindow: Window1?, sharedContainerPath: String, basePath: String, encryptionParameters: ValueBoxEncryptionParameters, accountManager: AccountManager<TelegramAccountManagerTypes>, appLockContext: AppLockContext, applicationBindings: TelegramApplicationBindings, initialPresentationDataAndSettings: InitialPresentationDataAndSettings, networkArguments: NetworkInitializationArguments, hasInAppPurchases: Bool, rootPath: String, legacyBasePath: String?, apsNotificationToken: Signal<Data?, NoError>, voipNotificationToken: Signal<Data?, NoError>, firebaseSecretStream: Signal<[String: String], NoError>, setNotificationCall: @escaping (PresentationCall?) -> Void, navigateToChat: @escaping (AccountRecordId, PeerId, MessageId?) -> Void, displayUpgradeProgress: @escaping (Float?) -> Void = { _ in }, openDoubleBottomFlow: @escaping (AccountContext) -> Void = { _ in }, appDelegate: AppDelegate?) {
         assert(Queue.mainQueue().isCurrent())
         
     precondition(!testHasInstance)
         testHasInstance = true
         
+        self.appDelegate = appDelegate
         self.mainWindow = mainWindow
         self.applicationBindings = applicationBindings
         self.sharedContainerPath = sharedContainerPath
@@ -209,6 +254,24 @@ public final class SharedAccountContextImpl: SharedAccountContext {
         
         self.apsNotificationToken = apsNotificationToken
         self.voipNotificationToken = voipNotificationToken
+        
+        self.firebaseSecretStream = firebaseSecretStream
+        
+        self.authorizationPushConfigurationValue.set(apsNotificationToken |> map { data -> AuthorizationCodePushNotificationConfiguration? in
+            guard let data else {
+                return nil
+            }
+            let sandbox: Bool
+            #if DEBUG
+            sandbox = true
+            #else
+            sandbox = false
+            #endif
+            return AuthorizationCodePushNotificationConfiguration(
+                token: hexString(data),
+                isSandbox: sandbox
+            )
+        })
                 
         if applicationBindings.isMainApp {
             self.locationManager = DeviceLocationManager(queue: Queue.mainQueue())
@@ -219,10 +282,18 @@ public final class SharedAccountContextImpl: SharedAccountContext {
         }
         
         self._currentPresentationData = Atomic(value: initialPresentationDataAndSettings.presentationData)
-        self.currentAutomaticMediaDownloadSettings = Atomic(value: initialPresentationDataAndSettings.automaticMediaDownloadSettings)
+        self.currentAutomaticMediaDownloadSettings = initialPresentationDataAndSettings.automaticMediaDownloadSettings
         self.currentAutodownloadSettings = Atomic(value: initialPresentationDataAndSettings.autodownloadSettings)
         self.currentMediaInputSettings = Atomic(value: initialPresentationDataAndSettings.mediaInputSettings)
+        self.currentMediaDisplaySettings = Atomic(value: initialPresentationDataAndSettings.mediaDisplaySettings)
+        self.currentStickerSettings = Atomic(value: initialPresentationDataAndSettings.stickerSettings)
         self.currentInAppNotificationSettings = Atomic(value: initialPresentationDataAndSettings.inAppNotificationSettings)
+        
+        if automaticEnergyUsageShouldBeOnNow(settings: self.currentAutomaticMediaDownloadSettings) {
+            self.energyUsageSettings = EnergyUsageSettings.powerSavingDefault
+        } else {
+            self.energyUsageSettings = self.currentAutomaticMediaDownloadSettings.energyUsageSettings
+        }
         
         let presentationData: Signal<PresentationData, NoError> = .single(initialPresentationDataAndSettings.presentationData)
         |> then(
@@ -239,6 +310,17 @@ public final class SharedAccountContextImpl: SharedAccountContext {
         ))
         
         self.mediaManager = MediaManagerImpl(accountManager: accountManager, inForeground: applicationBindings.applicationInForeground, presentationData: presentationData)
+        
+        // MARK: Nicegram Themes
+        if #available(iOS 13.0, *) {
+            _ = (presentationData
+            |> deliverOnMainQueue)
+            .start(next: { presentationData in
+                let isDark = presentationData.theme.overallDarkAppearance
+                UIApplication.findKeyWindow()?.overrideUserInterfaceStyle = isDark ? .dark : .light
+            })
+        }
+        //
         
         self.mediaManager.overlayMediaManager.updatePossibleEmbeddingItem = { [weak self] item in
             guard let strongSelf = self else {
@@ -333,6 +415,24 @@ public final class SharedAccountContextImpl: SharedAccountContext {
             }
         })
         
+        self.mediaDisplaySettingsDisposable = (self.accountManager.sharedData(keys: [ApplicationSpecificSharedDataKeys.mediaDisplaySettings])
+        |> deliverOnMainQueue).start(next: { [weak self] sharedData in
+            if let strongSelf = self {
+                if let settings = sharedData.entries[ApplicationSpecificSharedDataKeys.mediaDisplaySettings]?.get(MediaDisplaySettings.self) {
+                    let _ = strongSelf.currentMediaDisplaySettings.swap(settings)
+                }
+            }
+        })
+        
+        self.stickerSettingsDisposable = (self.accountManager.sharedData(keys: [ApplicationSpecificSharedDataKeys.stickerSettings])
+        |> deliverOnMainQueue).start(next: { [weak self] sharedData in
+            if let strongSelf = self {
+                if let settings = sharedData.entries[ApplicationSpecificSharedDataKeys.stickerSettings]?.get(StickerSettings.self) {
+                    let _ = strongSelf.currentStickerSettings.swap(settings)
+                }
+            }
+        })
+        
         let immediateExperimentalUISettingsValue = self.immediateExperimentalUISettingsValue
         let _ = immediateExperimentalUISettingsValue.swap(initialPresentationDataAndSettings.experimentalUISettings)
         self.experimentalUISettingsDisposable = (self.accountManager.sharedData(keys: [ApplicationSpecificSharedDataKeys.experimentalUISettings])
@@ -352,7 +452,23 @@ public final class SharedAccountContextImpl: SharedAccountContext {
         
         self.automaticMediaDownloadSettingsDisposable.set(self._automaticMediaDownloadSettings.get().start(next: { [weak self] next in
             if let strongSelf = self {
-                let _ = strongSelf.currentAutomaticMediaDownloadSettings.swap(next)
+                strongSelf.currentAutomaticMediaDownloadSettings = next
+                
+                if automaticEnergyUsageShouldBeOnNow(settings: next) {
+                    strongSelf.energyUsageSettings = EnergyUsageSettings.powerSavingDefault
+                } else {
+                    strongSelf.energyUsageSettings = next.energyUsageSettings
+                }
+                strongSelf.energyUsageAutomaticDisposable.set((automaticEnergyUsageShouldBeOn(settings: next)
+                |> deliverOnMainQueue).start(next: { value in
+                    if let strongSelf = self {
+                        if value {
+                            strongSelf.energyUsageSettings = EnergyUsageSettings.powerSavingDefault
+                        } else {
+                            strongSelf.energyUsageSettings = next.energyUsageSettings
+                        }
+                    }
+                }))
             }
         }))
         
@@ -431,7 +547,7 @@ public final class SharedAccountContextImpl: SharedAccountContext {
             var addedAuthSignal: Signal<UnauthorizedAccount?, NoError> = .single(nil)
             for (id, attributes) in records {
                 if self.activeAccountsValue?.accounts.firstIndex(where: { $0.0 == id}) == nil {
-                    addedSignals.append(accountWithId(accountManager: accountManager, networkArguments: networkArguments, id: id, encryptionParameters: encryptionParameters, supplementary: !applicationBindings.isMainApp, rootPath: rootPath, beginWithTestingEnvironment: attributes.isTestingEnvironment, backupData: attributes.backupData, auxiliaryMethods: telegramAccountAuxiliaryMethods)
+                    addedSignals.append(accountWithId(accountManager: accountManager, networkArguments: networkArguments, id: id, encryptionParameters: encryptionParameters, supplementary: !applicationBindings.isMainApp, rootPath: rootPath, beginWithTestingEnvironment: attributes.isTestingEnvironment, backupData: attributes.backupData, auxiliaryMethods: makeTelegramAccountAuxiliaryMethods(uploadInBackground: appDelegate?.uploadInBackround))
                     |> mapToSignal { result -> Signal<AddedAccountResult, NoError> in
                         switch result {
                             case let .authorized(account):
@@ -453,7 +569,7 @@ public final class SharedAccountContextImpl: SharedAccountContext {
                 }
             }
             if let authRecord = authRecord, authRecord.0 != self.activeAccountsValue?.currentAuth?.id {
-                addedAuthSignal = accountWithId(accountManager: accountManager, networkArguments: networkArguments, id: authRecord.0, encryptionParameters: encryptionParameters, supplementary: !applicationBindings.isMainApp, rootPath: rootPath, beginWithTestingEnvironment: authRecord.1, backupData: nil, auxiliaryMethods: telegramAccountAuxiliaryMethods)
+                addedAuthSignal = accountWithId(accountManager: accountManager, networkArguments: networkArguments, id: authRecord.0, encryptionParameters: encryptionParameters, supplementary: !applicationBindings.isMainApp, rootPath: rootPath, beginWithTestingEnvironment: authRecord.1, backupData: nil, auxiliaryMethods: makeTelegramAccountAuxiliaryMethods(uploadInBackground: appDelegate?.uploadInBackround))
                 |> mapToSignal { result -> Signal<UnauthorizedAccount?, NoError> in
                     switch result {
                         case let .unauthorized(account):
@@ -586,6 +702,8 @@ public final class SharedAccountContextImpl: SharedAccountContext {
                 if hadUpdates {
                     self.activeAccountsValue!.accounts.sort(by: { $0.2 < $1.2 })
                     self.activeAccountsPromise.set(.single(self.activeAccountsValue!))
+                    
+                    self.performAccountSettingsImportIfNecessary()
                 }
                 
                 if self.activeAccountsValue!.primary == nil && self.activeAccountsValue!.currentAuth == nil {
@@ -802,7 +920,21 @@ public final class SharedAccountContextImpl: SharedAccountContext {
             let _ = immediateHasOngoingCallValue.swap(value)
         })
         
-        let _ = managedCleanupAccounts(networkArguments: networkArguments, accountManager: self.accountManager, rootPath: rootPath, auxiliaryMethods: telegramAccountAuxiliaryMethods, encryptionParameters: encryptionParameters).start()
+        self.enablePreloads.set(combineLatest(
+            self.hasOngoingCall.get(),
+            self.hasPreloadBlockingContent.get()
+        )
+        |> map { hasOngoingCall, hasPreloadBlockingContent -> Bool in
+            if hasOngoingCall {
+                return false
+            }
+            if hasPreloadBlockingContent {
+                return false
+            }
+            return true
+        })
+        
+        let _ = managedCleanupAccounts(networkArguments: networkArguments, accountManager: self.accountManager, rootPath: rootPath, auxiliaryMethods: makeTelegramAccountAuxiliaryMethods(uploadInBackground: appDelegate?.uploadInBackround), encryptionParameters: encryptionParameters).start()
         
         self.updateNotificationTokensRegistration()
         
@@ -881,12 +1013,44 @@ public final class SharedAccountContextImpl: SharedAccountContext {
         self.currentAutodownloadSettingsDisposable.dispose()
         self.inAppNotificationSettingsDisposable?.dispose()
         self.mediaInputSettingsDisposable?.dispose()
+        self.mediaDisplaySettingsDisposable?.dispose()
         self.callDisposable?.dispose()
         self.groupCallDisposable?.dispose()
         self.callStateDisposable?.dispose()
         // MARK: Nicegram DB Changes
         self.activeAccountsSettingsDisposable?.dispose()
         self.applicationInForegroundDisposable?.dispose()
+    }
+    
+    private var didPerformAccountSettingsImport = false
+    private func performAccountSettingsImportIfNecessary() {
+        if self.didPerformAccountSettingsImport {
+            return
+        }
+        if let _ = UserDefaults.standard.value(forKey: "didPerformAccountSettingsImport") {
+            self.didPerformAccountSettingsImport = true
+            return
+        }
+        UserDefaults.standard.set(true as NSNumber, forKey: "didPerformAccountSettingsImport")
+        UserDefaults.standard.synchronize()
+        
+        if let primary = self.activeAccountsValue?.primary {
+            let _ = (primary.engine.data.get(TelegramEngine.EngineData.Item.Peer.Peer(id: primary.account.peerId))
+            |> deliverOnMainQueue).start(next: { [weak self] peer in
+                guard let self, case let .user(user) = peer else {
+                    return
+                }
+                if user.isPremium {
+                    let _ = updateMediaDownloadSettingsInteractively(accountManager: self.accountManager, { settings in
+                        var settings = settings
+                        settings.energyUsageSettings.loopEmoji = true
+                        return settings
+                    }).start()
+                }
+            })
+        }
+        
+        self.didPerformAccountSettingsImport = true
     }
     
     private func updateAccountBackupData(account: Account) -> Signal<Never, NoError> {
@@ -943,18 +1107,26 @@ public final class SharedAccountContextImpl: SharedAccountContext {
             return true
         })
         
-        self.registeredNotificationTokensDisposable.set((combineLatest(queue: .mainQueue(), settings, self.activeAccountContexts)
-        |> mapToSignal { settings, activeAccountsAndInfo -> Signal<Never, NoError> in
+        let updatedApsToken = self.apsNotificationToken |> distinctUntilChanged(isEqual: { $0 == $1 })
+        self.registeredNotificationTokensDisposable.set((combineLatest(
+            queue: .mainQueue(),
+            settings,
+            self.activeAccountContexts,
+            updatedApsToken
+        )
+        |> mapToSignal { settings, activeAccountsAndInfo, apsNotificationToken -> Signal<(Bool, Data?), NoError> in
             let (primary, activeAccounts, _) = activeAccountsAndInfo
-            var applied: [Signal<Never, NoError>] = []
-            // MARK: Nicegram DB Changes
-            var activeProductionUserIds = activeAccounts.map({ $0.1.account }).filter({ !$0.testingEnvironment }).map({ $0.peerId.id })
-            var activeTestingUserIds = activeAccounts.map({ $0.1.account }).filter({ $0.testingEnvironment }).map({ $0.peerId.id })
+            var appliedApsList: [Signal<Bool?, NoError>] = []
+            var appliedVoipList: [Signal<Never, NoError>] = []
+            var activeProductionUserIds = activeAccounts.map({ $0.1 }).filter({ !$0.account.testingEnvironment }).map({ $0.account.peerId.id })
+            var activeTestingUserIds = activeAccounts.map({ $0.1 }).filter({ $0.account.testingEnvironment }).map({ $0.account.peerId.id })
             
             let allProductionUserIds = activeProductionUserIds
             let allTestingUserIds = activeTestingUserIds
+            // MARK: Nicegram DB Changes
             let isDoubleBottom = VarSystemNGSettings.isDoubleBottomOn
             let inDoubleBottom = VarSystemNGSettings.inDoubleBottom
+            //
 
             if let primary = primary,
                primary.account.isHidden,
@@ -977,13 +1149,14 @@ public final class SharedAccountContextImpl: SharedAccountContext {
                 }
             }
             for (_, account, _) in activeAccounts {
-                let appliedAps: Signal<Never, NoError>
+                let appliedAps: Signal<Bool, NoError>
                 let appliedVoip: Signal<Never, NoError>
-                print(account.account.peerId.id)
+                
+                // MARK: Nicegram DB Changes (2 additional if cases)
                 if let primary = primary, isDoubleBottom, primary.account.isHidden, account.account.peerId == primary.account.peerId, inDoubleBottom {
                     appliedAps = self.apsNotificationToken
                     |> distinctUntilChanged(isEqual: { $0 == $1 })
-                    |> mapToSignal { token -> Signal<Never, NoError> in
+                    |> mapToSignal { token -> Signal<Bool, NoError> in
                         guard let token = token else {
                             return .complete()
                         }
@@ -1002,16 +1175,18 @@ public final class SharedAccountContextImpl: SharedAccountContext {
                             return .complete()
                         }
                         return account.engine.accountData.registerNotificationToken(token: token, type: .voip, sandbox: sandbox, otherAccountUserIds: (account.account.testingEnvironment ? activeTestingUserIds : activeProductionUserIds).filter({ $0 != account.account.peerId.id }), excludeMutedChats: !settings.includeMuted)
+                        |> ignoreValues
                     }
                 } else if let primary = primary, isDoubleBottom, primary.account.isHidden, account.account.peerId != primary.account.peerId, inDoubleBottom {
-                    appliedAps = self.apsNotificationToken
-                    |> distinctUntilChanged(isEqual: { $0 == $1 })
-                    |> mapToSignal { token -> Signal<Never, NoError> in
-                        guard let token = token else {
-                            return .complete()
+                    if let apsNotificationToken {
+                        appliedAps = account.engine.accountData.unregisterNotificationToken(token: apsNotificationToken, type: .aps(encrypt: false), otherAccountUserIds: (account.account.testingEnvironment ? allTestingUserIds : allProductionUserIds).filter({ $0 != account.account.peerId.id }))
+                        |> map { _ -> Bool in
                         }
-                        return account.engine.accountData.unregisterNotificationToken(token: token, type: .aps(encrypt: false), otherAccountUserIds: (account.account.testingEnvironment ? allTestingUserIds : allProductionUserIds).filter({ $0 != account.account.peerId.id }))
+                        |> then(.single(true))
+                    } else {
+                        appliedAps = .single(true)
                     }
+                    
                     appliedVoip = self.voipNotificationToken
                     |> distinctUntilChanged(isEqual: { $0 == $1 })
                     |> mapToSignal { token -> Signal<Never, NoError> in
@@ -1020,15 +1195,18 @@ public final class SharedAccountContextImpl: SharedAccountContext {
                         }
                         return account.engine.accountData.unregisterNotificationToken(token: token, type: .voip, otherAccountUserIds: (account.account.testingEnvironment ? allTestingUserIds : allProductionUserIds).filter({ $0 != account.account.peerId.id }))
                     }
-                } else if (!activeProductionUserIds.contains(account.account.peerId.id) && !activeTestingUserIds.contains(account.account.peerId.id)) {
-                    appliedAps = self.apsNotificationToken
-                    |> distinctUntilChanged(isEqual: { $0 == $1 })
-                    |> mapToSignal { token -> Signal<Never, NoError> in
-                        guard let token = token else {
-                            return .complete()
+                }
+                //
+                else if !activeProductionUserIds.contains(account.account.peerId.id) && !activeTestingUserIds.contains(account.account.peerId.id) {
+                    if let apsNotificationToken {
+                        appliedAps = account.engine.accountData.unregisterNotificationToken(token: apsNotificationToken, type: .aps(encrypt: false), otherAccountUserIds: (account.account.testingEnvironment ? allTestingUserIds : allProductionUserIds).filter({ $0 != account.account.peerId.id }))
+                        |> map { _ -> Bool in
                         }
-                        return account.engine.accountData.unregisterNotificationToken(token: token, type: .aps(encrypt: false), otherAccountUserIds: (account.account.testingEnvironment ? allTestingUserIds : allProductionUserIds).filter({ $0 != account.account.peerId.id }))
+                        |> then(.single(true))
+                    } else {
+                        appliedAps = .single(true)
                     }
+                    
                     appliedVoip = self.voipNotificationToken
                     |> distinctUntilChanged(isEqual: { $0 == $1 })
                     |> mapToSignal { token -> Signal<Never, NoError> in
@@ -1038,19 +1216,10 @@ public final class SharedAccountContextImpl: SharedAccountContext {
                         return account.engine.accountData.unregisterNotificationToken(token: token, type: .voip, otherAccountUserIds: (account.account.testingEnvironment ? allTestingUserIds : allProductionUserIds).filter({ $0 != account.account.peerId.id }))
                     }
                 } else {
-                    appliedAps = self.apsNotificationToken
-                    |> distinctUntilChanged(isEqual: { $0 == $1 })
-                    |> mapToSignal { token -> Signal<Never, NoError> in
-                        guard let token = token else {
-                            return .complete()
-                        }
-                        let encrypt: Bool
-                        if #available(iOS 10.0, *) {
-                            encrypt = true
-                        } else {
-                            encrypt = false
-                        }
-                        return account.engine.accountData.registerNotificationToken(token: token, type: .aps(encrypt: encrypt), sandbox: sandbox, otherAccountUserIds: (account.account.testingEnvironment ? activeTestingUserIds : activeProductionUserIds).filter({ $0 != account.account.peerId.id }), excludeMutedChats: !settings.includeMuted)
+                    if let apsNotificationToken {
+                        appliedAps = account.engine.accountData.registerNotificationToken(token: apsNotificationToken, type: .aps(encrypt: true), sandbox: sandbox, otherAccountUserIds: (account.account.testingEnvironment ? activeTestingUserIds : activeProductionUserIds).filter({ $0 != account.account.peerId.id }), excludeMutedChats: !settings.includeMuted)
+                    } else {
+                        appliedAps = .single(true)
                     }
                     appliedVoip = self.voipNotificationToken
                     |> distinctUntilChanged(isEqual: { $0 == $1 })
@@ -1059,15 +1228,47 @@ public final class SharedAccountContextImpl: SharedAccountContext {
                             return .complete()
                         }
                         return account.engine.accountData.registerNotificationToken(token: token, type: .voip, sandbox: sandbox, otherAccountUserIds: (account.account.testingEnvironment ? activeTestingUserIds : activeProductionUserIds).filter({ $0 != account.account.peerId.id }), excludeMutedChats: !settings.includeMuted)
+                        |> ignoreValues
                     }
                 }
                 
-                applied.append(appliedAps)
-                applied.append(appliedVoip)
+                appliedApsList.append(Signal<Bool?, NoError>.single(nil) |> then(appliedAps |> map(Optional.init)))
+                appliedVoipList.append(appliedVoip)
             }
-            return combineLatest(applied)
-            |> ignoreValues
-        }).start())
+            
+            let allApsSuccess = combineLatest(appliedApsList)
+            |> map { values -> Bool in
+                return !values.contains(false)
+            }
+            
+            let allVoipSuccess = combineLatest(appliedVoipList)
+            
+            return combineLatest(
+                allApsSuccess,
+                Signal<Void, NoError>.single(Void())
+                |> then(
+                    allVoipSuccess
+                    |> map { _ -> Void in
+                        return Void()
+                    }
+                )
+            )
+            |> map { allApsSuccess, _ -> (Bool, Data?) in
+                return (allApsSuccess, apsNotificationToken)
+            }
+        }
+        |> deliverOnMainQueue).start(next: { [weak self] allApsSuccess, apsToken in
+            guard let self, let appDelegate = self.appDelegate else {
+                return
+            }
+            if !allApsSuccess {
+                if self.invalidatedApsToken != apsToken {
+                    self.invalidatedApsToken = apsToken
+                    
+                    appDelegate.requestNotificationTokenInvalidation()
+                }
+            }
+        }))
     }
     
     public func beginNewAuth(testingEnvironment: Bool) {
@@ -1256,6 +1457,11 @@ public final class SharedAccountContextImpl: SharedAccountContext {
         return controller
     }
     
+    public func makeDebugSettingsController(context: AccountContext?) -> ViewController? {
+        let controller = debugController(sharedContext: self, context: context)
+        return controller
+    }
+    
     public func openExternalUrl(context: AccountContext, urlContext: OpenURLContext, url: String, forceExternal: Bool, presentationData: PresentationData, navigationController: NavigationController?, dismissInput: @escaping () -> Void) {
         openExternalUrlImpl(context: context, urlContext: urlContext, url: url, forceExternal: forceExternal, presentationData: presentationData, navigationController: navigationController, dismissInput: dismissInput)
     }
@@ -1288,8 +1494,9 @@ public final class SharedAccountContextImpl: SharedAccountContext {
         guard let navigationController = self.mainWindow?.viewController as? NavigationController else {
             return
         }
-        
-        let controller = storageUsageController(context: context, isModal: true)
+        let controller = StorageUsageScreen(context: context, makeStorageUsageExceptionsScreen: { category in
+            return storageUsageExceptionsScreen(context: context, category: category)
+        })
         navigationController.pushViewController(controller)
     }
     
@@ -1305,7 +1512,7 @@ public final class SharedAccountContextImpl: SharedAccountContext {
         
         if !found {
             let controllerParams = LocationViewParams(sendLiveLocation: { location in
-                //let outMessage: EnqueueMessage = .message(text: "", attributes: [], mediaReference: .standalone(media: location), replyToMessageId: nil, localGroupingKey: nil, correlationId: nil)
+                //let outMessage: EnqueueMessage = .message(text: "", attributes: [], mediaReference: .standalone(media: location), threadId: nil, replyToMessageId: nil, replyToStoryId: nil, localGroupingKey: nil, correlationId: nil)
 //                params.enqueueMessage(outMessage)
             }, stopLiveLocation: { messageId in
                 if let messageId = messageId {
@@ -1320,7 +1527,7 @@ public final class SharedAccountContextImpl: SharedAccountContext {
                 guard let message = message else {
                     return
                 }
-                let controller = LocationViewController(context: context, subject: message._asMessage(), params: controllerParams)
+                let controller = LocationViewController(context: context, subject: message, params: controllerParams)
                 controller.navigationPresentation = .modal
                 navigationController.pushViewController(controller)
             })
@@ -1329,10 +1536,22 @@ public final class SharedAccountContextImpl: SharedAccountContext {
     
     public func resolveUrl(context: AccountContext, peerId: PeerId?, url: String, skipUrlAuth: Bool) -> Signal<ResolvedUrl, NoError> {
         return resolveUrlImpl(context: context, peerId: peerId, url: url, skipUrlAuth: skipUrlAuth)
+        |> mapToSignal { result -> Signal<ResolvedUrl, NoError> in
+            switch result {
+            case .progress:
+                return .complete()
+            case let .result(value):
+                return .single(value)
+            }
+        }
     }
     
-    public func openResolvedUrl(_ resolvedUrl: ResolvedUrl, context: AccountContext, urlContext: OpenURLContext, navigationController: NavigationController?, forceExternal: Bool, openPeer: @escaping (EnginePeer, ChatControllerInteractionNavigateToPeer) -> Void, sendFile: ((FileMediaReference) -> Void)?, sendSticker: ((FileMediaReference, UIView, CGRect) -> Bool)?, requestMessageActionUrlAuth: ((MessageActionUrlSubject) -> Void)?, joinVoiceChat: ((PeerId, String?, CachedChannelData.ActiveCall) -> Void)?, present: @escaping (ViewController, Any?) -> Void, dismissInput: @escaping () -> Void, contentContext: Any?) {
-        openResolvedUrlImpl(resolvedUrl, context: context, urlContext: urlContext, navigationController: navigationController, forceExternal: forceExternal, openPeer: openPeer, sendFile: sendFile, sendSticker: sendSticker, requestMessageActionUrlAuth: requestMessageActionUrlAuth, joinVoiceChat: joinVoiceChat, present: present, dismissInput: dismissInput, contentContext: contentContext)
+    public func resolveUrlWithProgress(context: AccountContext, peerId: PeerId?, url: String, skipUrlAuth: Bool) -> Signal<ResolveUrlResult, NoError> {
+        return resolveUrlImpl(context: context, peerId: peerId, url: url, skipUrlAuth: skipUrlAuth)
+    }
+    
+    public func openResolvedUrl(_ resolvedUrl: ResolvedUrl, context: AccountContext, urlContext: OpenURLContext, navigationController: NavigationController?, forceExternal: Bool, openPeer: @escaping (EnginePeer, ChatControllerInteractionNavigateToPeer) -> Void, sendFile: ((FileMediaReference) -> Void)?, sendSticker: ((FileMediaReference, UIView, CGRect) -> Bool)?, requestMessageActionUrlAuth: ((MessageActionUrlSubject) -> Void)?, joinVoiceChat: ((PeerId, String?, CachedChannelData.ActiveCall) -> Void)?, present: @escaping (ViewController, Any?) -> Void, dismissInput: @escaping () -> Void, contentContext: Any?, progress: Promise<Bool>?) {
+        openResolvedUrlImpl(resolvedUrl, context: context, urlContext: urlContext, navigationController: navigationController, forceExternal: forceExternal, openPeer: openPeer, sendFile: sendFile, sendSticker: sendSticker, requestMessageActionUrlAuth: requestMessageActionUrlAuth, joinVoiceChat: joinVoiceChat, present: present, dismissInput: dismissInput, contentContext: contentContext, progress: progress)
     }
     
     public func makeDeviceContactInfoController(context: AccountContext, subject: DeviceContactInfoSubject, completed: (() -> Void)?, cancelled: (() -> Void)?) -> ViewController {
@@ -1407,17 +1626,17 @@ public final class SharedAccountContextImpl: SharedAccountContext {
         let controllerInteraction: ChatControllerInteraction
 
         controllerInteraction = ChatControllerInteraction(openMessage: { _, _ in
-            return false }, openPeer: { _, _, _, _ in }, openPeerMention: { _ in }, openMessageContextMenu: { _, _, _, _, _, _ in }, openMessageReactionContextMenu: { _, _, _, _ in
+            return false }, openPeer: { _, _, _, _ in }, openPeerMention: { _, _ in }, openMessageContextMenu: { _, _, _, _, _, _ in }, openMessageReactionContextMenu: { _, _, _, _ in
             }, updateMessageReaction: { _, _ in }, activateMessagePinch: { _ in
-            }, openMessageContextActions: { _, _, _, _ in }, navigateToMessage: { _, _ in }, navigateToMessageStandalone: { _ in
+            }, openMessageContextActions: { _, _, _, _ in }, navigateToMessage: { _, _, _ in }, navigateToMessageStandalone: { _ in
             }, navigateToThreadMessage: { _, _, _ in
             }, tapMessage: { message in
                 tapMessage?(message)
         }, clickThroughMessage: {
             clickThroughMessage?()
-        }, toggleMessagesSelection: { _, _ in }, sendCurrentMessage: { _ in }, sendMessage: { _ in }, sendSticker: { _, _, _, _, _, _, _, _, _ in return false }, sendEmoji: { _, _ in }, sendGif: { _, _, _, _, _ in return false }, sendBotContextResultAsGif: { _, _, _, _, _ in
+        }, toggleMessagesSelection: { _, _ in }, sendCurrentMessage: { _ in }, sendMessage: { _ in }, sendSticker: { _, _, _, _, _, _, _, _, _ in return false }, sendEmoji: { _, _, _ in }, sendGif: { _, _, _, _, _ in return false }, sendBotContextResultAsGif: { _, _, _, _, _, _ in
             return false
-        }, requestMessageActionCallback: { _, _, _, _ in }, requestMessageActionUrlAuth: { _, _ in }, activateSwitchInline: { _, _ in }, openUrl: { _, _, _, _ in }, shareCurrentLocation: {}, shareAccountContact: {}, sendBotCommand: { _, _ in }, openInstantPage: { _, _ in  }, openWallpaper: { _ in  }, openTheme: { _ in  }, openHashtag: { _, _ in }, updateInputState: { _ in }, updateInputMode: { _ in }, openMessageShareMenu: { _ in
+        }, requestMessageActionCallback: { _, _, _, _ in }, requestMessageActionUrlAuth: { _, _ in }, activateSwitchInline: { _, _, _ in }, openUrl: { _ in }, shareCurrentLocation: {}, shareAccountContact: {}, sendBotCommand: { _, _ in }, openInstantPage: { _, _ in  }, openWallpaper: { _ in  }, openTheme: { _ in  }, openHashtag: { _, _ in }, updateInputState: { _ in }, updateInputMode: { _ in }, openMessageShareMenu: { _ in
         }, presentController: { _, _ in
         }, presentControllerInCurrent: { _, _ in
         }, navigationController: {
@@ -1427,6 +1646,8 @@ public final class SharedAccountContextImpl: SharedAccountContext {
         }, presentGlobalOverlayController: { _, _ in }, callPeer: { _, _ in }, longTap: { _, _ in }, openCheckoutOrReceipt: { _ in }, openSearch: { }, setupReply: { _ in
         }, canSetupReply: { _ in
             return .none
+        }, canSendMessages: {
+            return false
         }, navigateToFirstDateMessage: { _, _ in
         }, requestRedeliveryOfFailedMessages: { _ in
         }, addContact: { _ in
@@ -1439,7 +1660,7 @@ public final class SharedAccountContextImpl: SharedAccountContext {
         }, scheduleCurrentMessage: {
         }, sendScheduledMessagesNow: { _ in
         }, editScheduledMessagesTime: { _ in
-        }, performTextSelectionAction: { _, _, _ in
+        }, performTextSelectionAction: { _, _, _, _ in
         }, displayImportedMessageTooltip: { _ in
         }, displaySwipeToReplyHint: {
         }, dismissReplyMarkupMessage: { _ in
@@ -1468,12 +1689,18 @@ public final class SharedAccountContextImpl: SharedAccountContext {
         }, openJoinLink: { _ in
         }, openWebView: { _, _, _, _ in
         }, activateAdAction: { _ in
+        }, openRequestedPeerSelection: { _, _, _ in
+        }, saveMediaToFiles: { _ in
+        }, openNoAdsDemo: {
+        }, displayGiveawayParticipationStatus: { _ in
         }, requestMessageUpdate: { _, _ in
         }, cancelInteractiveKeyboardGestures: {
         }, dismissTextInput: {
         }, scrollToMessageId: { _ in
+        }, navigateToStory: { _, _ in
+        }, attemptedNavigationToPrivateQuote: { _ in
         }, automaticMediaDownloadSettings: MediaAutoDownloadSettings.defaultSettings,
-        pollActionState: ChatInterfacePollActionState(), stickerSettings: ChatInterfaceStickerSettings(loopAnimatedStickers: false), presentationContext: ChatPresentationContext(context: context, backgroundNode: backgroundNode as? WallpaperBackgroundNode))
+        pollActionState: ChatInterfacePollActionState(), stickerSettings: ChatInterfaceStickerSettings(), presentationContext: ChatPresentationContext(context: context, backgroundNode: backgroundNode as? WallpaperBackgroundNode))
         
         var entryAttributes = ChatMessageEntryAttributes()
         entryAttributes.isCentered = isCentered
@@ -1488,7 +1715,7 @@ public final class SharedAccountContextImpl: SharedAccountContext {
             chatLocation = .peer(id: messages.first!.id.peerId)
         }
         
-        return ChatMessageItem(presentationData: ChatPresentationData(theme: ChatPresentationThemeData(theme: theme, wallpaper: wallpaper), fontSize: fontSize, strings: strings, dateTimeFormat: dateTimeFormat, nameDisplayOrder: nameOrder, disableAnimations: false, largeEmoji: false, chatBubbleCorners: chatBubbleCorners, animatedEmojiScale: 1.0, isPreview: true), context: context, chatLocation: chatLocation, associatedData: ChatMessageItemAssociatedData(automaticDownloadPeerType: .contact, automaticDownloadNetworkType: .cellular, isRecentActions: false, subject: nil, contactsPeerIds: Set(), animatedEmojiStickers: [:], forcedResourceStatus: forcedResourceStatus, availableReactions: availableReactions, defaultReaction: nil, isPremium: false, accountPeer: nil, forceInlineReactions: true), controllerInteraction: controllerInteraction, content: content, disableDate: true, additionalContent: nil)
+        return ChatMessageItemImpl(presentationData: ChatPresentationData(theme: ChatPresentationThemeData(theme: theme, wallpaper: wallpaper), fontSize: fontSize, strings: strings, dateTimeFormat: dateTimeFormat, nameDisplayOrder: nameOrder, disableAnimations: false, largeEmoji: false, chatBubbleCorners: chatBubbleCorners, animatedEmojiScale: 1.0, isPreview: true), context: context, chatLocation: chatLocation, associatedData: ChatMessageItemAssociatedData(automaticDownloadPeerType: .contact, automaticDownloadPeerId: nil, automaticDownloadNetworkType: .cellular, isRecentActions: false, subject: nil, contactsPeerIds: Set(), animatedEmojiStickers: [:], forcedResourceStatus: forcedResourceStatus, availableReactions: availableReactions, defaultReaction: nil, isPremium: false, accountPeer: nil, forceInlineReactions: true), controllerInteraction: controllerInteraction, content: content, disableDate: true, additionalContent: nil)
     }
     
     public func makeChatMessageDateHeaderItem(context: AccountContext, timestamp: Int32, theme: PresentationTheme, strings: PresentationStrings, wallpaper: TelegramWallpaper, fontSize: PresentationFontSize, chatBubbleCorners: PresentationChatBubbleCorners, dateTimeFormat: PresentationDateTimeFormat, nameOrder: PresentationPersonNameOrder) -> ListViewItemHeader {
@@ -1527,6 +1754,14 @@ public final class SharedAccountContextImpl: SharedAccountContext {
         })
     }
     
+    public func openChatInstantPage(context: AccountContext, message: Message, sourcePeerType: MediaAutoDownloadPeerType?, navigationController: NavigationController) {
+        openChatInstantPageImpl(context: context, message: message, sourcePeerType: sourcePeerType, navigationController: navigationController)
+    }
+    
+    public func openChatWallpaper(context: AccountContext, message: Message, present: @escaping (ViewController, Any?) -> Void) {
+        openChatWallpaperImpl(context: context, message: message, present: present)
+    }
+    
     public func makeRecentSessionsController(context: AccountContext, activeSessionsContext: ActiveSessionsContext) -> ViewController & RecentSessionsController {
         return recentSessionsController(context: context, activeSessionsContext: activeSessionsContext, webSessionsContext: context.engine.privacy.webSessions(), websitesOnly: false)
     }
@@ -1539,7 +1774,50 @@ public final class SharedAccountContextImpl: SharedAccountContext {
         return SettingsUI.makePrivacyAndSecurityController(context: context)
     }
     
-    public func makePremiumIntroController(context: AccountContext, source: PremiumIntroSource) -> ViewController {
+    public func makeSetupTwoFactorAuthController(context: AccountContext) -> ViewController {
+        return SettingsUI.makeSetupTwoFactorAuthController(context: context)
+    }
+    
+    public func makeStorageManagementController(context: AccountContext) -> ViewController {
+        return StorageUsageScreen(context: context, makeStorageUsageExceptionsScreen: { [weak context] category in
+            guard let context else {
+                return nil
+            }
+            return storageUsageExceptionsScreen(context: context, category: category)
+        })
+    }
+    
+    public func makeAttachmentFileController(context: AccountContext, updatedPresentationData: (initial: PresentationData, signal: Signal<PresentationData, NoError>)?, bannedSendMedia: (Int32, Bool)?, presentGallery: @escaping () -> Void, presentFiles: @escaping () -> Void, send: @escaping (AnyMediaReference) -> Void) -> AttachmentFileController {
+        return makeAttachmentFileControllerImpl(context: context, updatedPresentationData: updatedPresentationData, bannedSendMedia: bannedSendMedia, presentGallery: presentGallery, presentFiles: presentFiles, send: send)
+    }
+    
+    public func makeGalleryCaptionPanelView(context: AccountContext, chatLocation: ChatLocation, isScheduledMessages: Bool, customEmojiAvailable: Bool, present: @escaping (ViewController) -> Void, presentInGlobalOverlay: @escaping (ViewController) -> Void) -> NSObject? {
+        let inputPanelNode = LegacyMessageInputPanelNode(
+            context: context,
+            chatLocation: chatLocation,
+            isScheduledMessages: isScheduledMessages,
+            present: present,
+            presentInGlobalOverlay: presentInGlobalOverlay,
+            makeEntityInputView: {
+                return EntityInputView(context: context, isDark: true, areCustomEmojiEnabled: customEmojiAvailable)
+            }
+        )
+        return inputPanelNode
+    }
+    
+    public func makeHashtagSearchController(context: AccountContext, peer: EnginePeer?, query: String, all: Bool) -> ViewController {
+        return HashtagSearchController(context: context, peer: peer, query: query, all: all)
+    }
+    
+    public func makeMyStoriesController(context: AccountContext, isArchive: Bool) -> ViewController {
+        return PeerInfoStoryGridScreen(context: context, peerId: context.account.peerId, scope: isArchive ? .archive : .saved)
+    }
+    
+    public func makeArchiveSettingsController(context: AccountContext) -> ViewController {
+        return archiveSettingsController(context: context)
+    }
+    
+    public func makePremiumIntroController(context: AccountContext, source: PremiumIntroSource, forceDark: Bool, dismissed: (() -> Void)?) -> ViewController {
         let mappedSource: PremiumSource
         switch source {
         case .settings:
@@ -1582,8 +1860,30 @@ public final class SharedAccountContextImpl: SharedAccountContext {
             mappedSource = .voiceToText
         case .fasterDownload:
             mappedSource = .fasterDownload
+        case .translation:
+            mappedSource = .translation
+        case .stories:
+            mappedSource = .stories
+        case .storiesDownload:
+            mappedSource = .storiesDownload
+        case .storiesStealthMode:
+            mappedSource = .storiesStealthMode
+        case .storiesPermanentViews:
+            mappedSource = .storiesPermanentViews
+        case .storiesFormatting:
+            mappedSource = .storiesFormatting
+        case .storiesExpirationDurations:
+            mappedSource = .storiesExpirationDurations
+        case .storiesSuggestedReactions:
+            mappedSource = .storiesSuggestedReactions
+        case let .channelBoost(peerId):
+            mappedSource = .channelBoost(peerId)
+        case .nameColor:
+            mappedSource = .nameColor
         }
-        return PremiumIntroScreen(context: context, source: mappedSource)
+        let controller = PremiumIntroScreen(context: context, source: mappedSource, forceDark: forceDark)
+        controller.wasDismissed = dismissed
+        return controller
     }
     
     public func makePremiumDemoController(context: AccountContext, subject: PremiumDemoSubject, action: @escaping () -> Void) -> ViewController {
@@ -1615,20 +1915,67 @@ public final class SharedAccountContextImpl: SharedAccountContext {
             mappedSubject = .animatedEmoji
         case .emojiStatus:
             mappedSubject = .emojiStatus
+        case .translation:
+            mappedSubject = .translation
+        case .stories:
+            mappedSubject = .stories
         }
         return PremiumDemoScreen(context: context, subject: mappedSubject, action: action)
     }
     
+    public func makePremiumLimitController(context: AccountContext, subject: PremiumLimitSubject, count: Int32, forceDark: Bool, cancel: @escaping () -> Void, action: @escaping () -> Bool) -> ViewController {
+        let mappedSubject: PremiumLimitScreen.Subject
+        switch subject {
+        case .folders:
+            mappedSubject = .folders
+        case .chatsPerFolder:
+            mappedSubject = .chatsPerFolder
+        case .pins:
+            mappedSubject = .pins
+        case .files:
+            mappedSubject = .files
+        case .accounts:
+            mappedSubject = .accounts
+        case .linksPerSharedFolder:
+            mappedSubject = .linksPerSharedFolder
+        case .membershipInSharedFolders:
+            mappedSubject = .membershipInSharedFolders
+        case .channels:
+            mappedSubject = .channels
+        case .expiringStories:
+            mappedSubject = .expiringStories
+        case .storiesWeekly:
+            mappedSubject = .storiesWeekly
+        case .storiesMonthly:
+            mappedSubject = .storiesMonthly
+        case let .storiesChannelBoost(peer, isCurrent, level, currentLevelBoosts, nextLevelBoosts, link, myBoostCount, canBoostAgain):
+            mappedSubject = .storiesChannelBoost(peer: peer, boostSubject: .stories, isCurrent: isCurrent, level: level, currentLevelBoosts: currentLevelBoosts, nextLevelBoosts: nextLevelBoosts, link: link, myBoostCount: myBoostCount, canBoostAgain: canBoostAgain)
+        }
+        return PremiumLimitScreen(context: context, subject: mappedSubject, count: count, forceDark: forceDark, cancel: cancel, action: action)
+    }
+    
     public func makeStickerPackScreen(context: AccountContext, updatedPresentationData: (initial: PresentationData, signal: Signal<PresentationData, NoError>)?, mainStickerPack: StickerPackReference, stickerPacks: [StickerPackReference], loadedStickerPacks: [LoadedStickerPack], parentNavigationController: NavigationController?, sendSticker: ((FileMediaReference, UIView, CGRect) -> Bool)?) -> ViewController {
         return StickerPackScreen(context: context, updatedPresentationData: updatedPresentationData, mainStickerPack: mainStickerPack, stickerPacks: stickerPacks, loadedStickerPacks: loadedStickerPacks, parentNavigationController: parentNavigationController, sendSticker: sendSticker)
+    }
+    
+    public func makeMediaPickerScreen(context: AccountContext, hasSearch: Bool, completion: @escaping (Any) -> Void) -> ViewController {
+        return mediaPickerController(context: context, hasSearch: hasSearch, completion: completion)
+    }
+    
+    public func makeStoryMediaPickerScreen(context: AccountContext, getSourceRect: @escaping () -> CGRect, completion: @escaping (Any, UIView, CGRect, UIImage?, @escaping (Bool?) -> (UIView, CGRect)?, @escaping () -> Void) -> Void, dismissed: @escaping () -> Void, groupsPresented: @escaping () -> Void) -> ViewController {
+        return storyMediaPickerController(context: context, getSourceRect: getSourceRect, completion: completion, dismissed: dismissed, groupsPresented: groupsPresented)
     }
         
     public func makeProxySettingsController(sharedContext: SharedAccountContext, account: UnauthorizedAccount) -> ViewController {
         return proxySettingsController(accountManager: sharedContext.accountManager, postbox: account.postbox, network: account.network, mode: .modal, presentationData: sharedContext.currentPresentationData.with { $0 }, updatedPresentationData: sharedContext.presentationData)
     }
     
-    public func makeInstalledStickerPacksController(context: AccountContext, mode: InstalledStickerPacksControllerMode) -> ViewController {
-        return installedStickerPacksController(context: context, mode: mode)
+    public func makeInstalledStickerPacksController(context: AccountContext, mode: InstalledStickerPacksControllerMode, forceTheme: PresentationTheme?) -> ViewController {
+        return installedStickerPacksController(context: context, mode: mode, forceTheme: forceTheme)
+    }
+    
+    public func makeChannelStatsController(context: AccountContext, updatedPresentationData: (initial: PresentationData, signal: Signal<PresentationData, NoError>)?, peerId: EnginePeer.Id, boosts: Bool, boostStatus: ChannelBoostStatus?, statsDatacenterId: Int32) -> ViewController {
+        return channelStatsController(context: context, updatedPresentationData: updatedPresentationData, peerId: peerId, section: boosts ? .boosts : .stats, boostStatus: nil, statsDatacenterId: statsDatacenterId)
     }
 }
 

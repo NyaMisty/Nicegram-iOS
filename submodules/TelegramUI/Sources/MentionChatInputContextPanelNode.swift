@@ -1,6 +1,6 @@
 // MARK: Nicegram Imports
 import NGData
-import NGSubscription
+import NGPremiumUI
 //
 import Foundation
 import UIKit
@@ -16,6 +16,8 @@ import LocalizedPeerData
 import ItemListUI
 import ChatPresentationInterfaceState
 import ChatControllerInteraction
+import ChatContextQuery
+import ChatInputContextPanelNode
 
 private struct MentionChatInputContextPanelEntry: Comparable, Identifiable {
     let index: Int
@@ -170,10 +172,7 @@ final class MentionChatInputContextPanelNode: ChatInputContextPanelNode {
                                 // MARK: Nicegram changes
                                 guard let peer = peer else {
                                     guard isPremium() else {
-                                        let c = SubscriptionBuilderImpl(presentationData: presentationData).build()
-                                        c.modalPresentationStyle = .fullScreen
-                                        interfaceInteraction.getNavigationController()?.topViewController?.present(c, animated: true)
-                                        
+                                        PremiumUITgHelper.routeToPremium()
                                         return (textInputState, inputMode)
                                     }
                                     let addressNames = NSMutableAttributedString()
@@ -231,7 +230,7 @@ final class MentionChatInputContextPanelNode: ChatInputContextPanelNode {
             }
         }, removeRequested: { [weak self] peerId in
             if let strongSelf = self {
-                let _ = strongSelf.context.engine.peers.removeRecentlyUsedInlineBot(peerId: peerId).start()
+                let _ = strongSelf.context.engine.peers.removeRecentlyUsedInlineBot(peerId: peerId).startStandalone()
                 
                 strongSelf.revealedPeerId = nil
                 strongSelf.currentResults = strongSelf.currentResults.filter { $0.id != peerId }

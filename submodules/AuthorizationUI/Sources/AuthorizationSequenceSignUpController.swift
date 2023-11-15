@@ -9,6 +9,7 @@ import LegacyComponents
 import ProgressNavigationButtonNode
 import ImageCompression
 import LegacyMediaPickerUI
+import Postbox
 
 final class AuthorizationSequenceSignUpController: ViewController {
     private var controllerNode: AuthorizationSequenceSignUpControllerNode {
@@ -96,7 +97,7 @@ final class AuthorizationSequenceSignUpController: ViewController {
         
         let theme = self.presentationData.theme
         self.displayNode = AuthorizationSequenceSignUpControllerNode(theme: theme, strings: self.presentationData.strings, addPhoto: { [weak self] in
-            presentLegacyAvatarPicker(holder: currentAvatarMixin, signup: false, theme: theme, present: { c, a in
+            presentLegacyAvatarPicker(holder: currentAvatarMixin, signup: true, theme: theme, present: { c, a in
                 self?.view.endEditing(true)
                 self?.present(c, in: .window(.root), with: a)
             }, openCurrent: nil, completion: { image in
@@ -179,7 +180,10 @@ final class AuthorizationSequenceSignUpController: ViewController {
         
         if let name = name {
             self.signUpWithName?(name.0, name.1, self.controllerNode.currentPhoto.flatMap({ image in
-                return compressImageToJPEG(image, quality: 0.7)
+                let tempFile = TempBox.shared.tempFile(fileName: "file")
+                let result = compressImageToJPEG(image, quality: 0.7, tempFilePath: tempFile.path)
+                TempBox.shared.dispose(tempFile)
+                return result
             }), self.avatarAsset, self.avatarAdjustments)
         }
     }

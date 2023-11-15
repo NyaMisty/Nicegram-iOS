@@ -15,16 +15,7 @@ import SearchPeerMembers
 import DeviceLocationManager
 import TelegramNotices
 import ChatPresentationInterfaceState
-
-enum ChatContextQueryError {
-    case generic
-    case inlineBotLocationRequest(PeerId)
-}
-
-enum ChatContextQueryUpdate {
-    case remove
-    case update(ChatPresentationInputQuery, Signal<(ChatPresentationInputQueryResult?) -> ChatPresentationInputQueryResult?, ChatContextQueryError>)
-}
+import ChatContextQuery
 
 func contextQueryResultStateForChatInterfacePresentationState(_ chatPresentationInterfaceState: ChatPresentationInterfaceState, context: AccountContext, currentQueryStates: inout [ChatPresentationInputQueryKind: (ChatPresentationInputQuery, Disposable)], requestBotLocationStatus: @escaping (PeerId) -> Void) -> [ChatPresentationInputQueryKind: ChatContextQueryUpdate] {
     guard let peer = chatPresentationInterfaceState.renderedPeer?.peer else {
@@ -69,26 +60,6 @@ func contextQueryResultStateForChatInterfacePresentationState(_ chatPresentation
     return updates
 }
 
-struct StickersSearchConfiguration {
-    static var defaultValue: StickersSearchConfiguration {
-        return StickersSearchConfiguration(disableLocalSuggestions: false)
-    }
-    
-    public let disableLocalSuggestions: Bool
-    
-    fileprivate init(disableLocalSuggestions: Bool) {
-        self.disableLocalSuggestions = disableLocalSuggestions
-    }
-    
-    static func with(appConfiguration: AppConfiguration) -> StickersSearchConfiguration {
-        if let data = appConfiguration.data, let suggestOnlyApi = data["stickers_emoji_suggest_only_api"] as? Bool {
-            return StickersSearchConfiguration(disableLocalSuggestions: suggestOnlyApi)
-        } else {
-            return .defaultValue
-        }
-    }
-}
-
 private func updatedContextQueryResultStateForQuery(context: AccountContext, peer: Peer, chatLocation: ChatLocation, inputQuery: ChatPresentationInputQuery, previousQuery: ChatPresentationInputQuery?, requestBotLocationStatus: @escaping (PeerId) -> Void) -> Signal<(ChatPresentationInputQueryResult?) -> ChatPresentationInputQueryResult?, ChatContextQueryError> {
     switch inputQuery {
         case let .emoji(query):
@@ -130,7 +101,10 @@ private func updatedContextQueryResultStateForQuery(context: AccountContext, pee
                     case .installed:
                         scope = [.installed]
                 }
-                return context.engine.stickers.searchStickers(query: query.basicEmoji.0, scope: scope)
+                return context.engine.stickers.searchStickers(query: [query.basicEmoji.0], scope: scope)
+                |> map { items -> [FoundStickerItem] in
+                    return items.items
+                }
                 |> castError(ChatContextQueryError.self)
             }
             |> map { stickers -> (ChatPresentationInputQueryResult?) -> ChatPresentationInputQueryResult? in
@@ -294,6 +268,12 @@ private func updatedContextQueryResultStateForQuery(context: AccountContext, pee
             
             let chatPeer = peer
             let contextBot = context.engine.peers.resolvePeerByName(name: addressName)
+            |> mapToSignal { result -> Signal<EnginePeer?, NoError> in
+                guard case let .result(result) = result else {
+                    return .complete()
+                }
+                return .single(result)
+            }
             |> castError(ChatContextQueryError.self)
             |> mapToSignal { peer -> Signal<(ChatPresentationInputQueryResult?) -> ChatPresentationInputQueryResult?, ChatContextQueryError> in
                 if case let .user(user) = peer, let botInfo = user.botInfo, let _ = botInfo.inlinePlaceholder {
@@ -356,16 +336,16 @@ private func updatedContextQueryResultStateForQuery(context: AccountContext, pee
             
             return signal |> then(contextBot)
         case let .emojiSearch(query, languageCode, range):
-            if query.isSingleEmoji {
-                let hasPremium = context.engine.data.subscribe(TelegramEngine.EngineData.Item.Peer.Peer(id: context.account.peerId))
-                |> map { peer -> Bool in
-                    guard case let .user(user) = peer else {
-                        return false
-                    }
-                    return user.isPremium
+            let hasPremium = context.engine.data.subscribe(TelegramEngine.EngineData.Item.Peer.Peer(id: context.account.peerId))
+            |> map { peer -> Bool in
+                guard case let .user(user) = peer else {
+                    return false
                 }
-                |> distinctUntilChanged
-                
+                return user.isPremium
+            }
+            |> distinctUntilChanged
+        
+            if query.isSingleEmoji {
                 return combineLatest(
                     context.account.postbox.itemCollectionsView(orderedItemListCollectionIds: [], namespaces: [Namespaces.ItemCollection.CloudEmojiPacks], aroundIndex: nil, count: 10000000),
                     hasPremium
@@ -410,15 +390,6 @@ private func updatedContextQueryResultStateForQuery(context: AccountContext, pee
                         )
                     }
                 }
-            
-                let hasPremium = context.engine.data.subscribe(TelegramEngine.EngineData.Item.Peer.Peer(id: context.account.peerId))
-                |> map { peer -> Bool in
-                    guard case let .user(user) = peer else {
-                        return false
-                    }
-                    return user.isPremium
-                }
-                |> distinctUntilChanged
                 
                 return signal
                 |> castError(ChatContextQueryError.self)
@@ -498,15 +469,30 @@ func searchQuerySuggestionResultStateForChatInterfacePresentationState(_ chatPre
                                 signal = .single({ _ in return nil })
                             }
                         }
-                        
-                        let participants = searchPeerMembers(context: context, peerId: peer.id, chatLocation: chatPresentationInterfaceState.chatLocation, query: query, scope: .memberSuggestion)
-                        |> map { peers -> (ChatPresentationInputQueryResult?) -> ChatPresentationInputQueryResult? in
+                    
+                        let participants = combineLatest(
+                            context.engine.data.get(TelegramEngine.EngineData.Item.Peer.Peer(id: context.account.peerId)),
+                            searchPeerMembers(context: context, peerId: peer.id, chatLocation: chatPresentationInterfaceState.chatLocation, query: query, scope: .memberSuggestion)
+                        )
+                        |> map { accountPeer, peers -> (ChatPresentationInputQueryResult?) -> ChatPresentationInputQueryResult? in
                             let filteredPeers = peers
                             var sortedPeers: [EnginePeer] = []
                             sortedPeers.append(contentsOf: filteredPeers.sorted(by: { lhs, rhs in
                                 let result = lhs.indexName.stringRepresentation(lastNameFirst: true).compare(rhs.indexName.stringRepresentation(lastNameFirst: true))
                                 return result == .orderedAscending
                             }))
+                            if let accountPeer {
+                                var hasOwnPeer = false
+                                for peer in sortedPeers {
+                                    if peer.id == accountPeer.id {
+                                        hasOwnPeer = true
+                                        break
+                                    }
+                                }
+                                if !hasOwnPeer {
+                                    sortedPeers.append(accountPeer)
+                                }
+                            }
                             return { _ in return .mentions(sortedPeers) }
                         }
                         
@@ -525,30 +511,34 @@ func searchQuerySuggestionResultStateForChatInterfacePresentationState(_ chatPre
 
 private let dataDetector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType([.link]).rawValue)
 
-func detectUrl(_ inputText: NSAttributedString?) -> String? {
-    var detectedUrl: String?
+func detectUrls(_ inputText: NSAttributedString?) -> [String] {
+    var detectedUrls: [String] = []
     if let text = inputText, let dataDetector = dataDetector {
         let utf16 = text.string.utf16
         
         let nsRange = NSRange(location: 0, length: utf16.count)
         let matches = dataDetector.matches(in: text.string, options: [], range: nsRange)
-        if let match = matches.first {
+        for match in matches {
             let urlText = (text.string as NSString).substring(with: match.range)
-            detectedUrl = urlText
+            detectedUrls.append(urlText)
         }
         
-        if detectedUrl == nil {
-            inputText?.enumerateAttribute(ChatTextInputAttributes.textUrl, in: nsRange, options: [], using: { value, range, stop in
-                if let value = value as? ChatTextInputTextUrlAttribute {
-                    detectedUrl = value.url
+        inputText?.enumerateAttribute(ChatTextInputAttributes.textUrl, in: nsRange, options: [], using: { value, range, stop in
+            if let value = value as? ChatTextInputTextUrlAttribute {
+                if !detectedUrls.contains(value.url) {
+                    detectedUrls.append(value.url)
                 }
-            })
-        }
+            }
+        })
     }
-    return detectedUrl
+    return detectedUrls
 }
 
-func urlPreviewStateForInputText(_ inputText: NSAttributedString?, context: AccountContext, currentQuery: String?) -> (String?, Signal<(TelegramMediaWebpage?) -> TelegramMediaWebpage?, NoError>)? {
+struct UrlPreviewState {
+    var detectedUrls: [String]
+}
+
+func urlPreviewStateForInputText(_ inputText: NSAttributedString?, context: AccountContext, currentQuery: UrlPreviewState?) -> (UrlPreviewState?, Signal<(TelegramMediaWebpage?) -> (TelegramMediaWebpage, String)?, NoError>)? {
     guard let _ = inputText else {
         if currentQuery != nil {
             return (nil, .single({ _ in return nil }))
@@ -557,10 +547,21 @@ func urlPreviewStateForInputText(_ inputText: NSAttributedString?, context: Acco
         }
     }
     if let _ = dataDetector {
-        let detectedUrl = detectUrl(inputText)
-        if detectedUrl != currentQuery {
-            if let detectedUrl = detectedUrl {
-                return (detectedUrl, webpagePreview(account: context.account, url: detectedUrl) |> map { value in
+        let detectedUrls = detectUrls(inputText)
+        if detectedUrls != currentQuery?.detectedUrls {
+            if !detectedUrls.isEmpty {
+                return (UrlPreviewState(detectedUrls: detectedUrls), webpagePreview(account: context.account, urls: detectedUrls)
+                |> mapToSignal { result -> Signal<(TelegramMediaWebpage, String)?, NoError> in
+                    guard case let .result(webpageResult) = result else {
+                        return .complete()
+                    }
+                    if let webpageResult {
+                        return .single((webpageResult.webpage, webpageResult.sourceUrl))
+                    } else {
+                        return .single(nil)
+                    }
+                }
+                |> map { value in
                     return { _ in return value }
                 })
             } else {

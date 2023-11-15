@@ -191,33 +191,19 @@ final class StickerPackEmojisItemNode: GridItemNode {
             self?.standaloneShimmerEffect?.updateLayer()
         }
         self.boundsChangeTrackerLayer =  boundsChangeTrackerLayer
-        
-        let gestureRecognizer = TapLongTapOrDoubleTapGestureRecognizer(target: self, action: #selector(self.tapGesture(_:)))
-        gestureRecognizer.longTap = { [weak self] point, _ in
-            guard let strongSelf = self else {
-                return
-            }
-
-            if let (item, itemFrame) = strongSelf.item(atPoint: point), let file = item.itemFile {
-                var text = "."
-                var emojiAttribute: ChatTextInputTextCustomEmojiAttribute?
-                loop: for attribute in file.attributes {
-                    switch attribute {
-                    case let .CustomEmoji(_, _, displayText, _):
-                        text = displayText
-                        emojiAttribute = ChatTextInputTextCustomEmojiAttribute(interactivelySelectedFromPackId: nil, fileId: file.fileId.id, file: file)
-                        break loop
-                    default:
-                        break
-                    }
-                }
-                
-                if let emojiAttribute = emojiAttribute {
-                    strongSelf.item?.interaction.emojiLongPressed(text, emojiAttribute, strongSelf.containerNode, itemFrame)
-                }
+    }
+    
+    func targetItem(at point: CGPoint) -> (TelegramMediaFile, CALayer)? {
+        if let (item, _) = self.item(atPoint: point), let file = item.itemFile {
+            let itemId = EmojiPagerContentComponent.View.ItemLayer.Key(
+                groupId: 0,
+                itemId: .animation(.file(file.fileId))
+            )
+            if let itemLayer = self.visibleItemLayers[itemId] {
+                return (file, itemLayer)
             }
         }
-        self.containerNode.view.addGestureRecognizer(gestureRecognizer)
+        return nil
     }
     
     @objc private func tapGesture(_ recognizer: TapLongTapOrDoubleTapGestureRecognizer) {
@@ -384,16 +370,20 @@ final class StickerPackEmojisItemNode: GridItemNode {
                                 if let current = strongSelf.visibleItemPlaceholderViews[itemId] {
                                     placeholderView = current
                                 } else {
+                                    var placeholderContent: EmojiPagerContentComponent.View.ItemPlaceholderView.Content?
+                                    if let immediateThumbnailData = item.file.immediateThumbnailData {
+                                        placeholderContent = .thumbnail(immediateThumbnailData)
+                                    }
                                     placeholderView = EmojiPagerContentComponent.View.ItemPlaceholderView(
                                         context: context,
                                         dimensions: item.file.dimensions?.cgSize ?? CGSize(width: 512.0, height: 512.0),
-                                        immediateThumbnailData: item.file.immediateThumbnailData,
+                                        content: placeholderContent,
                                         shimmerView: nil,//strongSelf.shimmerHostView,
                                         color: theme.chat.inputPanel.primaryTextColor.withMultipliedAlpha(0.08),
                                         size: itemNativeFitSize
                                     )
                                     strongSelf.visibleItemPlaceholderViews[itemId] = placeholderView
-                                    strongSelf.view.insertSubview(placeholderView, at: 0)
+                                    strongSelf.containerNode.view.insertSubview(placeholderView, at: 0)
                                 }
                                 placeholderView.frame = itemLayer.frame
                                 placeholderView.update(size: placeholderView.bounds.size)
@@ -403,7 +393,7 @@ final class StickerPackEmojisItemNode: GridItemNode {
                         } else {
                             if let placeholderView = strongSelf.visibleItemPlaceholderViews[itemId] {
                                 strongSelf.visibleItemPlaceholderViews.removeValue(forKey: itemId)
-                                
+
                                 if duration > 0.0 {
                                     placeholderView.layer.opacity = 0.0
                                     placeholderView.layer.animateAlpha(from: 1.0, to: 0.0, duration: duration, completion: { [weak self, weak placeholderView] _ in
@@ -432,6 +422,8 @@ final class StickerPackEmojisItemNode: GridItemNode {
                 itemLayer.layerTintColor = theme.list.itemAccentColor.cgColor
             case .primary:
                 itemLayer.layerTintColor = theme.list.itemPrimaryTextColor.cgColor
+            case let .custom(color):
+                itemLayer.layerTintColor = color.cgColor
             }
             
             var itemFrame = itemLayout.frame(itemIndex: index)

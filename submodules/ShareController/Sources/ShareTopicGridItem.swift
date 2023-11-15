@@ -4,7 +4,6 @@ import Display
 import TelegramCore
 import SwiftSignalKit
 import AsyncDisplayKit
-import Postbox
 import TelegramPresentationData
 import TelegramStringFormatting
 import SelectablePeerNode
@@ -15,7 +14,8 @@ import ComponentFlow
 import EmojiStatusComponent
 
 final class ShareTopicGridItem: GridItem {
-    let context: AccountContext
+    let environment: ShareControllerEnvironment
+    let context: ShareControllerAccountContext
     let theme: PresentationTheme
     let strings: PresentationStrings
     let peer: EngineRenderedPeer?
@@ -25,7 +25,8 @@ final class ShareTopicGridItem: GridItem {
     
     let section: GridSection?
     
-    init(context: AccountContext, theme: PresentationTheme, strings: PresentationStrings, peer: EngineRenderedPeer?, id: Int64, threadInfo: MessageHistoryThreadData, controllerInteraction: ShareControllerInteraction) {
+    init(environment: ShareControllerEnvironment, context: ShareControllerAccountContext, theme: PresentationTheme, strings: PresentationStrings, peer: EngineRenderedPeer?, id: Int64, threadInfo: MessageHistoryThreadData, controllerInteraction: ShareControllerInteraction) {
+        self.environment = environment
         self.context = context
         self.theme = theme
         self.strings = strings
@@ -47,7 +48,7 @@ final class ShareTopicGridItem: GridItem {
 }
 
 final class ShareTopicGridItemNode: GridItemNode {
-    private var currentState: (AccountContext, PresentationTheme, PresentationStrings, EngineRenderedPeer?, MessageHistoryThreadData?)?
+    private var currentState: (ShareControllerAccountContext, PresentationTheme, PresentationStrings, EngineRenderedPeer?, MessageHistoryThreadData?)?
     
     private let iconView: ComponentView<Empty>
     private let textNode: ImmediateTextNode
@@ -106,7 +107,7 @@ final class ShareTopicGridItemNode: GridItemNode {
         
         let iconContent: EmojiStatusComponent.Content
         if let fileId = item.threadInfo.info.icon {
-            iconContent = .animation(content: .customEmoji(fileId: fileId), size: CGSize(width: 96.0, height: 96.0), placeholderColor: item.theme.actionSheet.disabledActionTextColor, themeColor: item.theme.actionSheet.primaryTextColor, loopMode: .count(2))
+            iconContent = .animation(content: .customEmoji(fileId: fileId), size: CGSize(width: 96.0, height: 96.0), placeholderColor: item.theme.actionSheet.disabledActionTextColor, themeColor: item.theme.actionSheet.primaryTextColor, loopMode: .count(0))
         } else {
             iconContent = .topic(title: String(item.threadInfo.info.title.prefix(1)), color: item.threadInfo.info.iconColor, size: CGSize(width: 64.0, height: 64.0))
         }
@@ -114,7 +115,9 @@ final class ShareTopicGridItemNode: GridItemNode {
         let iconSize = self.iconView.update(
             transition: .easeInOut(duration: 0.2),
             component: AnyComponent(EmojiStatusComponent(
-                context: item.context,
+                postbox: item.context.stateManager.postbox,
+                energyUsageSettings: item.environment.energyUsageSettings,
+                resolveInlineStickers: item.context.resolveInlineStickers,
                 animationCache: item.context.animationCache,
                 animationRenderer: item.context.animationRenderer,
                 content: iconContent,

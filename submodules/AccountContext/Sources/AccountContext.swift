@@ -10,10 +10,10 @@ import AsyncDisplayKit
 import Display
 import DeviceLocationManager
 import TemporaryCachedPeerDataManager
-import MeshAnimationCache
 import InAppPurchaseManager
 import AnimationCache
 import MultiAnimationRenderer
+import Photos
 
 public final class TelegramApplicationOpenUrlCompletion {
     public let completion: (Bool) -> Void
@@ -181,6 +181,7 @@ public enum ResolvedUrlSettingsSection {
     case devices
     case autoremoveMessages
     case twoStepAuth
+    case enableLog
 }
 
 public struct ResolvedBotChoosePeerTypes: OptionSet {
@@ -277,6 +278,7 @@ public enum ResolvedUrl {
     case inaccessiblePeer
     case botStart(peer: Peer, payload: String)
     case groupBotStart(peerId: PeerId, payload: String, adminRights: ResolvedBotAdminRights?)
+    case gameStart(peerId: PeerId, game: String)
     case channelMessage(peer: Peer, messageId: MessageId, timecode: Double?)
     case replyThreadMessage(replyThreadMessage: ChatReplyThreadMessage, messageId: MessageId)
     case replyThread(messageId: MessageId)
@@ -294,8 +296,17 @@ public enum ResolvedUrl {
     case joinVoiceChat(PeerId, String?)
     case importStickers
     case startAttach(peerId: PeerId, payload: String?, choose: ResolvedBotChoosePeerTypes?)
-    case invoice(slug: String, invoice: TelegramMediaInvoice)
+    case invoice(slug: String, invoice: TelegramMediaInvoice?)
     case premiumOffer(reference: String?)
+    case chatFolder(slug: String)
+    case story(peerId: PeerId, id: Int32)
+    case boost(peerId: PeerId, status: ChannelBoostStatus?, myBoostStatus: MyBoostStatus?)
+    case premiumGiftCode(slug: String)
+}
+
+public enum ResolveUrlResult {
+    case progress
+    case result(ResolvedUrl)
 }
 
 public enum NavigateToChatKeepStack {
@@ -442,6 +453,7 @@ public final class NavigateToChatControllerParams {
     public let subject: ChatControllerSubject?
     public let botStart: ChatControllerInitialBotStart?
     public let attachBotStart: ChatControllerInitialAttachBotStart?
+    public let botAppStart: ChatControllerInitialBotAppStart?
     public let updateTextInputState: ChatTextInputState?
     public let activateInput: ChatControllerActivateInput?
     public let keepStack: NavigateToChatKeepStack
@@ -461,8 +473,9 @@ public final class NavigateToChatControllerParams {
     public let changeColors: Bool
     public let setupController: (ChatController) -> Void
     public let completion: (ChatController) -> Void
+    public let pushController: ((ChatController, Bool, @escaping () -> Void) -> Void)?
     
-    public init(navigationController: NavigationController, chatController: ChatController? = nil, context: AccountContext, chatLocation: Location, chatLocationContextHolder: Atomic<ChatLocationContextHolder?> = Atomic<ChatLocationContextHolder?>(value: nil), subject: ChatControllerSubject? = nil, botStart: ChatControllerInitialBotStart? = nil, attachBotStart: ChatControllerInitialAttachBotStart? = nil, updateTextInputState: ChatTextInputState? = nil, activateInput: ChatControllerActivateInput? = nil, keepStack: NavigateToChatKeepStack = .default, useExisting: Bool = true, useBackAnimation: Bool = false, purposefulAction: (() -> Void)? = nil, scrollToEndIfExists: Bool = false, activateMessageSearch: (ChatSearchDomain, String)? = nil, peekData: ChatPeekTimeout? = nil, peerNearbyData: ChatPeerNearbyData? = nil, reportReason: ReportReason? = nil, animated: Bool = true, options: NavigationAnimationOptions = [], parentGroupId: PeerGroupId? = nil, chatListFilter: Int32? = nil, chatNavigationStack: [ChatNavigationStackItem] = [], changeColors: Bool = false, setupController: @escaping (ChatController) -> Void = { _ in }, completion: @escaping (ChatController) -> Void = { _ in }) {
+    public init(navigationController: NavigationController, chatController: ChatController? = nil, context: AccountContext, chatLocation: Location, chatLocationContextHolder: Atomic<ChatLocationContextHolder?> = Atomic<ChatLocationContextHolder?>(value: nil), subject: ChatControllerSubject? = nil, botStart: ChatControllerInitialBotStart? = nil, attachBotStart: ChatControllerInitialAttachBotStart? = nil, botAppStart: ChatControllerInitialBotAppStart? = nil, updateTextInputState: ChatTextInputState? = nil, activateInput: ChatControllerActivateInput? = nil, keepStack: NavigateToChatKeepStack = .default, useExisting: Bool = true, useBackAnimation: Bool = false, purposefulAction: (() -> Void)? = nil, scrollToEndIfExists: Bool = false, activateMessageSearch: (ChatSearchDomain, String)? = nil, peekData: ChatPeekTimeout? = nil, peerNearbyData: ChatPeerNearbyData? = nil, reportReason: ReportReason? = nil, animated: Bool = true, options: NavigationAnimationOptions = [], parentGroupId: PeerGroupId? = nil, chatListFilter: Int32? = nil, chatNavigationStack: [ChatNavigationStackItem] = [], changeColors: Bool = false, setupController: @escaping (ChatController) -> Void = { _ in }, pushController: ((ChatController, Bool, @escaping () -> Void) -> Void)? = nil, completion: @escaping (ChatController) -> Void = { _ in }) {
         self.navigationController = navigationController
         self.chatController = chatController
         self.chatLocationContextHolder = chatLocationContextHolder
@@ -471,6 +484,7 @@ public final class NavigateToChatControllerParams {
         self.subject = subject
         self.botStart = botStart
         self.attachBotStart = attachBotStart
+        self.botAppStart = botAppStart
         self.updateTextInputState = updateTextInputState
         self.activateInput = activateInput
         self.keepStack = keepStack
@@ -489,6 +503,7 @@ public final class NavigateToChatControllerParams {
         self.chatNavigationStack = chatNavigationStack
         self.changeColors = changeColors
         self.setupController = setupController
+        self.pushController = pushController
         self.completion = completion
     }
 }
@@ -653,9 +668,10 @@ public final class ContactSelectionControllerParams {
     public let displayDeviceContacts: Bool
     public let displayCallIcons: Bool
     public let multipleSelection: Bool
+    public let requirePhoneNumbers: Bool
     public let confirmation: (ContactListPeer) -> Signal<Bool, NoError>
     
-    public init(context: AccountContext, updatedPresentationData: (initial: PresentationData, signal: Signal<PresentationData, NoError>)? = nil, autoDismiss: Bool = true, title: @escaping (PresentationStrings) -> String, options: [ContactListAdditionalOption] = [], displayDeviceContacts: Bool = false, displayCallIcons: Bool = false, multipleSelection: Bool = false, confirmation: @escaping (ContactListPeer) -> Signal<Bool, NoError> = { _ in .single(true) }) {
+    public init(context: AccountContext, updatedPresentationData: (initial: PresentationData, signal: Signal<PresentationData, NoError>)? = nil, autoDismiss: Bool = true, title: @escaping (PresentationStrings) -> String, options: [ContactListAdditionalOption] = [], displayDeviceContacts: Bool = false, displayCallIcons: Bool = false, multipleSelection: Bool = false, requirePhoneNumbers: Bool = false, confirmation: @escaping (ContactListPeer) -> Signal<Bool, NoError> = { _ in .single(true) }) {
         self.context = context
         self.updatedPresentationData = updatedPresentationData
         self.autoDismiss = autoDismiss
@@ -664,6 +680,7 @@ public final class ContactSelectionControllerParams {
         self.displayDeviceContacts = displayDeviceContacts
         self.displayCallIcons = displayCallIcons
         self.multipleSelection = multipleSelection
+        self.requirePhoneNumbers = requirePhoneNumbers
         self.confirmation = confirmation
     }
 }
@@ -719,6 +736,7 @@ public enum CreateGroupMode {
     case generic
     case supergroup
     case locatedGroup(latitude: Double, longitude: Double, address: String?)
+    case requestPeer(ReplyMarkupButtonRequestPeerType.Group)
 }
 
 public protocol AppLockContext: AnyObject {
@@ -737,6 +755,65 @@ public protocol AppLockContext: AnyObject {
 public protocol RecentSessionsController: AnyObject {
 }
 
+public protocol AttachmentFileController: AnyObject {
+}
+
+public struct StoryCameraTransitionIn {
+    public weak var sourceView: UIView?
+    public let sourceRect: CGRect
+    public let sourceCornerRadius: CGFloat
+    
+    public init(
+        sourceView: UIView,
+        sourceRect: CGRect,
+        sourceCornerRadius: CGFloat
+    ) {
+        self.sourceView = sourceView
+        self.sourceRect = sourceRect
+        self.sourceCornerRadius = sourceCornerRadius
+    }
+}
+
+public struct StoryCameraTransitionOut {
+    public weak var destinationView: UIView?
+    public let destinationRect: CGRect
+    public let destinationCornerRadius: CGFloat
+    
+    public init(
+        destinationView: UIView,
+        destinationRect: CGRect,
+        destinationCornerRadius: CGFloat
+    ) {
+        self.destinationView = destinationView
+        self.destinationRect = destinationRect
+        self.destinationCornerRadius = destinationCornerRadius
+    }
+}
+
+public struct StoryCameraTransitionInCoordinator {
+    public let animateIn: () -> Void
+    public let updateTransitionProgress: (CGFloat) -> Void
+    public let completeWithTransitionProgressAndVelocity: (CGFloat, CGFloat) -> Void
+    
+    public init(
+        animateIn: @escaping () -> Void,
+        updateTransitionProgress: @escaping (CGFloat) -> Void,
+        completeWithTransitionProgressAndVelocity: @escaping (CGFloat, CGFloat) -> Void
+    ) {
+        self.animateIn = animateIn
+        self.updateTransitionProgress = updateTransitionProgress
+        self.completeWithTransitionProgressAndVelocity = completeWithTransitionProgressAndVelocity
+    }
+}
+
+public protocol TelegramRootControllerInterface: NavigationController {
+    @discardableResult
+    func openStoryCamera(customTarget: EnginePeer.Id?, transitionIn: StoryCameraTransitionIn?, transitionedIn: @escaping () -> Void, transitionOut: @escaping (Stories.PendingTarget?, Bool) -> StoryCameraTransitionOut?) -> StoryCameraTransitionInCoordinator?
+    
+    func getContactsController() -> ViewController?
+    func getChatsController() -> ViewController?    
+}
+
 public protocol SharedAccountContext: AnyObject {
     var sharedContainerPath: String { get }
     var basePath: String { get }
@@ -747,14 +824,21 @@ public protocol SharedAccountContext: AnyObject {
     var currentPresentationData: Atomic<PresentationData> { get }
     var presentationData: Signal<PresentationData, NoError> { get }
     
-    var currentAutomaticMediaDownloadSettings: Atomic<MediaAutoDownloadSettings> { get }
+    var currentAutomaticMediaDownloadSettings: MediaAutoDownloadSettings { get }
     var automaticMediaDownloadSettings: Signal<MediaAutoDownloadSettings, NoError> { get }
     var currentAutodownloadSettings: Atomic<AutodownloadSettings> { get }
     var immediateExperimentalUISettings: ExperimentalUISettings { get }
     var currentInAppNotificationSettings: Atomic<InAppNotificationSettings> { get }
     var currentMediaInputSettings: Atomic<MediaInputSettings> { get }
+    var currentStickerSettings: Atomic<StickerSettings> { get }
+    var currentMediaDisplaySettings: Atomic<MediaDisplaySettings> { get }
+    
+    var energyUsageSettings: EnergyUsageSettings { get }
     
     var applicationBindings: TelegramApplicationBindings { get }
+    
+    var authorizationPushConfiguration: Signal<AuthorizationCodePushNotificationConfiguration?, NoError> { get }
+    var firebaseSecretStream: Signal<[String: String], NoError> { get }
     
     var mediaManager: MediaManager { get }
     var locationManager: DeviceLocationManager? { get }
@@ -797,6 +881,13 @@ public protocol SharedAccountContext: AnyObject {
     func makeCreateGroupController(context: AccountContext, peerIds: [PeerId], initialTitle: String?, mode: CreateGroupMode, completion: ((PeerId, @escaping () -> Void) -> Void)?) -> ViewController
     func makeChatRecentActionsController(context: AccountContext, peer: Peer, adminPeerId: PeerId?) -> ViewController
     func makePrivacyAndSecurityController(context: AccountContext) -> ViewController
+    func makeSetupTwoFactorAuthController(context: AccountContext) -> ViewController
+    func makeStorageManagementController(context: AccountContext) -> ViewController
+    func makeAttachmentFileController(context: AccountContext, updatedPresentationData: (initial: PresentationData, signal: Signal<PresentationData, NoError>)?, bannedSendMedia: (Int32, Bool)?, presentGallery: @escaping () -> Void, presentFiles: @escaping () -> Void, send: @escaping (AnyMediaReference) -> Void) -> AttachmentFileController
+    func makeGalleryCaptionPanelView(context: AccountContext, chatLocation: ChatLocation, isScheduledMessages: Bool, customEmojiAvailable: Bool, present: @escaping (ViewController) -> Void, presentInGlobalOverlay: @escaping (ViewController) -> Void) -> NSObject?
+    func makeHashtagSearchController(context: AccountContext, peer: EnginePeer?, query: String, all: Bool) -> ViewController
+    func makeMyStoriesController(context: AccountContext, isArchive: Bool) -> ViewController
+    func makeArchiveSettingsController(context: AccountContext) -> ViewController
     func navigateToChatController(_ params: NavigateToChatControllerParams)
     func navigateToForumChannel(context: AccountContext, peerId: EnginePeer.Id, navigationController: NavigationController)
     func navigateToForumThread(context: AccountContext, peerId: EnginePeer.Id, threadId: Int64, messageId: EngineMessage.Id?,  navigationController: NavigationController, activateInput: ChatControllerActivateInput?, keepStack: NavigateToChatKeepStack) -> Signal<Never, NoError>
@@ -807,29 +898,44 @@ public protocol SharedAccountContext: AnyObject {
     func chatAvailableMessageActions(engine: TelegramEngine, accountPeerId: EnginePeer.Id, messageIds: Set<EngineMessage.Id>) -> Signal<ChatAvailableMessageActions, NoError>
     func chatAvailableMessageActions(engine: TelegramEngine, accountPeerId: EnginePeer.Id, messageIds: Set<EngineMessage.Id>, messages: [EngineMessage.Id: EngineMessage], peers: [EnginePeer.Id: EnginePeer]) -> Signal<ChatAvailableMessageActions, NoError>
     func resolveUrl(context: AccountContext, peerId: PeerId?, url: String, skipUrlAuth: Bool) -> Signal<ResolvedUrl, NoError>
-    func openResolvedUrl(_ resolvedUrl: ResolvedUrl, context: AccountContext, urlContext: OpenURLContext, navigationController: NavigationController?, forceExternal: Bool, openPeer: @escaping (EnginePeer, ChatControllerInteractionNavigateToPeer) -> Void, sendFile: ((FileMediaReference) -> Void)?, sendSticker: ((FileMediaReference, UIView, CGRect) -> Bool)?, requestMessageActionUrlAuth: ((MessageActionUrlSubject) -> Void)?, joinVoiceChat: ((PeerId, String?, CachedChannelData.ActiveCall) -> Void)?, present: @escaping (ViewController, Any?) -> Void, dismissInput: @escaping () -> Void, contentContext: Any?)
+    func resolveUrlWithProgress(context: AccountContext, peerId: PeerId?, url: String, skipUrlAuth: Bool) -> Signal<ResolveUrlResult, NoError>
+    func openResolvedUrl(_ resolvedUrl: ResolvedUrl, context: AccountContext, urlContext: OpenURLContext, navigationController: NavigationController?, forceExternal: Bool, openPeer: @escaping (EnginePeer, ChatControllerInteractionNavigateToPeer) -> Void, sendFile: ((FileMediaReference) -> Void)?, sendSticker: ((FileMediaReference, UIView, CGRect) -> Bool)?, requestMessageActionUrlAuth: ((MessageActionUrlSubject) -> Void)?, joinVoiceChat: ((PeerId, String?, CachedChannelData.ActiveCall) -> Void)?, present: @escaping (ViewController, Any?) -> Void, dismissInput: @escaping () -> Void, contentContext: Any?, progress: Promise<Bool>?)
     func openAddContact(context: AccountContext, firstName: String, lastName: String, phoneNumber: String, label: String, present: @escaping (ViewController, Any?) -> Void, pushController: @escaping (ViewController) -> Void, completed: @escaping () -> Void)
     func openAddPersonContact(context: AccountContext, peerId: PeerId, pushController: @escaping (ViewController) -> Void, present: @escaping (ViewController, Any?) -> Void)
     func presentContactsWarningSuppression(context: AccountContext, present: (ViewController, Any?) -> Void)
     func openImagePicker(context: AccountContext, completion: @escaping (UIImage) -> Void, present: @escaping (ViewController) -> Void)
     func openAddPeerMembers(context: AccountContext, updatedPresentationData: (initial: PresentationData, signal: Signal<PresentationData, NoError>)?, parentController: ViewController, groupPeer: Peer, selectAddMemberDisposable: MetaDisposable, addMemberDisposable: MetaDisposable)
+    func openChatInstantPage(context: AccountContext, message: Message, sourcePeerType: MediaAutoDownloadPeerType?, navigationController: NavigationController)
+    func openChatWallpaper(context: AccountContext, message: Message, present: @escaping (ViewController, Any?) -> Void)
     
     func makeRecentSessionsController(context: AccountContext, activeSessionsContext: ActiveSessionsContext) -> ViewController & RecentSessionsController
     
     func makeChatQrCodeScreen(context: AccountContext, peer: Peer, threadId: Int64?) -> ViewController
     
-    func makePremiumIntroController(context: AccountContext, source: PremiumIntroSource) -> ViewController
+    func makePremiumIntroController(context: AccountContext, source: PremiumIntroSource, forceDark: Bool, dismissed: (() -> Void)?) -> ViewController
     func makePremiumDemoController(context: AccountContext, subject: PremiumDemoSubject, action: @escaping () -> Void) -> ViewController
+    func makePremiumLimitController(context: AccountContext, subject: PremiumLimitSubject, count: Int32, forceDark: Bool, cancel: @escaping () -> Void, action: @escaping () -> Bool) -> ViewController
     
     func makeStickerPackScreen(context: AccountContext, updatedPresentationData: (initial: PresentationData, signal: Signal<PresentationData, NoError>)?, mainStickerPack: StickerPackReference, stickerPacks: [StickerPackReference], loadedStickerPacks: [LoadedStickerPack], parentNavigationController: NavigationController?, sendSticker: ((FileMediaReference, UIView, CGRect) -> Bool)?) -> ViewController
-        
+    
+    func makeMediaPickerScreen(context: AccountContext, hasSearch: Bool, completion: @escaping (Any) -> Void) -> ViewController
+    
+    func makeStoryMediaPickerScreen(context: AccountContext, getSourceRect: @escaping () -> CGRect, completion: @escaping (Any, UIView, CGRect, UIImage?, @escaping (Bool?) -> (UIView, CGRect)?, @escaping () -> Void) -> Void, dismissed: @escaping () -> Void, groupsPresented: @escaping () -> Void) -> ViewController
+    
     func makeProxySettingsController(sharedContext: SharedAccountContext, account: UnauthorizedAccount) -> ViewController
     
-    func makeInstalledStickerPacksController(context: AccountContext, mode: InstalledStickerPacksControllerMode) -> ViewController
+    func makeInstalledStickerPacksController(context: AccountContext, mode: InstalledStickerPacksControllerMode, forceTheme: PresentationTheme?) -> ViewController
+    
+    func makeChannelStatsController(context: AccountContext, updatedPresentationData: (initial: PresentationData, signal: Signal<PresentationData, NoError>)?, peerId: EnginePeer.Id, boosts: Bool, boostStatus: ChannelBoostStatus?, statsDatacenterId: Int32) -> ViewController
+    
+    func makeDebugSettingsController(context: AccountContext?) -> ViewController?
     
     func navigateToCurrentCall()
     var hasOngoingCall: ValuePromise<Bool> { get }
     var immediateHasOngoingCall: Bool { get }
+    
+    var enablePreloads: Promise<Bool> { get }
+    var hasPreloadBlockingContent: Promise<Bool> { get }
     
     var hasGroupCallOnScreen: Signal<Bool, NoError> { get }
     var currentGroupCallController: ViewController? { get }
@@ -859,6 +965,16 @@ public enum PremiumIntroSource {
     case emojiStatus(PeerId, Int64, TelegramMediaFile?, LoadedStickerPack?)
     case voiceToText
     case fasterDownload
+    case translation
+    case stories
+    case storiesDownload
+    case storiesStealthMode
+    case storiesPermanentViews
+    case storiesFormatting
+    case storiesExpirationDurations
+    case storiesSuggestedReactions
+    case channelBoost(EnginePeer.Id)
+    case nameColor
 }
 
 public enum PremiumDemoSubject {
@@ -875,6 +991,23 @@ public enum PremiumDemoSubject {
     case appIcons
     case animatedEmoji
     case emojiStatus
+    case translation
+    case stories
+}
+
+public enum PremiumLimitSubject {
+    case folders
+    case chatsPerFolder
+    case pins
+    case files
+    case accounts
+    case linksPerSharedFolder
+    case membershipInSharedFolders
+    case channels
+    case expiringStories
+    case storiesWeekly
+    case storiesMonthly
+    case storiesChannelBoost(peer: EnginePeer, isCurrent: Bool, level: Int32, currentLevelBoosts: Int32, nextLevelBoosts: Int32?, link: String?, myBoostCount: Int32, canBoostAgain: Bool)
 }
 
 public protocol ComposeController: ViewController {
@@ -910,14 +1043,17 @@ public protocol AccountContext: AnyObject {
     var currentCountriesConfiguration: Atomic<CountriesConfiguration> { get }
     
     var cachedGroupCallContexts: AccountGroupCallContextCache { get }
-    var meshAnimationCache: MeshAnimationCache { get }
     
     var animationCache: AnimationCache { get }
     var animationRenderer: MultiAnimationRenderer { get }
     
     var animatedEmojiStickers: [String: [StickerPackItem]] { get }
     
+    var isPremium: Bool { get }
     var userLimits: EngineConfiguration.UserLimits { get }
+    var peerNameColors: PeerNameColors { get }
+    
+    var imageCache: AnyObject? { get }
     
     func storeSecureIdPassword(password: String)
     func getStoredSecureIdPassword() -> String?
@@ -934,18 +1070,32 @@ public protocol AccountContext: AnyObject {
 
 public struct PremiumConfiguration {
     public static var defaultValue: PremiumConfiguration {
-        return PremiumConfiguration(isPremiumDisabled: true)
+        return PremiumConfiguration(isPremiumDisabled: false, showPremiumGiftInAttachMenu: false, showPremiumGiftInTextField: false, giveawayGiftsPurchaseAvailable: false, boostsPerGiftCount: 3)
     }
     
     public let isPremiumDisabled: Bool
+    public let showPremiumGiftInAttachMenu: Bool
+    public let showPremiumGiftInTextField: Bool
+    public let giveawayGiftsPurchaseAvailable: Bool
+    public let boostsPerGiftCount: Int32
     
-    fileprivate init(isPremiumDisabled: Bool) {
+    fileprivate init(isPremiumDisabled: Bool, showPremiumGiftInAttachMenu: Bool, showPremiumGiftInTextField: Bool, giveawayGiftsPurchaseAvailable: Bool, boostsPerGiftCount: Int32) {
         self.isPremiumDisabled = isPremiumDisabled
+        self.showPremiumGiftInAttachMenu = showPremiumGiftInAttachMenu
+        self.showPremiumGiftInTextField = showPremiumGiftInTextField
+        self.giveawayGiftsPurchaseAvailable = giveawayGiftsPurchaseAvailable
+        self.boostsPerGiftCount = boostsPerGiftCount
     }
     
     public static func with(appConfiguration: AppConfiguration) -> PremiumConfiguration {
-        if let data = appConfiguration.data, let value = data["premium_purchase_blocked"] as? Bool {
-            return PremiumConfiguration(isPremiumDisabled: value)
+        if let data = appConfiguration.data {
+            return PremiumConfiguration(
+                isPremiumDisabled: data["premium_purchase_blocked"] as? Bool ?? false,
+                showPremiumGiftInAttachMenu: data["premium_gift_attach_menu_icon"] as? Bool ?? false,
+                showPremiumGiftInTextField: data["premium_gift_text_field_icon"] as? Bool ?? false,
+                giveawayGiftsPurchaseAvailable: data["giveaway_gifts_purchase_available"] as? Bool ?? false,
+                boostsPerGiftCount: Int32(data["boosts_per_sent_gift"] as? Double ?? 3)
+            )
         } else {
             return .defaultValue
         }
@@ -971,5 +1121,225 @@ public struct AntiSpamBotConfiguration {
         } else {
             return .defaultValue
         }
+    }
+}
+
+public struct StoriesConfiguration {
+    public enum PostingAvailability {
+        case enabled
+        case premium
+        case disabled
+    }
+    
+    public enum CaptionEntitiesAvailability {
+        case enabled
+        case premium
+    }
+    
+    static var defaultValue: StoriesConfiguration {
+        return StoriesConfiguration(posting: .disabled, captionEntities: .premium, venueSearchBot: "foursquare")
+    }
+    
+    public let posting: PostingAvailability
+    public let captionEntities: CaptionEntitiesAvailability
+    public let venueSearchBot: String
+    
+    fileprivate init(posting: PostingAvailability, captionEntities: CaptionEntitiesAvailability, venueSearchBot: String) {
+        self.posting = posting
+        self.captionEntities = captionEntities
+        self.venueSearchBot = venueSearchBot
+    }
+    
+    public static func with(appConfiguration: AppConfiguration) -> StoriesConfiguration {
+        if let data = appConfiguration.data {
+            let posting: PostingAvailability
+            let captionEntities: CaptionEntitiesAvailability
+            let venueSearchBot: String
+            if let postingString = data["stories_posting"] as? String {
+                switch postingString {
+                case "enabled":
+                    posting = .enabled
+                case "premium":
+                    posting = .premium
+                default:
+                    posting = .disabled
+                }
+            } else {
+                posting = .disabled
+            }
+            if let entitiesString = data["stories_entities"] as? String {
+                switch entitiesString {
+                case "enabled":
+                    captionEntities = .enabled
+                default:
+                    captionEntities = .premium
+                }
+            } else {
+                captionEntities = .premium
+            }
+            if let venueSearchBotString = data["stories_venue_search_username"] as? String {
+                venueSearchBot = venueSearchBotString
+            } else {
+                venueSearchBot = "foursquare"
+            }
+            return StoriesConfiguration(posting: posting, captionEntities: captionEntities, venueSearchBot: venueSearchBot)
+        } else {
+            return .defaultValue
+        }
+    }
+}
+
+public struct StickersSearchConfiguration {
+    static var defaultValue: StickersSearchConfiguration {
+        return StickersSearchConfiguration(disableLocalSuggestions: false)
+    }
+    
+    public let disableLocalSuggestions: Bool
+    
+    fileprivate init(disableLocalSuggestions: Bool) {
+        self.disableLocalSuggestions = disableLocalSuggestions
+    }
+    
+    public static func with(appConfiguration: AppConfiguration) -> StickersSearchConfiguration {
+        if let data = appConfiguration.data, let suggestOnlyApi = data["stickers_emoji_suggest_only_api"] as? Bool {
+            return StickersSearchConfiguration(disableLocalSuggestions: suggestOnlyApi)
+        } else {
+            return .defaultValue
+        }
+    }
+}
+
+public class PeerNameColors: Equatable {
+    public struct Colors: Equatable {
+        public let main: UIColor
+        public let secondary: UIColor?
+        public let tertiary: UIColor?
+        
+        init(main: UIColor, secondary: UIColor?, tertiary: UIColor?) {
+            self.main = main
+            self.secondary = secondary
+            self.tertiary = tertiary
+        }
+        
+        init(main: UIColor) {
+            self.main = main
+            self.secondary = nil
+            self.tertiary = nil
+        }
+        
+        init?(colors: [UIColor]) {
+            guard let first = colors.first else {
+                return nil
+            }
+            self.main = first
+            if colors.count == 3 {
+                self.secondary = colors[1]
+                self.tertiary = colors[2]
+            } else if colors.count == 2, let second = colors.last {
+                self.secondary = second
+                self.tertiary = nil
+            } else {
+                self.secondary = nil
+                self.tertiary = nil
+            }
+        }
+    }
+    
+    public static var defaultSingleColors: [Int32: Colors] {
+        return [
+            0: Colors(main: UIColor(rgb: 0xcc5049)),
+            1: Colors(main: UIColor(rgb: 0xd67722)),
+            2: Colors(main: UIColor(rgb: 0x955cdb)),
+            3: Colors(main: UIColor(rgb: 0x40a920)),
+            4: Colors(main: UIColor(rgb: 0x309eba)),
+            5: Colors(main: UIColor(rgb: 0x368ad1)),
+            6: Colors(main: UIColor(rgb: 0xc7508b))
+        ]
+    }
+    
+    public static var defaultValue: PeerNameColors {
+        return PeerNameColors(
+            colors: defaultSingleColors,
+            darkColors: [:],
+            displayOrder: [5, 3, 1, 0, 2, 4, 6]
+        )
+    }
+    
+    public let colors: [Int32: Colors]
+    public let darkColors: [Int32: Colors]
+    public let displayOrder: [Int32]
+    
+    public func get(_ color: PeerNameColor, dark: Bool = false) -> Colors {
+        if dark, let colors = self.darkColors[color.rawValue] {
+            return colors
+        } else if let colors = self.colors[color.rawValue] {
+            return colors
+        } else {
+            return PeerNameColors.defaultSingleColors[5]!
+        }
+    }
+    
+    fileprivate init(colors: [Int32: Colors], darkColors: [Int32: Colors], displayOrder: [Int32]) {
+        self.colors = colors
+        self.darkColors = darkColors
+        self.displayOrder = displayOrder
+    }
+    
+    public static func with(appConfiguration: AppConfiguration) -> PeerNameColors {
+        if let data = appConfiguration.data {
+            var colors = PeerNameColors.defaultSingleColors
+            var darkColors: [Int32: Colors] = [:]
+            
+            if let peerColors = data["peer_colors"] as? [String: [String]] {
+                for (key, values) in peerColors {
+                    if let index = Int32(key) {
+                        let colorsArray = values.compactMap { UIColor(hexString: $0) }
+                        if let colorValues = Colors(colors: colorsArray) {
+                            colors[index] = colorValues
+                        }
+                    }
+                }
+            }
+            
+            if let darkPeerColors = data["dark_peer_colors"] as? [String: [String]] {
+                for (key, values) in darkPeerColors {
+                    if let index = Int32(key) {
+                        let colorsArray = values.compactMap { UIColor(hexString: $0) }
+                        if let colorValues = Colors(colors: colorsArray) {
+                            darkColors[index] = colorValues
+                        }
+                    }
+                }
+            }
+            
+            var displayOrder: [Int32] = []
+            if let order = data["peer_colors_available"] as? [Double] {
+                displayOrder = order.map { Int32($0) }
+            }
+            if displayOrder.isEmpty {
+                displayOrder = PeerNameColors.defaultValue.displayOrder
+            }
+            
+            return PeerNameColors(
+                colors: colors,
+                darkColors: darkColors,
+                displayOrder: displayOrder
+            )
+        } else {
+            return .defaultValue
+        }
+    }
+    
+    public static func == (lhs: PeerNameColors, rhs: PeerNameColors) -> Bool {
+        if lhs.colors != rhs.colors {
+            return false
+        }
+        if lhs.darkColors != rhs.darkColors {
+            return false
+        }
+        if lhs.displayOrder != rhs.displayOrder {
+            return false
+        }
+        return true
     }
 }

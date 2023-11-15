@@ -316,7 +316,7 @@ final class TabBarNodeItem {
     }
 }
 
-class TabBarNode: ASDisplayNode {
+class TabBarNode: ASDisplayNode, UIGestureRecognizerDelegate {
     var tabBarItems: [TabBarNodeItem] = [] {
         didSet {
             self.reloadTabBarItems()
@@ -381,9 +381,12 @@ class TabBarNode: ASDisplayNode {
         super.init()
         
         self.isAccessibilityContainer = false
+        self.accessibilityTraits = [.tabBar]
         
         self.isOpaque = false
         self.backgroundColor = nil
+        
+        self.isExclusiveTouch = true
 
         self.addSubnode(self.backgroundNode)
         self.addSubnode(self.separatorNode)
@@ -393,11 +396,19 @@ class TabBarNode: ASDisplayNode {
         super.didLoad()
         
         let recognizer = TapLongTapOrDoubleTapGestureRecognizer(target: self, action: #selector(self.tapLongTapOrDoubleTapGesture(_:)))
+        recognizer.delegate = self
         recognizer.tapActionAtPoint = { _ in
             return .keepWithSingleTap
         }
         self.tapRecognizer = recognizer
         self.view.addGestureRecognizer(recognizer)
+    }
+    
+    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
+        if otherGestureRecognizer is UIPanGestureRecognizer {
+            return false
+        }
+        return true
     }
     
     @objc private func tapLongTapOrDoubleTapGesture(_ recognizer: TapLongTapOrDoubleTapGestureRecognizer) {
@@ -447,6 +458,11 @@ class TabBarNode: ASDisplayNode {
     func frameForControllerTab(at index: Int) -> CGRect? {
         let container = self.tabBarNodeContainers[index]
         return container.imageNode.frame
+    }
+    
+    func viewForControllerTab(at index: Int) -> UIView? {
+        let container = self.tabBarNodeContainers[index]
+        return container.imageNode.view
     }
     
     private func reloadTabBarItems() {
@@ -509,6 +525,7 @@ class TabBarNode: ASDisplayNode {
                 node.contextTextImageNode.image = contextTextImage
                 node.contextImageNode.image = contextImage
                 node.accessibilityLabel = item.item.title
+                node.accessibilityTraits = [.button, .selected]
                 node.contentWidth = max(contentWidth, imageContentWidth)
                 node.isSelected = true
             } else {
@@ -522,6 +539,7 @@ class TabBarNode: ASDisplayNode {
                 
                 node.textImageNode.image = textImage
                 node.accessibilityLabel = item.item.title
+                node.accessibilityTraits = [.button]
                 node.imageNode.image = image
                 node.contextTextImageNode.image = contextTextImage
                 node.contextImageNode.image = contextImage
@@ -583,6 +601,7 @@ class TabBarNode: ASDisplayNode {
                 let (contextImage, _) = tabBarItemImage(item.item.image, title: item.item.title ?? "", backgroundColor: .clear, tintColor: self.theme.tabBarExtractedIconColor, horizontal: self.horizontal, imageMode: true, centered: self.centered)
                 node.textImageNode.image = textImage
                 node.accessibilityLabel = item.item.title
+                node.accessibilityTraits = [.button, .selected]
                 node.imageNode.image = image
                 node.contextTextImageNode.image = contextTextImage
                 node.contextImageNode.image = contextImage
@@ -615,6 +634,7 @@ class TabBarNode: ASDisplayNode {
                 
                 node.textImageNode.image = textImage
                 node.accessibilityLabel = item.item.title
+                node.accessibilityTraits = [.button]
                 node.imageNode.image = image
                 node.contextTextImageNode.image = contextTextImage
                 node.contextImageNode.image = contextImage
@@ -713,6 +733,7 @@ class TabBarNode: ASDisplayNode {
                 node.containerNode.frame = CGRect(origin: CGPoint(), size: nodeFrame.size)
                 node.hitTestSlop = UIEdgeInsets(top: -3.0, left: -horizontalHitTestInset, bottom: -3.0, right: -horizontalHitTestInset)
                 node.containerNode.hitTestSlop = UIEdgeInsets(top: -3.0, left: -horizontalHitTestInset, bottom: -3.0, right: -horizontalHitTestInset)
+                node.accessibilityFrame = nodeFrame.insetBy(dx: -horizontalHitTestInset, dy: 0.0).offsetBy(dx: 0.0, dy: size.height - nodeSize.height - bottomInset)
                 if node.ringColor == nil {
                     node.imageNode.frame = CGRect(origin: CGPoint(), size: nodeFrame.size)
                 }

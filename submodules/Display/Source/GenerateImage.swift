@@ -34,6 +34,9 @@ private func withImageBytes(image: UIImage, _ f: (UnsafePointer<UInt8>, Int, Int
     let bytesPerRow = DeviceGraphicsContextSettings.shared.bytesPerRow(forWidth: Int(scaledSize.width))
     let length = bytesPerRow * Int(scaledSize.height)
     let bytes = malloc(length)!.assumingMemoryBound(to: UInt8.self)
+    defer {
+        free(bytes)
+    }
     memset(bytes, 0, length)
     
     let bitmapInfo = DeviceGraphicsContextSettings.shared.transparentBitmapInfo
@@ -357,7 +360,7 @@ public func generateGradientTintedImage(image: UIImage?, colors: [UIColor]) -> U
                 let t = CGFloat(i) / CGFloat(colors.count - 1)
                 locations.append(t)
             }
-            let colorSpace = CGColorSpaceCreateDeviceRGB()
+            let colorSpace = DeviceGraphicsContextSettings.shared.colorSpace
             let gradient = CGGradient(colorsSpace: colorSpace, colors: gradientColors, locations: &locations)!
 
             context.drawLinearGradient(gradient, start: CGPoint(x: 0.0, y: imageRect.height), end: CGPoint(x: 0.0, y: 0.0), options: CGGradientDrawingOptions())
@@ -380,14 +383,14 @@ public enum GradientImageDirection {
     case horizontal
 }
 
-public func generateGradientImage(size: CGSize, colors: [UIColor], locations: [CGFloat], direction: GradientImageDirection = .vertical) -> UIImage? {
+public func generateGradientImage(size: CGSize, scale: CGFloat = 0.0, colors: [UIColor], locations: [CGFloat], direction: GradientImageDirection = .vertical) -> UIImage? {
     guard colors.count == locations.count else {
         return nil
     }
-    UIGraphicsBeginImageContextWithOptions(size, false, 0.0)
+    UIGraphicsBeginImageContextWithOptions(size, false, scale)
     if let context = UIGraphicsGetCurrentContext() {
         let gradientColors = colors.map { $0.cgColor } as CFArray
-        let colorSpace = CGColorSpaceCreateDeviceRGB()
+        let colorSpace = DeviceGraphicsContextSettings.shared.colorSpace
         
         var locations = locations
         let gradient = CGGradient(colorsSpace: colorSpace, colors: gradientColors, locations: &locations)!
@@ -409,7 +412,7 @@ public func generateGradientFilledCircleImage(diameter: CGFloat, colors: NSArray
         context.clip()
         
         var locations: [CGFloat] = [0.0, 1.0]
-        let colorSpace = CGColorSpaceCreateDeviceRGB()
+        let colorSpace = DeviceGraphicsContextSettings.shared.colorSpace
         let gradient = CGGradient(colorsSpace: colorSpace, colors: colors, locations: &locations)!
         
         context.drawLinearGradient(gradient, start: CGPoint(), end: CGPoint(x: 0.0, y: bounds.size.height), options: CGGradientDrawingOptions())
@@ -572,7 +575,7 @@ public class DrawingContext {
         f(self.context)
     }
     
-    public init?(size: CGSize, scale: CGFloat = 0.0, opaque: Bool = false, clear: Bool = false, bytesPerRow: Int? = nil) {
+    public init?(size: CGSize, scale: CGFloat = 0.0, opaque: Bool = false, clear: Bool = false, bytesPerRow: Int? = nil, colorSpace: CGColorSpace? = nil) {
         if size.width <= 0.0 || size.height <= 0.0 {
             return nil
         }
@@ -607,7 +610,7 @@ public class DrawingContext {
             height: Int(self.scaledSize.height),
             bitsPerComponent: DeviceGraphicsContextSettings.shared.bitsPerComponent,
             bytesPerRow: self.bytesPerRow,
-            space: DeviceGraphicsContextSettings.shared.colorSpace,
+            space: colorSpace ?? DeviceGraphicsContextSettings.shared.colorSpace,
             bitmapInfo: self.bitmapInfo.rawValue,
             releaseCallback: nil,
             releaseInfo: nil
@@ -622,7 +625,7 @@ public class DrawingContext {
         }
     }
     
-    public func generateImage() -> UIImage? {
+    public func generateImage(colorSpace: CGColorSpace? = nil) -> UIImage? {
         if self.scaledSize.width.isZero || self.scaledSize.height.isZero {
             return nil
         }
@@ -639,7 +642,7 @@ public class DrawingContext {
             bitsPerComponent: self.context.bitsPerComponent,
             bitsPerPixel: self.context.bitsPerPixel,
             bytesPerRow: self.context.bytesPerRow,
-            space: DeviceGraphicsContextSettings.shared.colorSpace,
+            space: colorSpace ?? DeviceGraphicsContextSettings.shared.colorSpace,
             bitmapInfo: self.context.bitmapInfo,
             provider: dataProvider,
             decode: nil,

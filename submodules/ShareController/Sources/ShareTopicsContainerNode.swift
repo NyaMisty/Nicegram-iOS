@@ -1,7 +1,6 @@
 import Foundation
 import UIKit
 import AsyncDisplayKit
-import Postbox
 import TelegramCore
 import SwiftSignalKit
 import Display
@@ -42,6 +41,9 @@ private struct ShareTopicEntry: Comparable, Identifiable {
         if lhs.threadData != rhs.threadData {
             return false
         }
+        if lhs.theme !== rhs.theme {
+            return false
+        }
         
         return true
     }
@@ -50,8 +52,8 @@ private struct ShareTopicEntry: Comparable, Identifiable {
         return lhs.index < rhs.index
     }
     
-    func item(context: AccountContext, interfaceInteraction: ShareControllerInteraction) -> GridItem {
-        return ShareTopicGridItem(context: context, theme: self.theme, strings: self.strings, peer: self.peer, id: self.id, threadInfo: self.threadData, controllerInteraction: interfaceInteraction)
+    func item(environment: ShareControllerEnvironment, context: ShareControllerAccountContext, interfaceInteraction: ShareControllerInteraction) -> GridItem {
+        return ShareTopicGridItem(environment: environment, context: context, theme: self.theme, strings: self.strings, peer: self.peer, id: self.id, threadInfo: self.threadData, controllerInteraction: interfaceInteraction)
     }
 }
 
@@ -62,12 +64,12 @@ private struct ShareGridTransaction {
     let animated: Bool
 }
 
-private func preparedGridEntryTransition(context: AccountContext, from fromEntries: [ShareTopicEntry], to toEntries: [ShareTopicEntry], interfaceInteraction: ShareControllerInteraction) -> ShareGridTransaction {
+private func preparedGridEntryTransition(environment: ShareControllerEnvironment, context: ShareControllerAccountContext, from fromEntries: [ShareTopicEntry], to toEntries: [ShareTopicEntry], interfaceInteraction: ShareControllerInteraction) -> ShareGridTransaction {
     let (deleteIndices, indicesAndItems, updateIndices) = mergeListsStableWithUpdates(leftList: fromEntries, rightList: toEntries)
     
     let deletions = deleteIndices
-    let insertions = indicesAndItems.map { GridNodeInsertItem(index: $0.0, item: $0.1.item(context: context, interfaceInteraction: interfaceInteraction), previousIndex: $0.2) }
-    let updates = updateIndices.map { GridNodeUpdateItem(index: $0.0, previousIndex: $0.2, item: $0.1.item(context: context, interfaceInteraction: interfaceInteraction)) }
+    let insertions = indicesAndItems.map { GridNodeInsertItem(index: $0.0, item: $0.1.item(environment: environment, context: context, interfaceInteraction: interfaceInteraction), previousIndex: $0.2) }
+    let updates = updateIndices.map { GridNodeUpdateItem(index: $0.0, previousIndex: $0.2, item: $0.1.item(environment: environment, context: context, interfaceInteraction: interfaceInteraction)) }
     
     return ShareGridTransaction(deletions: deletions, insertions: insertions, updates: updates, animated: false)
 }
@@ -155,9 +157,10 @@ final class ShareTopicsContainerNode: ASDisplayNode, ShareContentContainerNode {
         
     }
     
-    private let sharedContext: SharedAccountContext
-    private let context: AccountContext
-    private let theme: PresentationTheme
+    private let environment: ShareControllerEnvironment
+    private let context: ShareControllerAccountContext
+    private var theme: PresentationTheme
+    private let themePromise: Promise<PresentationTheme>
     private let strings: PresentationStrings
     private let controllerInteraction: ShareControllerInteraction
             
@@ -180,10 +183,12 @@ final class ShareTopicsContainerNode: ASDisplayNode, ShareContentContainerNode {
     
     var backPressed: () -> Void = {}
     
-    init(sharedContext: SharedAccountContext, context: AccountContext, theme: PresentationTheme, strings: PresentationStrings, peer: EnginePeer, topics: Signal<EngineChatList, NoError>, controllerInteraction: ShareControllerInteraction) {
-        self.sharedContext = sharedContext
+    init(environment: ShareControllerEnvironment, context: ShareControllerAccountContext, theme: PresentationTheme, strings: PresentationStrings, peer: EnginePeer, topics: Signal<EngineChatList, NoError>, controllerInteraction: ShareControllerInteraction) {
+        self.environment = environment
         self.context = context
         self.theme = theme
+        self.themePromise = Promise()
+        self.themePromise.set(.single(theme))
         self.strings = strings
         self.controllerInteraction = controllerInteraction
         
@@ -192,8 +197,8 @@ final class ShareTopicsContainerNode: ASDisplayNode, ShareContentContainerNode {
             return $0.items
         })
         
-        let items: Signal<[ShareTopicEntry], NoError> = self.topicsValue.get()
-        |> map { topics -> [ShareTopicEntry] in
+        let items: Signal<[ShareTopicEntry], NoError> = (combineLatest(self.topicsValue.get(), self.themePromise.get()))
+        |> map { topics, theme -> [ShareTopicEntry] in
             var entries: [ShareTopicEntry] = []
             var index: Int32 = 0
             
@@ -240,7 +245,7 @@ final class ShareTopicsContainerNode: ASDisplayNode, ShareContentContainerNode {
                 strongSelf.entries = entries
                 
                 let firstTime = previousEntries == nil
-                let transition = preparedGridEntryTransition(context: context, from: previousEntries ?? [], to: entries, interfaceInteraction: controllerInteraction)
+                let transition = preparedGridEntryTransition(environment: environment, context: context, from: previousEntries ?? [], to: entries, interfaceInteraction: controllerInteraction)
                 strongSelf.enqueueTransition(transition, firstTime: firstTime)
             }
         }))
@@ -269,7 +274,7 @@ final class ShareTopicsContainerNode: ASDisplayNode, ShareContentContainerNode {
             }
         }
     }
-    
+        
     private func dequeueTransition() {
         if let (transition, _) = self.enqueuedTransitions.first {
             self.enqueuedTransitions.remove(at: 0)
@@ -366,6 +371,13 @@ final class ShareTopicsContainerNode: ASDisplayNode, ShareContentContainerNode {
             itemNode.layer.animatePosition(from: itemNode.position, to: targetFrame.center, duration: 0.4, timingFunction: kCAMediaTimingFunctionSpring)
             itemNode.layer.animateScale(from: 1.0, to: 0.2, duration: 0.3, timingFunction: kCAMediaTimingFunctionSpring)
         }
+    }
+    
+    public func updateTheme(_ theme: PresentationTheme) {
+        self.theme = theme
+        self.themePromise.set(.single(theme))
+        self.contentTitleNode.attributedText = NSAttributedString(string: self.contentTitleNode.attributedText?.string ?? "", font: Font.medium(20.0), textColor: self.theme.actionSheet.primaryTextColor)
+        self.contentSubtitleNode.attributedText = NSAttributedString(string: self.contentSubtitleNode.attributedText?.string ?? "", font: subtitleFont, textColor: self.theme.actionSheet.secondaryTextColor)
     }
     
     func updateLayout(size: CGSize, isLandscape: Bool, bottomInset: CGFloat, transition: ContainedViewLayoutTransition) {

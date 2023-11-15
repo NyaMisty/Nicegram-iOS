@@ -2,24 +2,25 @@ import Foundation
 import UIKit
 import Display
 import SwiftSignalKit
-import Postbox
 import TelegramCore
 import TelegramPresentationData
 
 public struct ChatListNodeAdditionalCategory {
-    public enum Appearance {
-        case option
+    public enum Appearance: Equatable {
+        case option(sectionTitle: String?)
         case action
     }
     
     public var id: Int
     public var icon: UIImage?
+    public var smallIcon: UIImage?
     public var title: String
     public var appearance: Appearance
     
-    public init(id: Int, icon: UIImage?, title: String, appearance: Appearance = .option) {
+    public init(id: Int, icon: UIImage?, smallIcon: UIImage?, title: String, appearance: Appearance = .option(sectionTitle: nil)) {
         self.id = id
         self.icon = icon
+        self.smallIcon = smallIcon
         self.title = title
         self.appearance = appearance
     }
@@ -39,18 +40,20 @@ public enum ContactMultiselectionControllerMode {
     public struct ChatSelection {
         public var title: String
         public var searchPlaceholder: String
-        public var selectedChats: Set<PeerId>
+        public var selectedChats: Set<EnginePeer.Id>
         public var additionalCategories: ContactMultiselectionControllerAdditionalCategories?
         public var chatListFilters: [ChatListFilter]?
         public var displayAutoremoveTimeout: Bool
+        public var displayPresence: Bool
         
         public init(
             title: String,
             searchPlaceholder: String,
-            selectedChats: Set<PeerId>,
+            selectedChats: Set<EnginePeer.Id>,
             additionalCategories: ContactMultiselectionControllerAdditionalCategories?,
             chatListFilters: [ChatListFilter]?,
-            displayAutoremoveTimeout: Bool = false
+            displayAutoremoveTimeout: Bool = false,
+            displayPresence: Bool = false
         ) {
             self.title = title
             self.searchPlaceholder = searchPlaceholder
@@ -58,6 +61,7 @@ public enum ContactMultiselectionControllerMode {
             self.additionalCategories = additionalCategories
             self.chatListFilters = chatListFilters
             self.displayAutoremoveTimeout = displayAutoremoveTimeout
+            self.displayPresence = displayPresence
         }
     }
     
@@ -68,9 +72,10 @@ public enum ContactMultiselectionControllerMode {
 }
 
 public enum ContactListFilter {
+    case excludeWithoutPhoneNumbers
     case excludeSelf
-    case exclude([PeerId])
-    case disable([PeerId])
+    case exclude([EnginePeer.Id])
+    case disable([EnginePeer.Id])
 }
 
 public final class ContactMultiselectionControllerParams {

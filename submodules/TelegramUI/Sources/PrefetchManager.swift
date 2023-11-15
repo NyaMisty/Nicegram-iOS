@@ -1,6 +1,5 @@
 import Foundation
 import SwiftSignalKit
-import Postbox
 import TelegramCore
 import TelegramUIPreferences
 import AccountContext
@@ -8,6 +7,8 @@ import PhotoResources
 import StickerResources
 import Emoji
 import UniversalMediaPlayer
+import ChatMessageInteractiveMediaNode
+import ChatMessageAnimatedStickerItemNode
 
 private final class PrefetchMediaContext {
     let fetchDisposable = MetaDisposable()
@@ -29,7 +30,7 @@ private final class PrefetchManagerInnerImpl {
     
     private var listDisposable: Disposable?
     
-    private var contexts: [MediaId: PrefetchMediaContext] = [:]
+    private var contexts: [EngineMedia.Id: PrefetchMediaContext] = [:]
 
     private let preloadGreetingStickerDisposable = MetaDisposable()
     fileprivate let preloadedGreetingStickerPromise = Promise<TelegramMediaFile?>(nil)
@@ -93,7 +94,7 @@ private final class PrefetchManagerInnerImpl {
         }
         
         self.listDisposable = (combineLatest(orderedPreloadMedia, sharedContext.automaticMediaDownloadSettings, networkType)
-        |> deliverOn(self.queue)).start(next: { [weak self] orderedPreloadMedia, automaticDownloadSettings, networkType in
+        |> deliverOn(self.queue)).startStrict(next: { [weak self] orderedPreloadMedia, automaticDownloadSettings, networkType in
             self?.updateOrderedPreloadMedia(orderedPreloadMedia, automaticDownloadSettings: automaticDownloadSettings, networkType: networkType)
         })
     }
@@ -109,7 +110,7 @@ private final class PrefetchManagerInnerImpl {
             return
         }
         #endif
-        var validIds = Set<MediaId>()
+        var validIds = Set<EngineMedia.Id>()
         var order: Int32 = 0
         for mediaItem in items {
             switch mediaItem {
@@ -136,15 +137,15 @@ private final class PrefetchManagerInnerImpl {
                     } else {
                         peerType = .otherPrivate
                     }
-                    var mediaResource: MediaResource?
+                    var mediaResource: EngineMediaResource?
                     
                     if let telegramImage = mediaItem.media.media as? TelegramMediaImage {
-                        mediaResource = largestRepresentationForPhoto(telegramImage)?.resource
+                        mediaResource = (largestRepresentationForPhoto(telegramImage)?.resource).flatMap(EngineMediaResource.init)
                         if shouldDownloadMediaAutomatically(settings: automaticDownloadSettings, peerType: peerType, networkType: networkType, authorPeerId: nil, contactsPeerIds: [], media: telegramImage) {
                             automaticDownload = .full
                         }
                     } else if let telegramFile = mediaItem.media.media as? TelegramMediaFile {
-                        mediaResource = telegramFile.resource
+                        mediaResource = EngineMediaResource(telegramFile.resource)
                         if shouldDownloadMediaAutomatically(settings: automaticDownloadSettings, peerType: peerType, networkType: networkType, authorPeerId: nil, contactsPeerIds: [], media: telegramFile) {
                             automaticDownload = .full
                         } else if shouldPredownloadMedia(settings: automaticDownloadSettings, peerType: peerType, networkType: networkType, media: telegramFile) {
@@ -173,17 +174,17 @@ private final class PrefetchManagerInnerImpl {
                         
                         if case .full = automaticDownload {
                             if let image = media as? TelegramMediaImage {
-                                context.fetchDisposable.set(messageMediaImageInteractiveFetched(fetchManager: self.fetchManager, messageId: mediaItem.media.index.id, messageReference: MessageReference(peer: mediaItem.media.peer, author: nil, id: mediaItem.media.index.id, timestamp: mediaItem.media.index.timestamp, incoming: true, secret: false), image: image, resource: resource, userInitiated: false, priority: priority, storeToDownloadsPeerType: nil).start())
+                                context.fetchDisposable.set(messageMediaImageInteractiveFetched(fetchManager: self.fetchManager, messageId: mediaItem.media.index.id, messageReference: MessageReference(peer: mediaItem.media.peer, author: nil, id: mediaItem.media.index.id, timestamp: mediaItem.media.index.timestamp, incoming: true, secret: false), image: image, resource: resource._asResource(), userInitiated: false, priority: priority, storeToDownloadsPeerId: nil).startStrict())
                             } else if let _ = media as? TelegramMediaWebFile {
-                                //strongSelf.fetchDisposable.set(chatMessageWebFileInteractiveFetched(account: context.account, image: image).start())
+                                //strongSelf.fetchDisposable.set(chatMessageWebFileInteractiveFetched(account: context.account, image: image).startStrict())
                             } else if let file = media as? TelegramMediaFile {
-                                // MARK: Nicegram downloading feature
+                                // MARK: Nicegram downloading feature, accountContext added
                                 let fetchSignal = messageMediaFileInteractiveFetched(fetchManager: self.fetchManager, messageId: mediaItem.media.index.id, messageReference: MessageReference(peer: mediaItem.media.peer, author: nil, id: mediaItem.media.index.id, timestamp: mediaItem.media.index.timestamp, incoming: true, secret: false), file: file, userInitiated: false, priority: priority, accountContext: nil)
-                                context.fetchDisposable.set(fetchSignal.start())
+                                context.fetchDisposable.set(fetchSignal.startStrict())
                             }
                         } else if case .prefetch = automaticDownload, mediaItem.media.peer.id.namespace != Namespaces.Peer.SecretChat {
                             if let file = media as? TelegramMediaFile, let _ = file.size {
-                                context.fetchDisposable.set(preloadVideoResource(postbox: self.account.postbox, userLocation: .peer(mediaItem.media.index.id.peerId), userContentType: MediaResourceUserContentType(file: file), resourceReference: FileMediaReference.message(message: MessageReference(peer: mediaItem.media.peer, author: nil, id: mediaItem.media.index.id, timestamp: mediaItem.media.index.timestamp, incoming: true, secret: false), media: file).resourceReference(file.resource), duration: 4.0).start())
+                                context.fetchDisposable.set(preloadVideoResource(postbox: self.account.postbox, userLocation: .peer(mediaItem.media.index.id.peerId), userContentType: MediaResourceUserContentType(file: file), resourceReference: FileMediaReference.message(message: MessageReference(peer: mediaItem.media.peer, author: nil, id: mediaItem.media.index.id, timestamp: mediaItem.media.index.timestamp, incoming: true, secret: false), media: file).resourceReference(file.resource), duration: 4.0).startStrict())
                             }
                         }
                     }
@@ -214,19 +215,19 @@ private final class PrefetchManagerInnerImpl {
                         context = PrefetchMediaContext()
                         self.contexts[id] = context
                         
-                        let priority: FetchManagerPriority = .backgroundPrefetch(locationOrder: HistoryPreloadIndex(index: nil, threadId: nil, hasUnread: false, isMuted: false, isPriority: true), localOrder: MessageIndex(id: MessageId(peerId: PeerId(0), namespace: 0, id: order), timestamp: 0))
+                        let priority: FetchManagerPriority = .backgroundPrefetch(locationOrder: HistoryPreloadIndex(index: nil, threadId: nil, hasUnread: false, isMuted: false, isPriority: true), localOrder: EngineMessage.Index(id: EngineMessage.Id(peerId: EnginePeer.Id(0), namespace: 0, id: order), timestamp: 0))
                         
                         if case .full = automaticDownload {
-                            // MARK: Nicegram downloading feature
+                            // MARK: Nicegram downloading feature, accountContext added
                             let fetchSignal = freeMediaFileInteractiveFetched(fetchManager: self.fetchManager, fileReference: .standalone(media: media), priority: priority, accountContext: nil)
-                            context.fetchDisposable.set(fetchSignal.start())
+                            context.fetchDisposable.set(fetchSignal.startStrict())
                         }
                         
                         order += 1
                 }
             }
         }
-        var removeIds: [MediaId] = []
+        var removeIds: [EngineMedia.Id] = []
         for key in self.contexts.keys {
             if !validIds.contains(key) {
                 removeIds.append(key)
@@ -251,15 +252,17 @@ private final class PrefetchManagerInnerImpl {
         self.preloadGreetingStickerDisposable.set((self.preloadedGreetingStickerPromise.get()
         |> mapToSignal { sticker -> Signal<Void, NoError> in
             if let sticker = sticker {
-                let _ = freeMediaFileInteractiveFetched(account: account, userLocation: .other, fileReference: .standalone(media: sticker)).start()
-                return chatMessageAnimationData(mediaBox: account.postbox.mediaBox, resource: sticker.resource, fitzModifier: nil, isVideo: sticker.isVideoSticker, width: 384, height: 384, synchronousLoad: false)
-                |> mapToSignal { _ -> Signal<Void, NoError> in
+                return freeMediaFileInteractiveFetched(account: account, userLocation: .other, fileReference: .standalone(media: sticker))
+                |> map { _ -> Void in
+                    return Void()
+                }
+                |> `catch` { _ -> Signal<Void, NoError> in
                     return .complete()
                 }
             } else {
                 return .complete()
             }
-        }).start())
+        }).startStrict())
     }
 }
 

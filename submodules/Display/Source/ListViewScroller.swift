@@ -5,9 +5,7 @@ public final class ListViewScroller: UIScrollView, UIGestureRecognizerDelegate {
         super.init(frame: frame)
         
         self.scrollsToTop = false
-        if #available(iOSApplicationExtension 11.0, iOS 11.0, *) {
-            self.contentInsetAdjustmentBehavior = .never
-        }
+        self.contentInsetAdjustmentBehavior = .never
     }
     
     required public init?(coder aDecoder: NSCoder) {
@@ -41,5 +39,10 @@ public final class ListViewScroller: UIScrollView, UIGestureRecognizerDelegate {
     
     override public func touchesShouldCancel(in view: UIView) -> Bool {
         return true
+    }
+    
+    var forceDecelerating = false
+    public override var isDecelerating: Bool {
+        return self.forceDecelerating || super.isDecelerating
     }
 }

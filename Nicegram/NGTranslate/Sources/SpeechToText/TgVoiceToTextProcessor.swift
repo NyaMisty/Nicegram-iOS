@@ -4,8 +4,6 @@ import SwiftSignalKit
 import TelegramCore
 import NGData
 import NGEnv
-import NGLocalization
-import NGModels
 import NGStrings
 
 public enum TgVoiceToTextError: Error {
@@ -97,10 +95,10 @@ private extension TgVoiceToTextProcessor {
     }
     
     func makeRecognitionConfig() -> GoogleRecognitionConfig {
-        let mainCode = Locale.currentAppLocale.langCode
+        let mainCode = Locale.currentAppLocale.languageWithScriptCode
         var additionalCodes = Set(
             additionalLanguageCodes + [
-                Locale.current.langCode,
+                Locale.current.languageWithScriptCode,
                 "en"
             ]
         )

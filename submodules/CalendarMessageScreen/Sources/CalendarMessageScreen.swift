@@ -3,7 +3,6 @@ import UIKit
 import Display
 import AsyncDisplayKit
 import SwiftSignalKit
-import Postbox
 import TelegramCore
 import AccountContext
 import TelegramPresentationData
@@ -71,7 +70,7 @@ private final class MediaPreviewView: SimpleLayer {
                     |> map { image in
                         return image.flatMap(processImage)
                     }
-                    |> deliverOnMainQueue).start(next: { [weak self] image in
+                    |> deliverOnMainQueue).startStrict(next: { [weak self] image in
                         guard let strongSelf = self else {
                             return
                         }
@@ -88,7 +87,7 @@ private final class MediaPreviewView: SimpleLayer {
                             }
                             strongSelf.contents = image.cgImage
                         }
-                    })
+                    }).strict()
                 }
             }
         }
@@ -371,7 +370,7 @@ private final class DayComponent: Component {
         private var currentSelection: DaySelection?
 
         private(set) var timestamp: Int32?
-        private(set) var index: MessageIndex?
+        private(set) var index: EngineMessage.Index?
         private var isHighlightingEnabled: Bool = false
 
         init() {
@@ -983,12 +982,12 @@ public final class CalendarMessageScreen: ViewController {
 
         private weak var controller: CalendarMessageScreen?
         private let context: AccountContext
-        private let peerId: PeerId
+        private let peerId: EnginePeer.Id
         private let initialTimestamp: Int32
         private let enableMessageRangeDeletion: Bool
         private let canNavigateToEmptyDays: Bool
         private let navigateToOffset: (Int, Int32) -> Void
-        private let previewDay: (Int32, MessageIndex?, ASDisplayNode, CGRect, ContextGesture) -> Void
+        private let previewDay: (Int32, EngineMessage.Index?, ASDisplayNode, CGRect, ContextGesture) -> Void
 
         private var presentationData: PresentationData
         private var scrollView: Scroller
@@ -1019,13 +1018,13 @@ public final class CalendarMessageScreen: ViewController {
         init(
             controller: CalendarMessageScreen,
             context: AccountContext,
-            peerId: PeerId,
+            peerId: EnginePeer.Id,
             calendarSource: SparseMessageCalendar,
             initialTimestamp: Int32,
             enableMessageRangeDeletion: Bool,
             canNavigateToEmptyDays: Bool,
             navigateToOffset: @escaping (Int, Int32) -> Void,
-            previewDay: @escaping (Int32, MessageIndex?, ASDisplayNode, CGRect, ContextGesture) -> Void
+            previewDay: @escaping (Int32, EngineMessage.Index?, ASDisplayNode, CGRect, ContextGesture) -> Void
         ) {
             self.controller = controller
             self.context = context
@@ -1181,21 +1180,21 @@ public final class CalendarMessageScreen: ViewController {
             self.isLoadingMoreDisposable = (self.calendarSource.isLoadingMore
             |> distinctUntilChanged
             |> filter { !$0 }
-            |> deliverOnMainQueue).start(next: { [weak self] _ in
+            |> deliverOnMainQueue).startStrict(next: { [weak self] _ in
                 guard let strongSelf = self else {
                     return
                 }
                 strongSelf.calendarSource.loadMore()
-            })
+            }).strict()
 
             self.stateDisposable = (self.calendarSource.state
-            |> deliverOnMainQueue).start(next: { [weak self] state in
+            |> deliverOnMainQueue).startStrict(next: { [weak self] state in
                 guard let strongSelf = self else {
                     return
                 }
                 strongSelf.calendarState = state
                 strongSelf.reloadMediaInfo()
-            })
+            }).strict()
         }
 
         deinit {
@@ -1370,7 +1369,7 @@ public final class CalendarMessageScreen: ViewController {
             if self.selectionState?.dayRange == nil {
                 if let selectionToolbarNode = self.selectionToolbarNode {
                     let toolbarFrame = selectionToolbarNode.view.convert(selectionToolbarNode.bounds, to: self.view)
-                    self.controller?.present(TooltipScreen(account: self.context.account, text: self.presentationData.strings.MessageCalendar_EmptySelectionTooltip, style: .default, icon: .none, location: .point(toolbarFrame.insetBy(dx: 0.0, dy: 10.0), .bottom), shouldDismissOnTouch: { point in
+                    self.controller?.present(TooltipScreen(account: self.context.account, sharedContext: self.context.sharedContext, text: .plain(text: self.presentationData.strings.MessageCalendar_EmptySelectionTooltip), style: .default, icon: .none, location: .point(toolbarFrame.insetBy(dx: 0.0, dy: 10.0), .bottom), shouldDismissOnTouch: { _, _ in
                         return .dismiss(consume: false)
                     }), in: .current)
                 }
@@ -1488,7 +1487,7 @@ public final class CalendarMessageScreen: ViewController {
                     mainPeer: chatPeer
                 )
             }
-            |> deliverOnMainQueue).start(next: { [weak self] info in
+            |> deliverOnMainQueue).startStandalone(next: { [weak self] info in
                 guard let strongSelf = self, let info = info else {
                     return
                 }
@@ -1783,9 +1782,9 @@ public final class CalendarMessageScreen: ViewController {
             guard let calendarState = self.calendarState else {
                 return
             }
-            var messageMap: [Message] = []
+            var messageMap: [EngineMessage] = []
             for (_, entry) in calendarState.messagesByDay {
-                messageMap.append(entry.message)
+                messageMap.append(EngineMessage(entry.message))
             }
 
             var updatedMedia: [Int: [Int: DayMedia]] = [:]
@@ -1805,7 +1804,7 @@ public final class CalendarMessageScreen: ViewController {
                             mediaLoop: for media in message.media {
                                 switch media {
                                 case _ as TelegramMediaImage, _ as TelegramMediaFile:
-                                    updatedMedia[i]![day] = DayMedia(message: EngineMessage(message), media: EngineMedia(media))
+                                    updatedMedia[i]![day] = DayMedia(message: message, media: EngineMedia(media))
                                     break mediaLoop
                                 default:
                                     break
@@ -1830,13 +1829,13 @@ public final class CalendarMessageScreen: ViewController {
     }
 
     private let context: AccountContext
-    private let peerId: PeerId
+    private let peerId: EnginePeer.Id
     private let calendarSource: SparseMessageCalendar
     private let initialTimestamp: Int32
     private let enableMessageRangeDeletion: Bool
     private let canNavigateToEmptyDays: Bool
     private let navigateToDay: (CalendarMessageScreen, Int, Int32) -> Void
-    private let previewDay: (Int32, MessageIndex?, ASDisplayNode, CGRect, ContextGesture) -> Void
+    private let previewDay: (Int32, EngineMessage.Index?, ASDisplayNode, CGRect, ContextGesture) -> Void
 
     private var presentationData: PresentationData
     
@@ -1844,13 +1843,13 @@ public final class CalendarMessageScreen: ViewController {
 
     public init(
         context: AccountContext,
-        peerId: PeerId,
+        peerId: EnginePeer.Id,
         calendarSource: SparseMessageCalendar,
         initialTimestamp: Int32,
         enableMessageRangeDeletion: Bool,
         canNavigateToEmptyDays: Bool,
         navigateToDay: @escaping (CalendarMessageScreen, Int, Int32) -> Void,
-        previewDay: @escaping (Int32, MessageIndex?, ASDisplayNode, CGRect, ContextGesture) -> Void
+        previewDay: @escaping (Int32, EngineMessage.Index?, ASDisplayNode, CGRect, ContextGesture) -> Void
     ) {
         self.context = context
         self.peerId = peerId

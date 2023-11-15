@@ -17,20 +17,32 @@ private final class ContextMenuContainerMaskView: UIView {
 public final class ContextMenuContainerNode: ASDisplayNode {
     private var cachedMaskParams: CachedMaskParams?
     private let maskView = ContextMenuContainerMaskView()
+    public let containerNode: ASDisplayNode
     
     public var relativeArrowPosition: (CGFloat, Bool)?
     
-    //private let effectView: UIVisualEffectView
+    private var effectView: UIVisualEffectView?
     
-    override public init() {
-        //self.effectView = UIVisualEffectView(effect: UIBlurEffect(style: .light))
+    public init(isBlurred: Bool, isDark: Bool) {
+        self.containerNode = ASDisplayNode()
         
         super.init()
         
-        self.backgroundColor = UIColor(rgb: 0x8c8e8e)
-        //self.view.addSubview(self.effectView)
-        //self.effectView.mask = self.maskView
-        self.view.mask = self.maskView
+        if isBlurred {
+            let effectView = UIVisualEffectView(effect: UIBlurEffect(style: isDark ? .dark : .light))
+            self.containerNode.view.addSubview(effectView)
+            self.effectView = effectView
+        } else {
+            self.containerNode.backgroundColor = isDark ? UIColor(rgb: 0x2f2f2f) : UIColor(rgb: 0xF8F8F6)
+        }
+        
+        self.layer.shadowColor = UIColor.black.cgColor
+        self.layer.shadowRadius = 10.0
+        self.layer.shadowOpacity = 0.2
+        self.layer.shadowOffset = CGSize(width: 0.0, height: 5.0)
+        
+        self.containerNode.view.mask = self.maskView
+        self.addSubnode(self.containerNode)
     }
     
     override public func didLoad() {
@@ -46,7 +58,9 @@ public final class ContextMenuContainerNode: ASDisplayNode {
     }
     
     public func updateLayout(transition: ContainedViewLayoutTransition) {
-        //self.effectView.frame = self.bounds
+        transition.updateFrame(node: self.containerNode, frame: self.bounds)
+        
+        self.effectView?.frame = self.bounds
         
         let maskParams = CachedMaskParams(size: self.bounds.size, relativeArrowPosition: self.relativeArrowPosition?.0 ?? self.bounds.size.width / 2.0, arrowOnBottom: self.relativeArrowPosition?.1 ?? true)
         if self.cachedMaskParams != maskParams {
@@ -84,6 +98,13 @@ public final class ContextMenuContainerNode: ASDisplayNode {
                     layer.animate(from: previousPath, to: path.cgPath, keyPath: "path", timingFunction: curve.timingFunction, duration: duration)
                 }
                 layer.path = path.cgPath
+            }
+            
+            if case let .animated(duration, curve) = transition, let previousPath = self.layer.shadowPath {
+                self.layer.shadowPath = path.cgPath
+                self.layer.animate(from: previousPath, to: path.cgPath, keyPath: "shadowPath", timingFunction: curve.timingFunction, duration: duration)
+            } else {
+                self.layer.shadowPath = path.cgPath
             }
         }
     }

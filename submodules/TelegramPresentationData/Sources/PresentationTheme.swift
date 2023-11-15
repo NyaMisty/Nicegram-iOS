@@ -591,6 +591,9 @@ public final class PresentationThemeChatList {
     public let pinnedArchiveAvatarColor: PresentationThemeArchiveAvatarColors
     public let unpinnedArchiveAvatarColor: PresentationThemeArchiveAvatarColors
     public let onlineDotColor: UIColor
+    public let storyUnseenColors: PresentationThemeGradientColors
+    public let storyUnseenPrivateColors: PresentationThemeGradientColors
+    public let storySeenColors: PresentationThemeGradientColors
     
     init(
         backgroundColor: UIColor,
@@ -627,7 +630,10 @@ public final class PresentationThemeChatList {
         secretIconColor: UIColor,
         pinnedArchiveAvatarColor: PresentationThemeArchiveAvatarColors,
         unpinnedArchiveAvatarColor: PresentationThemeArchiveAvatarColors,
-        onlineDotColor: UIColor
+        onlineDotColor: UIColor,
+        storyUnseenColors: PresentationThemeGradientColors,
+        storyUnseenPrivateColors: PresentationThemeGradientColors,
+        storySeenColors: PresentationThemeGradientColors
     ) {
         self.backgroundColor = backgroundColor
         self.itemSeparatorColor = itemSeparatorColor
@@ -664,6 +670,9 @@ public final class PresentationThemeChatList {
         self.pinnedArchiveAvatarColor = pinnedArchiveAvatarColor
         self.unpinnedArchiveAvatarColor = unpinnedArchiveAvatarColor
         self.onlineDotColor = onlineDotColor
+        self.storyUnseenColors = storyUnseenColors
+        self.storyUnseenPrivateColors = storyUnseenPrivateColors
+        self.storySeenColors = storySeenColors
     }
     
     public func withUpdated(
@@ -701,7 +710,10 @@ public final class PresentationThemeChatList {
         secretIconColor: UIColor? = nil,
         pinnedArchiveAvatarColor: PresentationThemeArchiveAvatarColors? = nil,
         unpinnedArchiveAvatarColor: PresentationThemeArchiveAvatarColors? = nil,
-        onlineDotColor: UIColor? = nil
+        onlineDotColor: UIColor? = nil,
+        storyUnseenColors: PresentationThemeGradientColors? = nil,
+        storyUnseenPrivateColors: PresentationThemeGradientColors? = nil,
+        storySeenColors: PresentationThemeGradientColors? = nil
     ) -> PresentationThemeChatList {
         return PresentationThemeChatList(
             backgroundColor: backgroundColor ?? self.backgroundColor,
@@ -738,7 +750,10 @@ public final class PresentationThemeChatList {
             secretIconColor: secretIconColor ?? self.secretIconColor,
             pinnedArchiveAvatarColor: pinnedArchiveAvatarColor ?? self.pinnedArchiveAvatarColor,
             unpinnedArchiveAvatarColor: unpinnedArchiveAvatarColor ?? self.unpinnedArchiveAvatarColor,
-            onlineDotColor: onlineDotColor ?? self.onlineDotColor
+            onlineDotColor: onlineDotColor ?? self.onlineDotColor,
+            storyUnseenColors: storyUnseenColors ?? self.storyUnseenColors,
+            storyUnseenPrivateColors: storyUnseenPrivateColors ?? self.storyUnseenPrivateColors,
+            storySeenColors: storySeenColors ?? self.storySeenColors
         )
     }
 }
@@ -1163,6 +1178,12 @@ public final class PresentationThemeInputMediaPanel {
     public let panelContentControlVibrantSelectionColor: UIColor
     public let panelContentControlOpaqueOverlayColor: UIColor
     public let panelContentControlOpaqueSelectionColor: UIColor
+    public let panelContentVibrantSearchOverlayColor: UIColor
+    public let panelContentVibrantSearchOverlaySelectedColor: UIColor
+    public let panelContentVibrantSearchOverlayHighlightColor: UIColor
+    public let panelContentOpaqueSearchOverlayColor: UIColor
+    public let panelContentOpaqueSearchOverlaySelectedColor: UIColor
+    public let panelContentOpaqueSearchOverlayHighlightColor: UIColor
     public let stickersBackgroundColor: UIColor
     public let stickersSectionTextColor: UIColor
     public let stickersSearchBackgroundColor: UIColor
@@ -1182,6 +1203,12 @@ public final class PresentationThemeInputMediaPanel {
         panelContentControlVibrantSelectionColor: UIColor,
         panelContentControlOpaqueOverlayColor: UIColor,
         panelContentControlOpaqueSelectionColor: UIColor,
+        panelContentVibrantSearchOverlayColor: UIColor,
+        panelContentVibrantSearchOverlaySelectedColor: UIColor,
+        panelContentVibrantSearchOverlayHighlightColor: UIColor,
+        panelContentOpaqueSearchOverlayColor: UIColor,
+        panelContentOpaqueSearchOverlaySelectedColor: UIColor,
+        panelContentOpaqueSearchOverlayHighlightColor: UIColor,
         stickersBackgroundColor: UIColor,
         stickersSectionTextColor: UIColor,
         stickersSearchBackgroundColor: UIColor,
@@ -1200,6 +1227,12 @@ public final class PresentationThemeInputMediaPanel {
         self.panelContentControlVibrantSelectionColor = panelContentControlVibrantSelectionColor
         self.panelContentControlOpaqueOverlayColor = panelContentControlOpaqueOverlayColor
         self.panelContentControlOpaqueSelectionColor = panelContentControlOpaqueSelectionColor
+        self.panelContentVibrantSearchOverlayColor = panelContentVibrantSearchOverlayColor
+        self.panelContentVibrantSearchOverlaySelectedColor = panelContentVibrantSearchOverlaySelectedColor
+        self.panelContentVibrantSearchOverlayHighlightColor = panelContentVibrantSearchOverlayHighlightColor
+        self.panelContentOpaqueSearchOverlayColor = panelContentOpaqueSearchOverlayColor
+        self.panelContentOpaqueSearchOverlaySelectedColor = panelContentOpaqueSearchOverlaySelectedColor
+        self.panelContentOpaqueSearchOverlayHighlightColor = panelContentOpaqueSearchOverlayHighlightColor
         self.stickersBackgroundColor = stickersBackgroundColor
         self.stickersSectionTextColor = stickersSectionTextColor
         self.stickersSearchBackgroundColor = stickersSearchBackgroundColor
@@ -1220,6 +1253,12 @@ public final class PresentationThemeInputMediaPanel {
         panelContentControlVibrantSelectionColor: UIColor? = nil,
         panelContentControlOpaqueOverlayColor: UIColor? = nil,
         panelContentControlOpaqueSelectionColor: UIColor? = nil,
+        panelContentVibrantSearchOverlayColor: UIColor? = nil,
+        panelContentVibrantSearchOverlaySelectedColor: UIColor? = nil,
+        panelContentVibrantSearchOverlayHighlightColor: UIColor? = nil,
+        panelContentOpaqueSearchOverlayColor: UIColor? = nil,
+        panelContentOpaqueSearchOverlaySelectedColor: UIColor? = nil,
+        panelContentOpaqueSearchOverlayHighlightColor: UIColor? = nil,
         stickersBackgroundColor: UIColor? = nil,
         stickersSectionTextColor: UIColor? = nil,
         stickersSearchBackgroundColor: UIColor? = nil,
@@ -1239,6 +1278,12 @@ public final class PresentationThemeInputMediaPanel {
             panelContentControlVibrantSelectionColor: panelContentControlVibrantSelectionColor ?? self.panelContentControlVibrantSelectionColor,
             panelContentControlOpaqueOverlayColor: panelContentControlOpaqueOverlayColor ?? self.panelContentControlOpaqueOverlayColor,
             panelContentControlOpaqueSelectionColor: panelContentControlOpaqueSelectionColor ?? self.panelContentControlOpaqueSelectionColor,
+            panelContentVibrantSearchOverlayColor: panelContentVibrantSearchOverlayColor ?? self.panelContentVibrantSearchOverlayColor,
+            panelContentVibrantSearchOverlaySelectedColor: panelContentVibrantSearchOverlaySelectedColor ?? self.panelContentVibrantSearchOverlaySelectedColor,
+            panelContentVibrantSearchOverlayHighlightColor: panelContentVibrantSearchOverlayHighlightColor ?? self.panelContentVibrantSearchOverlayHighlightColor,
+            panelContentOpaqueSearchOverlayColor: panelContentOpaqueSearchOverlayColor ?? self.panelContentOpaqueSearchOverlayColor,
+            panelContentOpaqueSearchOverlaySelectedColor: panelContentOpaqueSearchOverlaySelectedColor ?? self.panelContentOpaqueSearchOverlaySelectedColor,
+            panelContentOpaqueSearchOverlayHighlightColor: panelContentOpaqueSearchOverlayHighlightColor ?? self.panelContentOpaqueSearchOverlayHighlightColor,
             stickersBackgroundColor: stickersBackgroundColor ?? self.stickersBackgroundColor,
             stickersSectionTextColor: stickersSectionTextColor ?? self.stickersSectionTextColor,
             stickersSearchBackgroundColor: stickersSearchBackgroundColor ?? self.stickersSearchBackgroundColor,
@@ -1573,7 +1618,11 @@ public final class PresentationTheme: Equatable {
     }
     
     public func withModalBlocksBackground() -> PresentationTheme {
-        let list = self.list.withUpdated(blocksBackgroundColor: self.list.modalBlocksBackgroundColor, itemBlocksBackgroundColor: self.list.itemModalBlocksBackgroundColor)
-        return PresentationTheme(name: self.name, index: self.index, referenceTheme: self.referenceTheme, overallDarkAppearance: self.overallDarkAppearance, intro: self.intro, passcode: self.passcode, rootController: self.rootController, list: list, chatList: self.chatList, chat: self.chat, actionSheet: self.actionSheet, contextMenu: self.contextMenu, inAppNotification: self.inAppNotification, chart: self.chart, preview: self.preview)
+        if self.list.blocksBackgroundColor.rgb == self.list.plainBackgroundColor.rgb {
+            let list = self.list.withUpdated(blocksBackgroundColor: self.list.modalBlocksBackgroundColor, itemBlocksBackgroundColor: self.list.itemModalBlocksBackgroundColor)
+            return PresentationTheme(name: self.name, index: self.index, referenceTheme: self.referenceTheme, overallDarkAppearance: self.overallDarkAppearance, intro: self.intro, passcode: self.passcode, rootController: self.rootController, list: list, chatList: self.chatList, chat: self.chat, actionSheet: self.actionSheet, contextMenu: self.contextMenu, inAppNotification: self.inAppNotification, chart: self.chart, preview: self.preview)
+        } else {
+            return self
+        }
     }
 }

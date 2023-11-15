@@ -1,6 +1,6 @@
 import Postbox
 
-private func currentAppConfiguration(transaction: Transaction) -> AppConfiguration {
+public func currentAppConfiguration(transaction: Transaction) -> AppConfiguration {
     if let entry = transaction.getPreferencesEntry(key: PreferencesKeys.appConfiguration)?.get(AppConfiguration.self) {
         return entry
     } else {

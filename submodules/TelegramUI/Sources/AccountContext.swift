@@ -16,12 +16,12 @@ import TelegramCallsUI
 import TelegramBaseController
 import AsyncDisplayKit
 import PresentationDataUtils
-import MeshAnimationCache
 import FetchManagerImpl
 import InAppPurchaseManager
 import AnimationCache
 import MultiAnimationRenderer
 import AppBundle
+import DirectMediaImageCache
 
 private final class DeviceSpecificContactImportContext {
     let disposable = MetaDisposable()
@@ -168,16 +168,88 @@ public final class AccountContextImpl: AccountContext {
     private var experimentalUISettingsDisposable: Disposable?
     
     public let cachedGroupCallContexts: AccountGroupCallContextCache
-    public let meshAnimationCache: MeshAnimationCache
     
     public let animationCache: AnimationCache
     public let animationRenderer: MultiAnimationRenderer
     
     private var animatedEmojiStickersDisposable: Disposable?
     public private(set) var animatedEmojiStickers: [String: [StickerPackItem]] = [:]
+    private let animatedEmojiStickersValue = Promise<[String: [StickerPackItem]]>()
+    public var animatedEmojiStickersSignal: Signal<[String: [StickerPackItem]], NoError> {
+        return self.animatedEmojiStickersValue.get()
+    }
+    
+    private var additionalAnimatedEmojiStickersValue: Promise<[String: [Int: StickerPackItem]]>?
+    public var additionalAnimatedEmojiStickers: Signal<[String: [Int: StickerPackItem]], NoError> {
+        let additionalAnimatedEmojiStickersValue: Promise<[String: [Int: StickerPackItem]]>
+        if let current = self.additionalAnimatedEmojiStickersValue {
+            additionalAnimatedEmojiStickersValue = current
+        } else {
+            additionalAnimatedEmojiStickersValue = Promise<[String: [Int: StickerPackItem]]>()
+            self.additionalAnimatedEmojiStickersValue = additionalAnimatedEmojiStickersValue
+            additionalAnimatedEmojiStickersValue.set(self.engine.stickers.loadedStickerPack(reference: .animatedEmojiAnimations, forceActualized: false)
+            |> map { animatedEmoji -> [String: [Int: StickerPackItem]] in
+                let sequence = "0️⃣1️⃣2️⃣3️⃣4️⃣5️⃣6️⃣7️⃣8️⃣9️⃣".strippedEmoji
+                var animatedEmojiStickers: [String: [Int: StickerPackItem]] = [:]
+                switch animatedEmoji {
+                case let .result(_, items, _):
+                    for item in items {
+                        let indexKeys = item.getStringRepresentationsOfIndexKeys()
+                        if indexKeys.count > 1, let first = indexKeys.first, let last = indexKeys.last {
+                            let emoji: String?
+                            let indexEmoji: String?
+                            if sequence.contains(first.strippedEmoji) {
+                                emoji = last
+                                indexEmoji = first
+                            } else if sequence.contains(last.strippedEmoji) {
+                                emoji = first
+                                indexEmoji = last
+                            } else {
+                                emoji = nil
+                                indexEmoji = nil
+                            }
+                            
+                            if let emoji = emoji?.strippedEmoji, let indexEmoji = indexEmoji?.strippedEmoji.first, let strIndex = sequence.firstIndex(of: indexEmoji) {
+                                let index = sequence.distance(from: sequence.startIndex, to: strIndex)
+                                if animatedEmojiStickers[emoji] != nil {
+                                    animatedEmojiStickers[emoji]![index] = item
+                                } else {
+                                    animatedEmojiStickers[emoji] = [index: item]
+                                }
+                            }
+                        }
+                    }
+                default:
+                    break
+                }
+                return animatedEmojiStickers
+            })
+        }
+        return additionalAnimatedEmojiStickersValue.get()
+    }
+    
+    private var availableReactionsValue: Promise<AvailableReactions?>?
+    public var availableReactions: Signal<AvailableReactions?, NoError> {
+        let availableReactionsValue: Promise<AvailableReactions?>
+        if let current = self.availableReactionsValue {
+            availableReactionsValue = current
+        } else {
+            availableReactionsValue = Promise<AvailableReactions?>()
+            self.availableReactionsValue = availableReactionsValue
+            availableReactionsValue.set(self.engine.stickers.availableReactions())
+        }
+        return availableReactionsValue.get()
+    }
     
     private var userLimitsConfigurationDisposable: Disposable?
     public private(set) var userLimits: EngineConfiguration.UserLimits
+    
+    private var peerNameColorsConfigurationDisposable: Disposable?
+    public private(set) var peerNameColors: PeerNameColors
+    
+    public private(set) var isPremium: Bool
+    
+    public let imageCache: AnyObject?
     
     public init(sharedContext: SharedAccountContextImpl, account: Account, limitsConfiguration: LimitsConfiguration, contentSettings: ContentSettings, appConfiguration: AppConfiguration, temp: Bool = false)
     {
@@ -185,7 +257,11 @@ public final class AccountContextImpl: AccountContext {
         self.account = account
         self.engine = TelegramEngine(account: account)
         
+        self.imageCache = DirectMediaImageCache(account: account)
+        
         self.userLimits = EngineConfiguration.UserLimits(UserLimitsConfiguration.defaultValue)
+        self.peerNameColors = PeerNameColors.defaultValue
+        self.isPremium = false
         
         self.downloadedMediaStoreManager = DownloadedMediaStoreManagerImpl(postbox: account.postbox, accountManager: sharedContext.accountManager)
         
@@ -215,10 +291,14 @@ public final class AccountContextImpl: AccountContext {
         }
         
         self.cachedGroupCallContexts = AccountGroupCallContextCacheImpl()
-        self.meshAnimationCache = MeshAnimationCache(mediaBox: account.postbox.mediaBox)
         
+        let cacheStorageBox = self.account.postbox.mediaBox.cacheStorageBox
         self.animationCache = AnimationCacheImpl(basePath: self.account.postbox.mediaBox.basePath + "/animation-cache", allocateTempFile: {
             return TempBox.shared.tempFile(fileName: "file").path
+        }, updateStorageStats: { path, size in
+            if let pathData = path.data(using: .utf8) {
+                cacheStorageBox.update(id: pathData, size: size)
+            }
         })
         self.animationRenderer = MultiAnimationRendererImpl()
         
@@ -257,11 +337,13 @@ public final class AccountContextImpl: AccountContext {
         })
         
         self.currentCountriesConfiguration = Atomic(value: CountriesConfiguration(countries: loadCountryCodes()))
-        let currentCountriesConfiguration = self.currentCountriesConfiguration
-        self.countriesConfigurationDisposable = (self.engine.localization.getCountriesList(accountManager: sharedContext.accountManager, langCode: nil)
-        |> deliverOnMainQueue).start(next: { value in
-            let _ = currentCountriesConfiguration.swap(CountriesConfiguration(countries: value))
-        })
+        if !temp {
+            let currentCountriesConfiguration = self.currentCountriesConfiguration
+            self.countriesConfigurationDisposable = (self.engine.localization.getCountriesList(accountManager: sharedContext.accountManager, langCode: nil)
+            |> deliverOnMainQueue).start(next: { value in
+                let _ = currentCountriesConfiguration.swap(CountriesConfiguration(countries: value))
+            })
+        }
         
         let queue = Queue()
         self.deviceSpecificContactImportContexts = QueueLocalObject(queue: queue, generate: {
@@ -306,21 +388,31 @@ public final class AccountContextImpl: AccountContext {
                 return
             }
             strongSelf.animatedEmojiStickers = stickers
+            strongSelf.animatedEmojiStickersValue.set(.single(stickers))
         })
         
-        self.userLimitsConfigurationDisposable = (self.account.postbox.peerView(id: self.account.peerId)
-        |> mapToSignal { peerView -> Signal<EngineConfiguration.UserLimits, NoError> in
-            if let peer = peerView.peers[peerView.peerId] {
-                return self.engine.data.subscribe(TelegramEngine.EngineData.Item.Configuration.UserLimits(isPremium: peer.isPremium))
-            } else {
-                return .complete()
+        self.userLimitsConfigurationDisposable = (self.engine.data.subscribe(TelegramEngine.EngineData.Item.Peer.Peer(id: account.peerId))
+        |> mapToSignal { peer -> Signal<(Bool, EngineConfiguration.UserLimits), NoError> in
+            let isPremium = peer?.isPremium ?? false
+            return self.engine.data.subscribe(TelegramEngine.EngineData.Item.Configuration.UserLimits(isPremium: isPremium))
+            |> map { userLimits in
+                return (isPremium, userLimits)
             }
         }
-        |> deliverOnMainQueue).start(next: { [weak self] value in
-            guard let strongSelf = self else {
+        |> deliverOnMainQueue).startStrict(next: { [weak self] isPremium, userLimits in
+            guard let self = self else {
                 return
             }
-            strongSelf.userLimits = value
+            self.isPremium = isPremium
+            self.userLimits = userLimits
+        })
+        
+        self.peerNameColorsConfigurationDisposable = (self._appConfiguration.get()
+        |> deliverOnMainQueue).startStrict(next: { [weak self] appConfiguration in
+            guard let self = self else {
+                return
+            }
+            self.peerNameColors = PeerNameColors.with(appConfiguration: appConfiguration)
         })
     }
     
@@ -332,6 +424,8 @@ public final class AccountContextImpl: AccountContext {
         self.countriesConfigurationDisposable?.dispose()
         self.experimentalUISettingsDisposable?.dispose()
         self.animatedEmojiStickersDisposable?.dispose()
+        self.userLimitsConfigurationDisposable?.dispose()
+        self.peerNameColorsConfigurationDisposable?.dispose()
     }
     
     public func storeSecureIdPassword(password: String) {

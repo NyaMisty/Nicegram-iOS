@@ -8,7 +8,8 @@ swift_library(
     ]),
     deps = [
         "//submodules/AccountContext:AccountContext",
-		"//Nicegram/NGCore:NGCore",
+        "@FirebaseSDK//:FirebaseAnalytics",
+        "@swiftpkg_nicegram_assistant_ios//:Sources_NGAnalytics",
     ],
     visibility = [
         "//visibility:public",

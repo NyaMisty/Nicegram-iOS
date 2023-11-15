@@ -63,6 +63,9 @@ public struct NGSettings {
     @NGStorage(key: "showContactsTab", defaultValue: true)
     public static var showContactsTab: Bool
     
+    @NGStorage(key: "showNicegramTab", defaultValue: true)
+    public static var showNicegramTab: Bool
+    
     @NGStorage(key: "sendWithEnter", defaultValue: false)
     public static var sendWithEnter: Bool
     
@@ -97,7 +100,10 @@ public struct NGSettings {
     public static var shareChannelsInfo: Bool
     
     @NGStorage(key: "blockUsersInGroups", defaultValue: false)
-    public static var blockUsersInGroups: Bool
+    public static var blockUsersInGroups: Bool  // Mod by misty
+
+    @NGStorage(key: "hideStories", defaultValue: false)
+    public static var hideStories: Bool
 }
 
 public struct NGWebSettings {

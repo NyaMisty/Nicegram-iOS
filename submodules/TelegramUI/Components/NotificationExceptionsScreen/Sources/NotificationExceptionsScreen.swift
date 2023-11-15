@@ -332,7 +332,7 @@ private func notificationsPeerCategoryEntries(peerId: EnginePeer.Id, notificatio
             }
         }
         existingThreadIds.insert(value.threadId)
-        entries.append(.exception(Int32(index), presentationData.dateTimeFormat, presentationData.nameDisplayOrder, .channel(TelegramChannel(id: peerId, accessHash: nil, title: "", username: nil, photo: [], creationDate: 0, version: 0, participationStatus: .member, info: .group(TelegramChannelGroupInfo(flags: [])), flags: [.isForum], restrictionInfo: nil, adminRights: nil, bannedRights: nil, defaultBannedRights: nil, usernames: [])), value.threadId, value.info, title, value.notificationSettings._asNotificationSettings(), state.editing, state.revealedThreadId == value.threadId))
+        entries.append(.exception(Int32(index), presentationData.dateTimeFormat, presentationData.nameDisplayOrder, .channel(TelegramChannel(id: peerId, accessHash: nil, title: "", username: nil, photo: [], creationDate: 0, version: 0, participationStatus: .member, info: .group(TelegramChannelGroupInfo(flags: [])), flags: [.isForum], restrictionInfo: nil, adminRights: nil, bannedRights: nil, defaultBannedRights: nil, usernames: [], storiesHidden: nil, nameColor: nil, backgroundEmojiId: nil)), value.threadId, value.info, title, value.notificationSettings._asNotificationSettings(), state.editing, state.revealedThreadId == value.threadId))
         index += 1
     }
     
@@ -466,7 +466,7 @@ public func threadNotificationExceptionsScreen(context: AccountContext, peerId: 
             let canRemove = true
             let defaultSound: PeerMessageSound = globalSettings.groupChats.sound._asMessageSound()
             
-            pushControllerImpl?(notificationPeerExceptionController(context: context, peer: peer._asPeer(), customTitle: item.info.title, threadId: item.threadId, canRemove: canRemove, defaultSound: defaultSound, updatePeerSound: { _, sound in
+            pushControllerImpl?(notificationPeerExceptionController(context: context, peer: peer, customTitle: item.info.title, threadId: item.threadId, isStories: nil, canRemove: canRemove, defaultSound: defaultSound, defaultStoriesSound: defaultSound, updatePeerSound: { _, sound in
                 let _ = (updateThreadSound(item.threadId, sound)
                 |> deliverOnMainQueue).start(next: { _ in
                     updateState { value in
@@ -496,6 +496,9 @@ public func threadNotificationExceptionsScreen(context: AccountContext, peerId: 
                     }
                     updated(stateValue.with({ $0 }).notificationExceptions)
                 })
+            }, updatePeerStoriesMuted: { _, _ in
+            }, updatePeerStoriesHideSender: { _, _ in
+            }, updatePeerStorySound: { _, _ in
             }, removePeerFromExceptions: {
                 let _ = context.engine.peers.removeCustomThreadNotificationSettings(peerId: peerId, threadIds: [item.threadId]).start()
                 updateState { current in

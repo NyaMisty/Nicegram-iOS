@@ -9,13 +9,14 @@ open class SparseNode: ASDisplayNode {
         if self.alpha.isZero {
             return nil
         }
-        if !self.bounds.contains(point) {
-            return nil
-        }
         for view in self.view.subviews.reversed() {
             if let result = view.hitTest(self.view.convert(point, to: view), with: event), result.isUserInteractionEnabled {
                 return result
             }
+        }
+        
+        if !self.bounds.inset(by: self.hitTestSlop).contains(point) {
+            return nil
         }
         
         let result = super.hitTest(point, with: event)
@@ -138,9 +139,14 @@ public final class NavigationBackgroundNode: ASDisplayNode {
     private var _color: UIColor
 
     private var enableBlur: Bool
+    private var enableSaturation: Bool
 
-    private var effectView: UIVisualEffectView?
+    public var effectView: UIVisualEffectView?
     private let backgroundNode: ASDisplayNode
+    
+    public var backgroundView: UIView {
+        return self.backgroundNode.view
+    }
 
     private var validLayout: (CGSize, CGFloat)?
     
@@ -152,9 +158,10 @@ public final class NavigationBackgroundNode: ASDisplayNode {
         }
     }
 
-    public init(color: UIColor, enableBlur: Bool = true) {
+    public init(color: UIColor, enableBlur: Bool = true, enableSaturation: Bool = true) {
         self._color = .clear
         self.enableBlur = enableBlur
+        self.enableSaturation = enableSaturation
 
         self.backgroundNode = ASDisplayNode()
 
@@ -195,10 +202,12 @@ public final class NavigationBackgroundNode: ASDisplayNode {
                 if let sublayer = effectView.layer.sublayers?[0], let filters = sublayer.filters {
                     sublayer.backgroundColor = nil
                     sublayer.isOpaque = false
-                    let allowedKeys: [String] = [
-                        "colorSaturate",
+                    var allowedKeys: [String] = [
                         "gaussianBlur"
                     ]
+                    if self.enableSaturation {
+                        allowedKeys.append("colorSaturate")
+                    }
                     sublayer.filters = filters.filter { filter in
                         guard let filter = filter as? NSObject else {
                             return true
@@ -225,14 +234,16 @@ public final class NavigationBackgroundNode: ASDisplayNode {
         }
     }
 
-    public func updateColor(color: UIColor, enableBlur: Bool? = nil, forceKeepBlur: Bool = false, transition: ContainedViewLayoutTransition) {
+    public func updateColor(color: UIColor, enableBlur: Bool? = nil, enableSaturation: Bool? = nil, forceKeepBlur: Bool = false, transition: ContainedViewLayoutTransition) {
         let effectiveEnableBlur = enableBlur ?? self.enableBlur
-
-        if self._color.isEqual(color) && self.enableBlur == effectiveEnableBlur {
+        let effectiveEnableSaturation = enableSaturation ?? self.enableSaturation
+        
+        if self._color.isEqual(color) && self.enableBlur == effectiveEnableBlur && self.enableSaturation == effectiveEnableSaturation {
             return
         }
         self._color = color
         self.enableBlur = effectiveEnableBlur
+        self.enableSaturation = effectiveEnableSaturation
 
         if sharedIsReduceTransparencyEnabled {
             transition.updateBackgroundColor(node: self.backgroundNode, color: self._color.withAlphaComponent(1.0))
@@ -291,7 +302,7 @@ open class BlurredBackgroundView: UIView {
 
     private var enableBlur: Bool
 
-    private var effectView: UIVisualEffectView?
+    public private(set) var effectView: UIVisualEffectView?
     private let backgroundView: UIView
 
     private var validLayout: (CGSize, CGFloat)?
@@ -697,8 +708,15 @@ open class NavigationBar: ASDisplayNode {
             if self.rightButtonNode.supernode != nil {
                 addAccessibilityChildren(of: self.rightButtonNode, container: self, to: &accessibilityElements)
             }
+            if let customHeaderContentView = self.customHeaderContentView, customHeaderContentView.superview != nil {
+                customHeaderContentView.accessibilityFrame = UIAccessibility.convertToScreenCoordinates(customHeaderContentView.bounds, in: customHeaderContentView)
+                accessibilityElements.append(customHeaderContentView)
+            }
             if let contentNode = self.contentNode {
                 addAccessibilityChildren(of: contentNode, container: self, to: &accessibilityElements)
+            }
+            if let secondaryContentNode = self.secondaryContentNode {
+                addAccessibilityChildren(of: secondaryContentNode, container: self, to: &accessibilityElements)
             }
             return accessibilityElements
         } set(value) {
@@ -1053,6 +1071,8 @@ open class NavigationBar: ASDisplayNode {
     private var transitionBackArrowNode: ASDisplayNode?
     private var transitionBadgeNode: ASDisplayNode?
     
+    public var secondaryContentHeight: CGFloat
+    
     public init(presentationData: NavigationBarPresentationData) {
         self.presentationData = presentationData
         self.stripeNode = ASDisplayNode()
@@ -1097,6 +1117,8 @@ open class NavigationBar: ASDisplayNode {
 
         self.backgroundNode = NavigationBackgroundNode(color: self.presentationData.theme.backgroundColor, enableBlur: self.presentationData.theme.enableBackgroundBlur)
         self.additionalContentNode = SparseNode()
+        
+        self.secondaryContentHeight = NavigationBar.defaultSecondaryContentHeight
         
         super.init()
 
@@ -1168,11 +1190,11 @@ open class NavigationBar: ASDisplayNode {
         transition.updateAlpha(node: self.stripeNode, alpha: alpha, delay: 0.15)
     }
     
-    public func updatePresentationData(_ presentationData: NavigationBarPresentationData) {
+    public func updatePresentationData(_ presentationData: NavigationBarPresentationData, transition: ContainedViewLayoutTransition = .immediate) {
         if presentationData.theme !== self.presentationData.theme || presentationData.strings !== self.presentationData.strings {
             self.presentationData = presentationData
             
-            self.backgroundNode.updateColor(color: self.presentationData.theme.backgroundColor, transition: .immediate)
+            self.backgroundNode.updateColor(color: self.presentationData.theme.backgroundColor, transition: transition)
             
             self.backButtonNode.color = self.presentationData.theme.buttonColor
             self.backButtonNode.disabledColor = self.presentationData.theme.disabledButtonColor
@@ -1190,6 +1212,7 @@ open class NavigationBar: ASDisplayNode {
             
             self.badgeNode.updateTheme(fillColor: self.presentationData.theme.buttonColor, strokeColor: self.presentationData.theme.buttonColor, textColor: self.presentationData.theme.badgeTextColor)
             
+            self.updateLeftButton(animated: false)
             self.requestLayout()
         }
     }
@@ -1221,7 +1244,7 @@ open class NavigationBar: ASDisplayNode {
             self.backgroundNode.update(size: backgroundFrame.size, transition: transition)
         }
         
-        let apparentAdditionalHeight: CGFloat = self.secondaryContentNode != nil ? (NavigationBar.defaultSecondaryContentHeight * self.secondaryContentNodeDisplayFraction) : 0.0
+        let apparentAdditionalHeight: CGFloat = self.secondaryContentNode != nil ? (self.secondaryContentHeight * self.secondaryContentNodeDisplayFraction) : 0.0
         
         let leftButtonInset: CGFloat = leftInset + 16.0
         let backButtonInset: CGFloat = leftInset + 27.0
@@ -1239,11 +1262,11 @@ open class NavigationBar: ASDisplayNode {
             case .expansion:
                 expansionHeight = contentNode.height
                 
-                let additionalExpansionHeight: CGFloat = self.secondaryContentNode != nil && appearsHidden ? (NavigationBar.defaultSecondaryContentHeight * self.secondaryContentNodeDisplayFraction) : 0.0
+                let additionalExpansionHeight: CGFloat = self.secondaryContentNode != nil && appearsHidden ? (self.secondaryContentHeight * self.secondaryContentNodeDisplayFraction) : 0.0
                 contentNodeFrame = CGRect(origin: CGPoint(x: 0.0, y: size.height - (appearsHidden ? 0.0 : additionalContentHeight) - expansionHeight - apparentAdditionalHeight - additionalExpansionHeight), size: CGSize(width: size.width, height: expansionHeight))
                 if appearsHidden {
                     if self.secondaryContentNode != nil {
-                        contentNodeFrame.origin.y += NavigationBar.defaultSecondaryContentHeight * self.secondaryContentNodeDisplayFraction
+                        contentNodeFrame.origin.y += self.secondaryContentHeight * self.secondaryContentNodeDisplayFraction
                     }
                 }
             }
@@ -1377,8 +1400,11 @@ open class NavigationBar: ASDisplayNode {
         
         if let customHeaderContentView = self.customHeaderContentView {
             let headerSize = CGSize(width: size.width, height: nominalHeight)
-            //customHeaderContentView.update(size: headerSize, transition: transition)
-            transition.updateFrame(view: customHeaderContentView, frame: CGRect(origin: CGPoint(x: 0.0, y: contentVerticalOrigin), size: headerSize))
+            var customHeaderFrame = CGRect(origin: CGPoint(x: 0.0, y: contentVerticalOrigin), size: headerSize)
+            if appearsHidden {
+                customHeaderFrame.origin.y = -customHeaderFrame.height
+            }
+            transition.updateFrame(view: customHeaderContentView, frame: customHeaderFrame)
         }
         
         if self.titleNode.supernode != nil {
@@ -1429,7 +1455,7 @@ open class NavigationBar: ASDisplayNode {
             if let titleView = titleView as? NavigationBarTitleView {
                 let titleWidth = size.width - (leftTitleInset > 0.0 ? leftTitleInset : rightTitleInset) - (rightTitleInset > 0.0 ? rightTitleInset : leftTitleInset)
                 
-                titleView.updateLayout(size: titleFrame.size, clearBounds: CGRect(origin: CGPoint(x: leftTitleInset - titleFrame.minX, y: 0.0), size: CGSize(width: titleWidth, height: titleFrame.height)), transition: titleViewTransition)
+                let _ = titleView.updateLayout(size: titleFrame.size, clearBounds: CGRect(origin: CGPoint(x: leftTitleInset - titleFrame.minX, y: 0.0), size: CGSize(width: titleWidth, height: titleFrame.height)), transition: titleViewTransition)
             }
             
             if let transitionState = self.transitionState, let otherNavigationBar = transitionState.navigationBar {
@@ -1605,7 +1631,7 @@ open class NavigationBar: ASDisplayNode {
         }
         
         if let _ = self.secondaryContentNode {
-            result += NavigationBar.defaultSecondaryContentHeight * self.secondaryContentNodeDisplayFraction
+            result += self.secondaryContentHeight * self.secondaryContentNodeDisplayFraction
         }
         
         return result
@@ -1714,11 +1740,14 @@ open class NavigationBar: ASDisplayNode {
         if let result = self.additionalContentNode.view.hitTest(self.view.convert(point, to: self.additionalContentNode.view), with: event) {
             return result
         }
+        
+        if self.frame.minY > -10.0, let customHeaderContentView = self.customHeaderContentView, let result = customHeaderContentView.hitTest(self.view.convert(point, to: customHeaderContentView), with: event) {
+            return result
+        }
 
         guard let result = super.hitTest(point, with: event) else {
             return nil
         }
-        
         
         if self.passthroughTouches && (result == self.view || result == self.buttonsContainerNode.view) {
             return nil

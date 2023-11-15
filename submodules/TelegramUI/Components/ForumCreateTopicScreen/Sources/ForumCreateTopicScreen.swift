@@ -13,75 +13,10 @@ import EntityKeyboard
 import PagerComponent
 import MultilineTextComponent
 import EmojiStatusComponent
-import Postbox
 import PremiumUI
 import ProgressNavigationButtonNode
-
-private final class SwitchComponent: Component {
-    typealias EnvironmentType = Empty
-    
-    let value: Bool
-    let valueUpdated: (Bool) -> Void
-    
-    init(
-        value: Bool,
-        valueUpdated: @escaping (Bool) -> Void
-    ) {
-        self.value = value
-        self.valueUpdated = valueUpdated
-    }
-    
-    static func ==(lhs: SwitchComponent, rhs: SwitchComponent) -> Bool {
-        if lhs.value != rhs.value {
-            return false
-        }
-        return true
-    }
-    
-    final class View: UIView {
-        private let switchView: UISwitch
-    
-        private var component: SwitchComponent?
-        
-        override init(frame: CGRect) {
-            self.switchView = UISwitch()
-            
-            super.init(frame: frame)
-            
-            self.addSubview(self.switchView)
-            
-            self.switchView.addTarget(self, action: #selector(self.valueChanged(_:)), for: .valueChanged)
-        }
-        
-        required init?(coder: NSCoder) {
-            fatalError("init(coder:) has not been implemented")
-        }
-        
-        @objc func valueChanged(_ sender: Any) {
-            self.component?.valueUpdated(self.switchView.isOn)
-        }
-        
-        func update(component: SwitchComponent, availableSize: CGSize, state: EmptyComponentState, environment: Environment<EnvironmentType>, transition: Transition) -> CGSize {
-            self.component = component
-          
-            self.switchView.setOn(component.value, animated: !transition.animation.isImmediate)
-            
-            self.switchView.sizeToFit()
-            self.switchView.frame = CGRect(origin: .zero, size: self.switchView.frame.size)
-                        
-            return self.switchView.frame.size
-        }
-    }
-
-    public func makeView() -> View {
-        return View(frame: CGRect())
-    }
-    
-    public func update(view: View, availableSize: CGSize, state: EmptyComponentState, environment: Environment<EnvironmentType>, transition: Transition) -> CGSize {
-        return view.update(component: self, availableSize: availableSize, state: state, environment: environment, transition: transition)
-    }
-}
-
+import Postbox
+import SwitchComponent
 
 private final class TitleFieldComponent: Component {
     typealias EnvironmentType = Empty
@@ -95,6 +30,7 @@ private final class TitleFieldComponent: Component {
     let iconColor: Int32
     let text: String
     let placeholderText: String
+    let isEditing: Bool
     let textUpdated: (String) -> Void
     let iconPressed: () -> Void
     
@@ -108,6 +44,7 @@ private final class TitleFieldComponent: Component {
         iconColor: Int32,
         text: String,
         placeholderText: String,
+        isEditing: Bool,
         textUpdated: @escaping (String) -> Void,
         iconPressed: @escaping () -> Void
     ) {
@@ -120,6 +57,7 @@ private final class TitleFieldComponent: Component {
         self.iconColor = iconColor
         self.text = text
         self.placeholderText = placeholderText
+        self.isEditing = isEditing
         self.textUpdated = textUpdated
         self.iconPressed = iconPressed
     }
@@ -150,6 +88,9 @@ private final class TitleFieldComponent: Component {
             return false
         }
         if lhs.placeholderText != rhs.placeholderText {
+            return false
+        }
+        if lhs.isEditing != rhs.isEditing {
             return false
         }
         return true
@@ -237,6 +178,7 @@ private final class TitleFieldComponent: Component {
                 iconContent = .animation(content: .customEmoji(fileId: component.fileId), size: CGSize(width: 48.0, height: 48.0), placeholderColor: component.placeholderColor, themeColor: component.accentColor, loopMode: .count(2))
                 self.iconButton.isUserInteractionEnabled = false
             }
+            self.iconButton.isUserInteractionEnabled = !component.isEditing
             
             let placeholderSize = self.placeholderView.update(
                 transition: .easeInOut(duration: 0.2),
@@ -396,7 +338,7 @@ private final class TopicIconSelectionComponent: Component {
                 component: AnyComponent(EntityKeyboardComponent(
                     theme: component.theme,
                     strings: component.strings,
-                    isContentInFocus: true,
+                    isContentInFocus: false,
                     containerInsets: UIEdgeInsets(top: topPanelHeight - 34.0, left: 0.0, bottom: 0.0, right: 0.0),
                     topPanelInsets: UIEdgeInsets(top: 0.0, left: 4.0, bottom: 0.0, right: 4.0),
                     emojiContent: component.emojiContent,
@@ -408,20 +350,23 @@ private final class TopicIconSelectionComponent: Component {
                     defaultToEmojiTab: true,
                     externalTopPanelContainer: self.panelHostView,
                     externalBottomPanelContainer: nil,
-                    displayTopPanelBackground: true,
+                    displayTopPanelBackground: .blur,
                     topPanelExtensionUpdated: { _, _ in },
+                    topPanelScrollingOffset: { _, _ in },
                     hideInputUpdated: { _, _, _ in },
                     hideTopPanelUpdated: { _, _ in },
                     switchToTextInput: {},
                     switchToGifSubject: { _ in },
                     reorderItems: { _, _ in },
                     makeSearchContainerNode: { _ in return nil },
+                    contentIdUpdated: { _ in },
                     deviceMetrics: component.deviceMetrics,
                     hiddenInputHeight: 0.0,
                     inputHeight: 0.0,
                     displayBottomPanel: false,
                     isExpanded: true,
-                    clipContentToTopPanel: false
+                    clipContentToTopPanel: false,
+                    useExternalSearchContainer: false
                 )),
                 environment: {},
                 containerSize: availableSize
@@ -466,19 +411,33 @@ private final class ForumCreateTopicScreenComponent: CombinedComponent {
     typealias EnvironmentType = ViewControllerComponentContainer.Environment
     
     let context: AccountContext
+    let ready: Promise<Bool>
     let peerId: EnginePeer.Id
     let mode: ForumCreateTopicScreen.Mode
     let titleUpdated: (String) -> Void
     let iconUpdated: (Int64?) -> Void
+    let iconColorUpdated: (Int32) -> Void
     let isHiddenUpdated: (Bool) -> Void
     let openPremium: () -> Void
     
-    init(context: AccountContext, peerId: EnginePeer.Id, mode: ForumCreateTopicScreen.Mode, titleUpdated:  @escaping (String) -> Void, iconUpdated: @escaping (Int64?) -> Void, isHiddenUpdated: @escaping (Bool) -> Void, openPremium: @escaping () -> Void) {
+    init(
+        context: AccountContext,
+        ready: Promise<Bool>,
+        peerId: EnginePeer.Id,
+        mode: ForumCreateTopicScreen.Mode,
+        titleUpdated:  @escaping (String) -> Void,
+        iconUpdated: @escaping (Int64?) -> Void,
+        iconColorUpdated: @escaping (Int32) -> Void,
+        isHiddenUpdated: @escaping (Bool) -> Void,
+        openPremium: @escaping () -> Void
+    ) {
         self.context = context
+        self.ready = ready
         self.peerId = peerId
         self.mode = mode
         self.titleUpdated = titleUpdated
         self.iconUpdated = iconUpdated
+        self.iconColorUpdated = iconColorUpdated
         self.isHiddenUpdated = isHiddenUpdated
         self.openPremium = openPremium
     }
@@ -498,8 +457,10 @@ private final class ForumCreateTopicScreenComponent: CombinedComponent {
     
     final class State: ComponentState {
         private let context: AccountContext
+        private let ready: Promise<Bool>
         private let titleUpdated: (String) -> Void
         private let iconUpdated: (Int64?) -> Void
+        private let iconColorUpdated: (Int32) -> Void
         private let isHiddenUpdated: (Bool) -> Void
         private let openPremium: () -> Void
         
@@ -519,10 +480,12 @@ private final class ForumCreateTopicScreenComponent: CombinedComponent {
         
         private var hasPremium: Bool = false
         
-        init(context: AccountContext, mode: ForumCreateTopicScreen.Mode, titleUpdated: @escaping (String) -> Void, iconUpdated: @escaping (Int64?) -> Void, isHiddenUpdated: @escaping (Bool) -> Void, openPremium: @escaping () -> Void) {
+        init(context: AccountContext, ready: Promise<Bool>, mode: ForumCreateTopicScreen.Mode, titleUpdated: @escaping (String) -> Void, iconUpdated: @escaping (Int64?) -> Void, iconColorUpdated: @escaping (Int32) -> Void, isHiddenUpdated: @escaping (Bool) -> Void, openPremium: @escaping () -> Void) {
             self.context = context
+            self.ready = ready
             self.titleUpdated = titleUpdated
             self.iconUpdated = iconUpdated
+            self.iconColorUpdated = iconColorUpdated
             self.isHiddenUpdated = isHiddenUpdated
             self.openPremium = openPremium
             
@@ -533,6 +496,7 @@ private final class ForumCreateTopicScreenComponent: CombinedComponent {
                 self.fileId = 0
                 self.iconColor = ForumCreateTopicScreen.iconColors.randomElement() ?? 0x0
                 self.isHidden = false
+                iconColorUpdated(self.iconColor)
             case let .edit(threadId, info, isHidden):
                 self.isGeneral = threadId == 1
                 self.title = info.title
@@ -549,10 +513,8 @@ private final class ForumCreateTopicScreenComponent: CombinedComponent {
                     animationCache: self.context.animationCache,
                     animationRenderer: self.context.animationRenderer,
                     isStandalone: false,
-                    isStatusSelection: false,
-                    isReactionSelection: false,
-                    isEmojiSelection: false,
-                    isTopicIconSelection: true,
+                    subject: .topicIcon,
+                    hasTrending: false,
                     topReactionItems: [],
                     areUnicodeEmojiEnabled: false,
                     areCustomEmojiEnabled: true,
@@ -617,21 +579,21 @@ private final class ForumCreateTopicScreenComponent: CombinedComponent {
                     animationCache: self.context.animationCache,
                     animationRenderer: self.context.animationRenderer,
                     isStandalone: false,
-                    isStatusSelection: false,
-                    isReactionSelection: false,
-                    isEmojiSelection: false,
-                    isTopicIconSelection: true,
+                    subject: .topicIcon,
+                    hasTrending: false,
                     topReactionItems: [],
                     areUnicodeEmojiEnabled: false,
                     areCustomEmojiEnabled: true,
                     chatPeerId: self.context.account.peerId,
-                    selectedItems: Set([MediaId(namespace: Namespaces.Media.CloudFile, id: self.fileId)]),
+                    selectedItems: Set([EngineMedia.Id(namespace: Namespaces.Media.CloudFile, id: self.fileId)]),
                     topicTitle: self.title,
                     topicColor: self.iconColor
                 )
             |> deliverOnMainQueue).start(next: { [weak self] content in
                 self?.emojiContent = content
                 self?.updated(transition: .immediate)
+                
+                self?.ready.set(.single(true))
             }))
         }
         
@@ -644,6 +606,7 @@ private final class ForumCreateTopicScreenComponent: CombinedComponent {
                 self.iconColor = colors.first ?? 0
             }
             self.updated(transition: .immediate)
+            self.iconColorUpdated(self.iconColor)
             self.updateEmojiContent()
         }
         
@@ -672,9 +635,11 @@ private final class ForumCreateTopicScreenComponent: CombinedComponent {
     func makeState() -> State {
         return State(
             context: self.context,
+            ready: self.ready,
             mode: self.mode,
             titleUpdated: self.titleUpdated,
             iconUpdated: self.iconUpdated,
+            iconColorUpdated: self.iconColorUpdated,
             isHiddenUpdated: self.isHiddenUpdated,
             openPremium: self.openPremium
         )
@@ -750,6 +715,11 @@ private final class ForumCreateTopicScreenComponent: CombinedComponent {
                 .position(CGPoint(x: context.availableSize.width / 2.0, y: contentHeight + titleBackground.size.height / 2.0))
             )
             
+            var isEditing = false
+            if case .edit = context.component.mode {
+                isEditing = true
+            }
+            
             let titleField = titleField.update(
                 component: TitleFieldComponent(
                     context: context.component.context,
@@ -761,6 +731,7 @@ private final class ForumCreateTopicScreenComponent: CombinedComponent {
                     iconColor: state.iconColor,
                     text: state.title,
                     placeholderText: environment.strings.CreateTopic_EnterTopicTitlePlaceholder,
+                    isEditing: isEditing,
                     textUpdated: { [weak state] text in
                         state?.updateTitle(text)
                     },
@@ -925,7 +896,7 @@ private final class ForumCreateTopicScreenComponent: CombinedComponent {
                         },
                         openSearch: {
                         },
-                        addGroupAction: { groupId, isPremiumLocked in
+                        addGroupAction: { groupId, isPremiumLocked, _ in
                             guard let collectionId = groupId.base as? ItemCollectionId else {
                                 return
                             }
@@ -939,9 +910,6 @@ private final class ForumCreateTopicScreenComponent: CombinedComponent {
                                 }
                                 for featuredEmojiPack in view.items.lazy.map({ $0.contents.get(FeaturedStickerPackItem.self)! }) {
                                     if featuredEmojiPack.info.id == collectionId {
-                                        //                                    if let strongSelf = self {
-                                        //                                        strongSelf.scheduledEmojiContentAnimationHint = EmojiPagerContentComponent.ContentAnimation(type: .groupInstalled(id: collectionId))
-                                        //                                    }
                                         let _ = accountContext.engine.stickers.addStickerPackInteractively(info: featuredEmojiPack.info, items: featuredEmojiPack.topItems).start()
                                         
                                         break
@@ -962,17 +930,21 @@ private final class ForumCreateTopicScreenComponent: CombinedComponent {
                         },
                         requestUpdate: { _ in
                         },
-                        updateSearchQuery: { _, _ in
+                        updateSearchQuery: { _ in
                         },
                         updateScrollingToItemGroup: {
                         },
+                        onScroll: {},
                         chatPeerId: nil,
                         peekBehavior: nil,
                         customLayout: nil,
                         externalBackground: nil,
                         externalExpansionView: nil,
+                        customContentView: nil,
                         useOpaqueTheme: true,
-                        hideBackground: false
+                        hideBackground: false,
+                        stateContext: nil,
+                        addImage: nil
                     )
                 }
             }
@@ -995,8 +967,8 @@ public class ForumCreateTopicScreen: ViewControllerComponentContainer {
     
     private var doneBarItem: UIBarButtonItem?
     
-    private var state: (String, Int64?, Bool?) = ("", nil, nil)
-    public var completion: (String, Int64?, Bool?) -> Void = { _, _, _ in }
+    private var state: (title: String, icon: Int64?, iconColor: Int32, isHidden: Bool?) = ("", nil, 0, nil)
+    public var completion: (_ title: String, _ icon: Int64?, _ iconColor: Int32, _ isHidden: Bool?) -> Void = { _, _, _, _ in }
     
     public var isInProgress: Bool = false {
         didSet {
@@ -1011,19 +983,28 @@ public class ForumCreateTopicScreen: ViewControllerComponentContainer {
         }
     }
     
+    private let readyValue = Promise<Bool>()
+    override public var ready: Promise<Bool> {
+        return self.readyValue
+    }
+    
     public init(context: AccountContext, peerId: EnginePeer.Id, mode: ForumCreateTopicScreen.Mode) {
         self.context = context
         self.mode = mode
         
         var titleUpdatedImpl: ((String) -> Void)?
         var iconUpdatedImpl: ((Int64?) -> Void)?
+        var iconColorUpdatedImpl: ((Int32) -> Void)?
         var isHiddenUpdatedImpl: ((Bool) -> Void)?
         var openPremiumImpl: (() -> Void)?
         
-        super.init(context: context, component: ForumCreateTopicScreenComponent(context: context, peerId: peerId, mode: mode, titleUpdated: { title in
+        let componentReady = Promise<Bool>()
+        super.init(context: context, component: ForumCreateTopicScreenComponent(context: context, ready: componentReady, peerId: peerId, mode: mode, titleUpdated: { title in
             titleUpdatedImpl?(title)
         }, iconUpdated: { fileId in
             iconUpdatedImpl?(fileId)
+        }, iconColorUpdated: { iconColor in
+            iconColorUpdatedImpl?(iconColor)
         }, isHiddenUpdated: { isHidden in
             isHiddenUpdatedImpl?(isHidden)
         }, openPremium: {
@@ -1041,10 +1022,12 @@ public class ForumCreateTopicScreen: ViewControllerComponentContainer {
             title = presentationData.strings.CreateTopic_EditTitle
             doneTitle = presentationData.strings.Common_Done
             
-            self.state = (topic.title, topic.icon, threadId == 1 ? isHidden : nil)
+            self.state = (topic.title, topic.icon, topic.iconColor, threadId == 1 ? isHidden : nil)
         }
         
         self.title = title
+        
+        self.readyValue.set(componentReady.get() |> timeout(0.3, queue: .mainQueue(), alternate: .single(true)))
         
         self.navigationItem.leftBarButtonItem = UIBarButtonItem(title: presentationData.strings.Common_Cancel, style: .plain, target: self, action: #selector(self.cancelPressed))
         
@@ -1062,23 +1045,28 @@ public class ForumCreateTopicScreen: ViewControllerComponentContainer {
             }
             strongSelf.doneBarItem?.isEnabled = !title.isEmpty
             
-            strongSelf.state = (title, strongSelf.state.1, strongSelf.state.2)
+            strongSelf.state = (title, strongSelf.state.icon, strongSelf.state.iconColor, strongSelf.state.isHidden)
         }
         
         iconUpdatedImpl = { [weak self] fileId in
             guard let strongSelf = self else {
                 return
             }
-            
-            strongSelf.state = (strongSelf.state.0, fileId, strongSelf.state.2)
+            strongSelf.state = (strongSelf.state.title, fileId, strongSelf.state.iconColor, strongSelf.state.isHidden)
+        }
+        
+        iconColorUpdatedImpl = { [weak self] iconColor in
+            guard let strongSelf = self else {
+                return
+            }
+            strongSelf.state = (strongSelf.state.title, strongSelf.state.icon, iconColor, strongSelf.state.isHidden)
         }
         
         isHiddenUpdatedImpl = { [weak self] isHidden in
             guard let strongSelf = self else {
                 return
             }
-            
-            strongSelf.state = (strongSelf.state.0, strongSelf.state.1, isHidden)
+            strongSelf.state = (strongSelf.state.title, strongSelf.state.icon, strongSelf.state.iconColor, isHidden)
         }
         
         openPremiumImpl = { [weak self] in
@@ -1109,6 +1097,6 @@ public class ForumCreateTopicScreen: ViewControllerComponentContainer {
     }
     
     @objc private func createPressed() {
-        self.completion(self.state.0, self.state.1, self.state.2)
+        self.completion(self.state.title, self.state.icon, self.state.iconColor, self.state.isHidden)
     }
 }

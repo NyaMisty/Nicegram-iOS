@@ -57,6 +57,8 @@ swift_library(
         "//submodules/LocalizedPeerData:LocalizedPeerData",
         "//submodules/PeerInfoAvatarListNode:PeerInfoAvatarListNode",
         "//submodules/QrCodeUI:QrCodeUI",
+        "//submodules/PromptUI",
+        "//submodules/TelegramUI/Components/ItemListDatePickerItem:ItemListDatePickerItem",
     ],
     visibility = [
         "//visibility:public",

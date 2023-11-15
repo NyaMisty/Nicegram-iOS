@@ -12,6 +12,7 @@ import ItemListPeerItem
 import MergeLists
 import ItemListUI
 import ChatControllerInteraction
+import PeerInfoVisualMediaPaneNode
 
 private struct GroupsInCommonListTransaction {
     let deletions: [ListViewDeleteItem]
@@ -117,7 +118,7 @@ final class PeerInfoGroupsInCommonPaneNode: ASDisplayNode, PeerInfoPaneNode {
         self.addSubnode(self.listNode)
         
         self.disposable = (groupsInCommonContext.state
-        |> deliverOnMainQueue).start(next: { [weak self] state in
+        |> deliverOnMainQueue).startStrict(next: { [weak self] state in
             guard let strongSelf = self else {
                 return
             }

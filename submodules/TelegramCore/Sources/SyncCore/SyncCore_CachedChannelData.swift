@@ -19,13 +19,14 @@ public struct CachedChannelFlags: OptionSet {
     public static let canChangePeerGeoLocation = CachedChannelFlags(rawValue: 1 << 5)
     public static let canDeleteHistory = CachedChannelFlags(rawValue: 1 << 6)
     public static let antiSpamEnabled = CachedChannelFlags(rawValue: 1 << 7)
+    public static let translationHidden = CachedChannelFlags(rawValue: 1 << 8)
 }
 
 public struct CachedChannelParticipantsSummary: PostboxCoding, Equatable {
-    public let memberCount: Int32?
-    public let adminCount: Int32?
-    public let bannedCount: Int32?
-    public let kickedCount: Int32?
+    public var memberCount: Int32?
+    public var adminCount: Int32?
+    public var bannedCount: Int32?
+    public var kickedCount: Int32?
     
     public init(memberCount: Int32?, adminCount: Int32?, bannedCount: Int32?, kickedCount: Int32?) {
         self.memberCount = memberCount

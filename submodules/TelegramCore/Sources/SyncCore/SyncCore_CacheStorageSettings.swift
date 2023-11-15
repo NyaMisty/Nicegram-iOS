@@ -2,10 +2,11 @@ import Foundation
 import Postbox
 
 public struct CacheStorageSettings: Codable, Equatable {
-    public enum PeerStorageCategory: String, Codable, Hashable {
+    public enum PeerStorageCategory: String, Codable, Hashable, CaseIterable {
         case privateChats = "privateChats"
         case groups = "groups"
         case channels = "channels"
+        case stories = "stories"
     }
     
     private struct CategoryStorageTimeoutRepresentation: Codable {
@@ -19,14 +20,15 @@ public struct CacheStorageSettings: Codable, Equatable {
     public var categoryStorageTimeout: [PeerStorageCategory: Int32]
 
     public static var defaultSettings: CacheStorageSettings {
-        // MARK: Nicegram CacheSettings, change defaultCacheStorageLimitGigabytes to 5 * 1024 * 1024
+        // MARK: Nicegram CacheSettings, change defaultCacheStorageLimitGigabytes to 2
         return CacheStorageSettings(
             defaultCacheStorageTimeout: Int32.max,
-            defaultCacheStorageLimitGigabytes: 5 * 1024 * 1024,
+            defaultCacheStorageLimitGigabytes: 2,
             categoryStorageTimeout: [
                 .privateChats: Int32.max,
                 .groups: Int32(31 * 24 * 60 * 60),
-                .channels: Int32(31 * 24 * 60 * 60)
+                .channels: Int32(7 * 24 * 60 * 60),
+                .stories: Int32(2 * 24 * 60 * 60)
             ]
         )
     }
@@ -51,8 +53,8 @@ public struct CacheStorageSettings: Codable, Equatable {
         } else if let value = try container.decodeIfPresent(Int32.self, forKey: "sizeLimit") {
             self.defaultCacheStorageLimitGigabytes = value
         } else {
-            // MARK: Nicegram CacheSettings, change defaultCacheStorageLimitGigabytes to 5 * 1024 * 1024
-            self.defaultCacheStorageLimitGigabytes = 5 * 1024 * 1024
+            // MARK: Nicegram CacheSettings, change defaultCacheStorageLimitGigabytes to 2
+            self.defaultCacheStorageLimitGigabytes = 2
         }
         
         if let data = try container.decodeIfPresent(Data.self, forKey: "categoryStorageTimeoutJson") {
@@ -60,6 +62,11 @@ public struct CacheStorageSettings: Codable, Equatable {
                 var categoryStorageTimeout: [PeerStorageCategory: Int32] = [:]
                 for item in items {
                     categoryStorageTimeout[item.key] = item.value
+                }
+                for key in PeerStorageCategory.allCases {
+                    if categoryStorageTimeout[key] == nil, let value = CacheStorageSettings.defaultSettings.categoryStorageTimeout[key] {
+                        categoryStorageTimeout[key] = value
+                    }
                 }
                 self.categoryStorageTimeout = categoryStorageTimeout
             } else {

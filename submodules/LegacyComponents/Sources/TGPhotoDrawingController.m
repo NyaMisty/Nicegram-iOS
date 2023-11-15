@@ -44,6 +44,7 @@ const CGSize TGPhotoPaintingMaxSize = { 1920.0f, 1920.0f };
     TGPaintingWrapperView *_paintingWrapperView;
     UIView<TGPhotoDrawingView> *_drawingView;
     
+    UIPanGestureRecognizer *_entityPanGestureRecognizer;
     UIPinchGestureRecognizer *_entityPinchGestureRecognizer;
     UIRotationGestureRecognizer *_entityRotationGestureRecognizer;
     
@@ -153,6 +154,12 @@ const CGSize TGPhotoPaintingMaxSize = { 1920.0f, 1920.0f };
 //    [_scrollContainerView addTarget:self action:@selector(containerPressed) forControlEvents:UIControlEventTouchUpInside];
     [_scrollContentView addSubview:_scrollContainerView];
     
+    _entityPanGestureRecognizer = [[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(handlePan:)];
+    _entityPanGestureRecognizer.delegate = self;
+    _entityPanGestureRecognizer.minimumNumberOfTouches = 1;
+    _entityPanGestureRecognizer.maximumNumberOfTouches = 2;
+    [_scrollContentView addGestureRecognizer:_entityPanGestureRecognizer];
+    
     _entityPinchGestureRecognizer = [[UIPinchGestureRecognizer alloc] initWithTarget:self action:@selector(handlePinch:)];
     _entityPinchGestureRecognizer.delegate = self;
     [_scrollContentView addGestureRecognizer:_entityPinchGestureRecognizer];
@@ -246,6 +253,14 @@ const CGSize TGPhotoPaintingMaxSize = { 1920.0f, 1920.0f };
         return [strongSelf entityInitialRotation];
     };
     
+    _entitiesView.getEntityAdditionalScale = ^CGFloat {
+        __strong TGPhotoDrawingController *strongSelf = weakSelf;
+        if (strongSelf == nil)
+            return 1.0f;
+        
+        return strongSelf->_photoEditor.cropRect.size.width / strongSelf->_photoEditor.originalSize.width;
+    };
+    
     [self.view setNeedsLayout];
 }
 
@@ -270,6 +285,10 @@ const CGSize TGPhotoPaintingMaxSize = { 1920.0f, 1920.0f };
     [_entitiesView clearSelection];
 }
 
+- (void)handlePan:(UIPanGestureRecognizer *)gestureRecognizer {
+    [_entitiesView handlePan:gestureRecognizer];
+}
+
 - (void)handlePinch:(UIPinchGestureRecognizer *)gestureRecognizer
 {
     [_entitiesView handlePinch:gestureRecognizer];
@@ -283,6 +302,9 @@ const CGSize TGPhotoPaintingMaxSize = { 1920.0f, 1920.0f };
 - (BOOL)gestureRecognizerShouldBegin:(UIGestureRecognizer *)__unused gestureRecognizer
 {
     if (gestureRecognizer == _entityPinchGestureRecognizer && !_entitiesView.hasSelection) {
+        return false;
+    }
+    if (_entitiesView.isEditingText) {
         return false;
     }
     return !_drawingView.isTracking;

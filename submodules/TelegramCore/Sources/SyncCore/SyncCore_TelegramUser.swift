@@ -16,6 +16,7 @@ public struct UserInfoFlags: OptionSet {
     public static let isScam = UserInfoFlags(rawValue: (1 << 2))
     public static let isFake = UserInfoFlags(rawValue: (1 << 3))
     public static let isPremium = UserInfoFlags(rawValue: (1 << 4))
+    public static let isCloseFriend = UserInfoFlags(rawValue: (1 << 5))
 }
 
 public struct BotUserInfoFlags: OptionSet {
@@ -33,6 +34,7 @@ public struct BotUserInfoFlags: OptionSet {
     public static let worksWithGroups = BotUserInfoFlags(rawValue: (1 << 1))
     public static let requiresGeolocationForInlineRequests = BotUserInfoFlags(rawValue: (1 << 3))
     public static let canBeAddedToAttachMenu = BotUserInfoFlags(rawValue: (1 << 4))
+    public static let canEdit = BotUserInfoFlags(rawValue: (1 << 5))
 }
 
 public struct BotUserInfo: PostboxCoding, Equatable {
@@ -107,6 +109,9 @@ public final class TelegramUser: Peer, Equatable {
     public let flags: UserInfoFlags
     public let emojiStatus: PeerEmojiStatus?
     public let usernames: [TelegramPeerUsername]
+    public let storiesHidden: Bool?
+    public let nameColor: PeerNameColor?
+    public let backgroundEmojiId: Int64?
     
     public var nameOrPhone: String {
         if let firstName = self.firstName {
@@ -145,8 +150,19 @@ public final class TelegramUser: Peer, Equatable {
     }
     
     public var associatedMediaIds: [MediaId]? {
-        if let emojiStatus = self.emojiStatus {
-            return [MediaId(namespace: Namespaces.Media.CloudFile, id: emojiStatus.fileId)]
+        if let emojiStatus = self.emojiStatus, let backgroundEmojiId = self.backgroundEmojiId {
+            return [
+                MediaId(namespace: Namespaces.Media.CloudFile, id: emojiStatus.fileId),
+                MediaId(namespace: Namespaces.Media.CloudFile, id: backgroundEmojiId)
+            ]
+        } else if let emojiStatus = self.emojiStatus {
+            return [
+                MediaId(namespace: Namespaces.Media.CloudFile, id: emojiStatus.fileId)
+            ]
+        } else if let backgroundEmojiId = self.backgroundEmojiId {
+            return [
+                MediaId(namespace: Namespaces.Media.CloudFile, id: backgroundEmojiId)
+            ]
         } else {
             return nil
         }
@@ -167,7 +183,23 @@ public final class TelegramUser: Peer, Equatable {
         }
     }
     
-    public init(id: PeerId, accessHash: TelegramPeerAccessHash?, firstName: String?, lastName: String?, username: String?, phone: String?, photo: [TelegramMediaImageRepresentation], botInfo: BotUserInfo?, restrictionInfo: PeerAccessRestrictionInfo?, flags: UserInfoFlags, emojiStatus: PeerEmojiStatus?, usernames: [TelegramPeerUsername]) {
+    public init(
+        id: PeerId,
+        accessHash: TelegramPeerAccessHash?,
+        firstName: String?,
+        lastName: String?,
+        username: String?,
+        phone: String?,
+        photo: [TelegramMediaImageRepresentation], 
+        botInfo: BotUserInfo?,
+        restrictionInfo: PeerAccessRestrictionInfo?,
+        flags: UserInfoFlags,
+        emojiStatus: PeerEmojiStatus?,
+        usernames: [TelegramPeerUsername],
+        storiesHidden: Bool?,
+        nameColor: PeerNameColor?,
+        backgroundEmojiId: Int64?
+    ) {
         self.id = id
         self.accessHash = accessHash
         self.firstName = firstName
@@ -180,6 +212,9 @@ public final class TelegramUser: Peer, Equatable {
         self.flags = flags
         self.emojiStatus = emojiStatus
         self.usernames = usernames
+        self.storiesHidden = storiesHidden
+        self.nameColor = nameColor
+        self.backgroundEmojiId = backgroundEmojiId
     }
     
     public init(decoder: PostboxDecoder) {
@@ -218,6 +253,10 @@ public final class TelegramUser: Peer, Equatable {
         self.emojiStatus = decoder.decode(PeerEmojiStatus.self, forKey: "emjs")
         
         self.usernames = decoder.decodeObjectArrayForKey("uns")
+        self.storiesHidden = decoder.decodeOptionalBoolForKey("sth")
+        
+        self.nameColor = decoder.decodeOptionalInt32ForKey("nclr").flatMap { PeerNameColor(rawValue: $0) }
+        self.backgroundEmojiId = decoder.decodeOptionalInt64ForKey("bgem")
     }
     
     public func encode(_ encoder: PostboxEncoder) {
@@ -271,6 +310,24 @@ public final class TelegramUser: Peer, Equatable {
         }
         
         encoder.encodeObjectArray(self.usernames, forKey: "uns")
+        
+        if let storiesHidden = self.storiesHidden {
+            encoder.encodeBool(storiesHidden, forKey: "sth")
+        } else {
+            encoder.encodeNil(forKey: "sth")
+        }
+        
+        if let nameColor = self.nameColor {
+            encoder.encodeInt32(nameColor.rawValue, forKey: "nclr")
+        } else {
+            encoder.encodeNil(forKey: "nclr")
+        }
+        
+        if let backgroundEmojiId = self.backgroundEmojiId {
+            encoder.encodeInt64(backgroundEmojiId, forKey: "bgem")
+        } else {
+            encoder.encodeNil(forKey: "bgem")
+        }
     }
     
     public func isEqual(_ other: Peer) -> Bool {
@@ -323,31 +380,56 @@ public final class TelegramUser: Peer, Equatable {
         if lhs.usernames != rhs.usernames {
             return false
         }
+        if lhs.storiesHidden != rhs.storiesHidden {
+            return false
+        }
+        if lhs.nameColor != rhs.nameColor {
+            return false
+        }
+        if lhs.backgroundEmojiId != rhs.backgroundEmojiId {
+            return false
+        }
         
         return true
     }
     
     public func withUpdatedUsername(_ username: String?) -> TelegramUser {
-        return TelegramUser(id: self.id, accessHash: self.accessHash, firstName: self.firstName, lastName: self.lastName, username: username, phone: self.phone, photo: self.photo, botInfo: self.botInfo, restrictionInfo: self.restrictionInfo, flags: self.flags, emojiStatus: self.emojiStatus, usernames: self.usernames)
+        return TelegramUser(id: self.id, accessHash: self.accessHash, firstName: self.firstName, lastName: self.lastName, username: username, phone: self.phone, photo: self.photo, botInfo: self.botInfo, restrictionInfo: self.restrictionInfo, flags: self.flags, emojiStatus: self.emojiStatus, usernames: self.usernames, storiesHidden: self.storiesHidden, nameColor: self.nameColor, backgroundEmojiId: self.backgroundEmojiId)
     }
     
     public func withUpdatedUsernames(_ usernames: [TelegramPeerUsername]) -> TelegramUser {
-        return TelegramUser(id: self.id, accessHash: self.accessHash, firstName: self.firstName, lastName: self.lastName, username: self.username, phone: self.phone, photo: self.photo, botInfo: self.botInfo, restrictionInfo: self.restrictionInfo, flags: self.flags, emojiStatus: self.emojiStatus, usernames: usernames)
+        return TelegramUser(id: self.id, accessHash: self.accessHash, firstName: self.firstName, lastName: self.lastName, username: self.username, phone: self.phone, photo: self.photo, botInfo: self.botInfo, restrictionInfo: self.restrictionInfo, flags: self.flags, emojiStatus: self.emojiStatus, usernames: usernames, storiesHidden: self.storiesHidden, nameColor: self.nameColor, backgroundEmojiId: self.backgroundEmojiId)
     }
     
     public func withUpdatedNames(firstName: String?, lastName: String?) -> TelegramUser {
-        return TelegramUser(id: self.id, accessHash: self.accessHash, firstName: firstName, lastName: lastName, username: self.username, phone: self.phone, photo: self.photo, botInfo: self.botInfo, restrictionInfo: self.restrictionInfo, flags: self.flags, emojiStatus: self.emojiStatus, usernames: self.usernames)
+        return TelegramUser(id: self.id, accessHash: self.accessHash, firstName: firstName, lastName: lastName, username: self.username, phone: self.phone, photo: self.photo, botInfo: self.botInfo, restrictionInfo: self.restrictionInfo, flags: self.flags, emojiStatus: self.emojiStatus, usernames: self.usernames, storiesHidden: self.storiesHidden, nameColor: self.nameColor, backgroundEmojiId: self.backgroundEmojiId)
     }
     
     public func withUpdatedPhone(_ phone: String?) -> TelegramUser {
-        return TelegramUser(id: self.id, accessHash: self.accessHash, firstName: self.firstName, lastName: self.lastName, username: self.username, phone: phone, photo: self.photo, botInfo: self.botInfo, restrictionInfo: self.restrictionInfo, flags: self.flags, emojiStatus: self.emojiStatus, usernames: self.usernames)
+        return TelegramUser(id: self.id, accessHash: self.accessHash, firstName: self.firstName, lastName: self.lastName, username: self.username, phone: phone, photo: self.photo, botInfo: self.botInfo, restrictionInfo: self.restrictionInfo, flags: self.flags, emojiStatus: self.emojiStatus, usernames: self.usernames, storiesHidden: self.storiesHidden, nameColor: self.nameColor, backgroundEmojiId: self.backgroundEmojiId)
     }
     
     public func withUpdatedPhoto(_ representations: [TelegramMediaImageRepresentation]) -> TelegramUser {
-        return TelegramUser(id: self.id, accessHash: self.accessHash, firstName: self.firstName, lastName: self.lastName, username: self.username, phone: phone, photo: representations, botInfo: self.botInfo, restrictionInfo: self.restrictionInfo, flags: self.flags, emojiStatus: self.emojiStatus, usernames: self.usernames)
+        return TelegramUser(id: self.id, accessHash: self.accessHash, firstName: self.firstName, lastName: self.lastName, username: self.username, phone: phone, photo: representations, botInfo: self.botInfo, restrictionInfo: self.restrictionInfo, flags: self.flags, emojiStatus: self.emojiStatus, usernames: self.usernames, storiesHidden: self.storiesHidden, nameColor: self.nameColor, backgroundEmojiId: self.backgroundEmojiId)
     }
     
     public func withUpdatedEmojiStatus(_ emojiStatus: PeerEmojiStatus?) -> TelegramUser {
-        return TelegramUser(id: self.id, accessHash: self.accessHash, firstName: self.firstName, lastName: self.lastName, username: self.username, phone: phone, photo: self.photo, botInfo: self.botInfo, restrictionInfo: self.restrictionInfo, flags: self.flags, emojiStatus: emojiStatus, usernames: self.usernames)
+        return TelegramUser(id: self.id, accessHash: self.accessHash, firstName: self.firstName, lastName: self.lastName, username: self.username, phone: phone, photo: self.photo, botInfo: self.botInfo, restrictionInfo: self.restrictionInfo, flags: self.flags, emojiStatus: emojiStatus, usernames: self.usernames, storiesHidden: self.storiesHidden, nameColor: self.nameColor, backgroundEmojiId: self.backgroundEmojiId)
+    }
+    
+    public func withUpdatedFlags(_ flags: UserInfoFlags) -> TelegramUser {
+        return TelegramUser(id: self.id, accessHash: self.accessHash, firstName: self.firstName, lastName: self.lastName, username: self.username, phone: self.phone, photo: self.photo, botInfo: self.botInfo, restrictionInfo: self.restrictionInfo, flags: flags, emojiStatus: self.emojiStatus, usernames: self.usernames, storiesHidden: self.storiesHidden, nameColor: self.nameColor, backgroundEmojiId: self.backgroundEmojiId)
+    }
+    
+    public func withUpdatedStoriesHidden(_ storiesHidden: Bool?) -> TelegramUser {
+        return TelegramUser(id: self.id, accessHash: self.accessHash, firstName: self.firstName, lastName: self.lastName, username: self.username, phone: self.phone, photo: self.photo, botInfo: self.botInfo, restrictionInfo: self.restrictionInfo, flags: self.flags, emojiStatus: self.emojiStatus, usernames: self.usernames, storiesHidden: storiesHidden, nameColor: self.nameColor, backgroundEmojiId: self.backgroundEmojiId)
+    }
+    
+    public func withUpdatedNameColor(_ nameColor: PeerNameColor) -> TelegramUser {
+        return TelegramUser(id: self.id, accessHash: self.accessHash, firstName: self.firstName, lastName: self.lastName, username: self.username, phone: self.phone, photo: self.photo, botInfo: self.botInfo, restrictionInfo: self.restrictionInfo, flags: self.flags, emojiStatus: self.emojiStatus, usernames: self.usernames, storiesHidden: self.storiesHidden, nameColor: nameColor, backgroundEmojiId: self.backgroundEmojiId)
+    }
+    
+    public func withUpdatedBackgroundEmojiId(_ backgroundEmojiId: Int64?) -> TelegramUser {
+        return TelegramUser(id: self.id, accessHash: self.accessHash, firstName: self.firstName, lastName: self.lastName, username: self.username, phone: self.phone, photo: self.photo, botInfo: self.botInfo, restrictionInfo: self.restrictionInfo, flags: self.flags, emojiStatus: self.emojiStatus, usernames: self.usernames, storiesHidden: self.storiesHidden, nameColor: self.nameColor, backgroundEmojiId: backgroundEmojiId)
     }
 }

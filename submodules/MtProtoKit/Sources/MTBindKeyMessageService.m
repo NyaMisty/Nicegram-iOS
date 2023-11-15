@@ -82,6 +82,10 @@
     [bindRequestData appendInt32:expiresAt];
     [bindRequestData appendTLBytes:encryptedMessage];
     
+    if (MTLogEnabled()) {
+        MTLog(@"[MTBindKeyMessageService#%p binding temp %" PRId64 " to persistent %" PRId64 "]", self, _ephemeralKey.authKeyId, _persistentKey.authKeyId);
+    }
+    
     MTOutgoingMessage *outgoingMessage = [[MTOutgoingMessage alloc] initWithData:bindRequestData.data metadata:[NSString stringWithFormat:@"auth.bindTempAuthKey"] additionalDebugDescription:nil shortMetadata:@"auth.bindTempAuthKey" messageId:bindingMessageId messageSeqNo:bindingSeqNo];
     
     return [[MTMessageTransaction alloc] initWithMessagePayload:@[outgoingMessage] prepared:nil failed:nil completion:^(NSDictionary *messageInternalIdToTransactionId, NSDictionary *messageInternalIdToPreparedMessage, __unused NSDictionary *messageInternalIdToQuickAckId) {
@@ -136,7 +140,7 @@
     }
 }
 
-- (void)mtProto:(MTProto *)mtProto receivedMessage:(MTIncomingMessage *)message authInfoSelector:(MTDatacenterAuthInfoSelector)authInfoSelector {
+- (void)mtProto:(MTProto *)mtProto receivedMessage:(MTIncomingMessage *)message authInfoSelector:(MTDatacenterAuthInfoSelector)authInfoSelector networkType:(int32_t)networkType {
     if ([message.body isKindOfClass:[MTRpcResultMessage class]]) {
         MTRpcResultMessage *rpcResultMessage = message.body;
         if (rpcResultMessage.requestMessageId == _currentMessageId) {

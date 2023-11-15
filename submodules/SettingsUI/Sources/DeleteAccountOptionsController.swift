@@ -2,7 +2,6 @@ import Foundation
 import UIKit
 import Display
 import SwiftSignalKit
-import Postbox
 import TelegramCore
 import LegacyComponents
 import TelegramPresentationData
@@ -16,6 +15,7 @@ import UrlHandling
 import AccountUtils
 import PremiumUI
 import PasswordSetupUI
+import StorageUsageScreen
 
 private struct DeleteAccountOptionsArguments {
     let changePhoneNumber: () -> Void
@@ -214,6 +214,7 @@ public func deleteAccountOptionsController(context: AccountContext, navigationCo
                 let controller = PremiumLimitScreen(context: context, subject: .accounts, count: Int32(count), action: {
                     let controller = PremiumIntroScreen(context: context, source: .accounts)
                     replaceImpl?(controller)
+                    return true
                 })
                 replaceImpl = { [weak controller] c in
                     controller?.replace(with: c)
@@ -243,7 +244,8 @@ public func deleteAccountOptionsController(context: AccountContext, navigationCo
                         title: presentationData.strings.TwoFactorSetup_Intro_Title,
                         text: presentationData.strings.TwoFactorSetup_Intro_Text,
                         actionText: presentationData.strings.TwoFactorSetup_Intro_Action,
-                        doneText: presentationData.strings.TwoFactorSetup_Done_Action
+                        doneText: presentationData.strings.TwoFactorSetup_Done_Action,
+                        phoneNumber: nil
                     )))
 
                     replaceTopControllerImpl?(controller, false)
@@ -270,7 +272,9 @@ public func deleteAccountOptionsController(context: AccountContext, navigationCo
     }, clearCache: {
         addAppLogEvent(postbox: context.account.postbox, type: "deactivate.options_clear_cache_tap")
         
-        pushControllerImpl?(storageUsageController(context: context))
+        pushControllerImpl?(StorageUsageScreen(context: context, makeStorageUsageExceptionsScreen: { category in
+            return storageUsageExceptionsScreen(context: context, category: category)
+        }))
         dismissImpl?()
     }, clearSyncedContacts: {
         addAppLogEvent(postbox: context.account.postbox, type: "deactivate.options_clear_contacts_tap")
@@ -286,6 +290,12 @@ public func deleteAccountOptionsController(context: AccountContext, navigationCo
             faqUrl = "https://telegram.org/faq#q-can-i-delete-my-messages"
         }
         let resolvedUrl = resolveInstantViewUrl(account: context.account, url: faqUrl)
+        |> mapToSignal { result -> Signal<ResolvedUrl, NoError> in
+            guard case let .result(result) = result else {
+                return .complete()
+            }
+            return .single(result)
+        }
 
         let resolvedUrlPromise = Promise<ResolvedUrl>()
         resolvedUrlPromise.set(resolvedUrl)
@@ -303,7 +313,7 @@ public func deleteAccountOptionsController(context: AccountContext, navigationCo
                 context.sharedContext.openResolvedUrl(resolvedUrl, context: context, urlContext: .generic, navigationController: navigationController, forceExternal: false, openPeer: { peer, navigation in
                 }, sendFile: nil, sendSticker: nil, requestMessageActionUrlAuth: nil, joinVoiceChat: nil, present: { controller, arguments in
                     pushControllerImpl?(controller)
-                }, dismissInput: {}, contentContext: nil)
+                }, dismissInput: {}, contentContext: nil, progress: nil)
             })
         }
         
@@ -313,7 +323,7 @@ public func deleteAccountOptionsController(context: AccountContext, navigationCo
         
         let presentationData = context.sharedContext.currentPresentationData.with { $0 }
         
-        let supportPeer = Promise<PeerId?>()
+        let supportPeer = Promise<EnginePeer.Id?>()
         supportPeer.set(context.engine.peers.supportPeerId())
         
         var faqUrl = presentationData.strings.Settings_FAQ_URL
@@ -321,6 +331,12 @@ public func deleteAccountOptionsController(context: AccountContext, navigationCo
             faqUrl = "https://telegram.org/faq#general"
         }
         let resolvedUrl = resolveInstantViewUrl(account: context.account, url: faqUrl)
+        |> mapToSignal { result -> Signal<ResolvedUrl, NoError> in
+            guard case let .result(result) = result else {
+                return .complete()
+            }
+            return .single(result)
+        }
 
         let resolvedUrlPromise = Promise<ResolvedUrl>()
         resolvedUrlPromise.set(resolvedUrl)
@@ -338,7 +354,7 @@ public func deleteAccountOptionsController(context: AccountContext, navigationCo
                 context.sharedContext.openResolvedUrl(resolvedUrl, context: context, urlContext: .generic, navigationController: navigationController, forceExternal: false, openPeer: { peer, navigation in
                 }, sendFile: nil, sendSticker: nil, requestMessageActionUrlAuth: nil, joinVoiceChat: nil, present: { controller, arguments in
                     pushControllerImpl?(controller)
-                }, dismissInput: {}, contentContext: nil)
+                }, dismissInput: {}, contentContext: nil, progress: nil)
             })
         }
 

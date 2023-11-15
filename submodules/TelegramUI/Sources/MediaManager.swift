@@ -2,6 +2,7 @@ import Foundation
 import SwiftSignalKit
 import AVFoundation
 import MobileCoreServices
+import Display
 import Postbox
 import TelegramCore
 import MediaPlayer
@@ -22,7 +23,7 @@ enum SharedMediaPlayerGroup: Int {
 
 private let sharedAudioSession: ManagedAudioSession = {
     let audioSession = ManagedAudioSession()
-    let _ = (audioSession.headsetConnected() |> deliverOnMainQueue).start(next: { value in
+    let _ = (audioSession.headsetConnected() |> deliverOnMainQueue).startStandalone(next: { value in
         DeviceProximityManager.shared().setGloballyEnabled(!value)
     })
     return audioSession
@@ -42,8 +43,6 @@ private struct GlobalControlOptions: OptionSet {
     static let playPause = GlobalControlOptions(rawValue: 1 << 4)
     static let seek = GlobalControlOptions(rawValue: 1 << 5)
 }
-
-public var test: Double?
 
 public final class MediaManagerImpl: NSObject, MediaManager {
     public static var globalAudioSession: ManagedAudioSession {
@@ -78,7 +77,7 @@ public final class MediaManagerImpl: NSObject, MediaManager {
                 if let voiceMediaPlayer = self.voiceMediaPlayer {
                     let account = voiceMediaPlayer.account
                     self.voiceMediaPlayerStateDisposable.set((voiceMediaPlayer.playbackState
-                    |> deliverOnMainQueue).start(next: { [weak self, weak voiceMediaPlayer] state in
+                    |> deliverOnMainQueue).startStrict(next: { [weak self, weak voiceMediaPlayer] state in
                         guard let strongSelf = self else {
                             return
                         }
@@ -223,7 +222,7 @@ public final class MediaManagerImpl: NSObject, MediaManager {
         var currentGlobalControlsOptions = GlobalControlOptions()
         
         self.globalControlsDisposable.set((combineLatest(self.globalMediaPlayerState, self.presentationData)
-        |> deliverOnMainQueue).start(next: { stateAndType, presentationData in
+        |> deliverOnMainQueue).startStrict(next: { stateAndType, presentationData in
             var updatedGlobalControlOptions = GlobalControlOptions()
             if let (_, stateOrLoading, type) = stateAndType, case let .state(state) = stateOrLoading {
                 if type == .music {
@@ -248,7 +247,7 @@ public final class MediaManagerImpl: NSObject, MediaManager {
                     var artwork: SharedMediaPlaybackAlbumArt?
                     
                     switch displayData {
-                        case let .music(title, performer, artworkValue, _):
+                        case let .music(title, performer, artworkValue, _, _):
                             artwork = artworkValue
                             
                             let titleText: String = title ?? presentationData.strings.MediaPlayer_UnknownTrack
@@ -325,27 +324,15 @@ public final class MediaManagerImpl: NSObject, MediaManager {
         |> distinctUntilChanged(isEqual: { $0?.0 === $1?.0 && $0?.1 == $1?.1 })
         |> mapToSignal { value -> Signal<UIImage?, NoError> in
             if let (account, value) = value {
-                return albumArtThumbnailData(engine: TelegramEngine(account: account), thumbnail: value.fullSizeResource)
-                |> map { data -> UIImage? in
-                    return data.flatMap(UIImage.init(data:))
+                return playerAlbumArt(postbox: account.postbox, engine: TelegramEngine(account: account), fileReference: value.fullSizeResource.file, albumArt: value, thumbnail: false)
+                |> map { generator -> UIImage? in
+                    let arguments = TransformImageArguments(corners: ImageCorners(), imageSize: CGSize(width: 640, height: 640), boundingSize: CGSize(width: 640, height: 640), intrinsicInsets: .zero)
+                    return generator(arguments)?.generateImage()
                 }
-                /*return Signal { subscriber in
-                    let fetched = account.postbox.mediaBox.fetchedResource(value.fullSizeResource, parameters: nil).start()
-                    let data = account.postbox.mediaBox.resourceData(value.fullSizeResource, pathExtension: nil, option: .complete(waitUntilFetchStatus: false)).start(next: { data in
-                        if data.complete, let value = try? Data(contentsOf: URL(fileURLWithPath: data.path)) {
-                            subscriber.putNext(UIImage(data: value))
-                            subscriber.putCompletion()
-                        }
-                    })
-                    return ActionDisposable {
-                        fetched.dispose()
-                        data.dispose()
-                    }
-                }*/
             } else {
                 return .single(nil)
             }
-        } |> deliverOnMainQueue).start(next: { image in
+        } |> deliverOnMainQueue).startStrict(next: { image in
             if var nowPlayingInfo = baseNowPlayingInfo {
                 if let image = image {
                     if #available(iOSApplicationExtension 10.0, iOS 10.0, *) {
@@ -364,7 +351,7 @@ public final class MediaManagerImpl: NSObject, MediaManager {
         }))
         
         self.globalControlsStatusDisposable.set((self.globalControlsStatus.get()
-        |> deliverOnMainQueue).start(next: { next in
+        |> deliverOnMainQueue).startStrict(next: { next in
             if let next = next {
                 if var nowPlayingInfo = baseNowPlayingInfo {
                     nowPlayingInfo[MPMediaItemPropertyPlaybackDuration] = next.duration as NSNumber
@@ -416,7 +403,7 @@ public final class MediaManagerImpl: NSObject, MediaManager {
             return .single(next) |> then(.complete() |> delay(2.0, queue: Queue.concurrentDefaultQueue()))
         }
         
-        self.mediaPlaybackStateDisposable.set(throttledSignal.start(next: { accountStateAndType in
+        self.mediaPlaybackStateDisposable.set(throttledSignal.startStrict(next: { accountStateAndType in
             let minimumStoreDuration: Double?
             if let (account, stateOrLoading, type) = accountStateAndType {
                 switch type {
@@ -434,13 +421,13 @@ public final class MediaManagerImpl: NSObject, MediaManager {
                         if state.status.timestamp > 5.0 && state.status.timestamp < state.status.duration - 5.0 {
                             storedState = MediaPlaybackStoredState(timestamp: state.status.timestamp, playbackRate: state.status.baseRate > 1.0 ? .x2 : .x1)
                         }
-                        let _ = updateMediaPlaybackStoredStateInteractively(engine: TelegramEngine(account: account), messageId: item.message.id, state: storedState).start()
+                        let _ = updateMediaPlaybackStoredStateInteractively(engine: TelegramEngine(account: account), messageId: item.message.id, state: storedState).startStandalone()
                     }
                 }
             }
         }))
         
-        self.globalAudioSessionForegroundDisposable.set((shouldKeepAudioSession |> deliverOnMainQueue).start(next: { [weak self] value in
+        self.globalAudioSessionForegroundDisposable.set((shouldKeepAudioSession |> deliverOnMainQueue).startStrict(next: { [weak self] value in
             guard let strongSelf = self else {
                 return
             }
@@ -500,57 +487,78 @@ public final class MediaManagerImpl: NSObject, MediaManager {
         }
         
         self.setPlaylistByTypeDisposables.set((inputData
-        |> deliverOnMainQueue).start(next: { [weak self] inputData in
+        |> deliverOnMainQueue).startStrict(next: { [weak self] inputData in
             if let strongSelf = self {
                 let nextPlayerIndex = strongSelf.nextPlayerIndex
                 strongSelf.nextPlayerIndex += 1
                 switch type {
                     case .voice:
                         strongSelf.musicMediaPlayer?.control(.playback(.pause))
-                        strongSelf.voiceMediaPlayer?.stop()
                         if let (account, playlist, settings, storedState) = inputData {
-                            let voiceMediaPlayer = SharedMediaPlayer(mediaManager: strongSelf, inForeground: strongSelf.inForeground, account: account, audioSession: strongSelf.audioSession, overlayMediaManager: strongSelf.overlayMediaManager, playlist: playlist, initialOrder: .reversed, initialLooping: .none, initialPlaybackRate: settings.voicePlaybackRate, playerIndex: nextPlayerIndex, controlPlaybackWithProximity: true, type: type)
-                            strongSelf.voiceMediaPlayer = voiceMediaPlayer
-                            voiceMediaPlayer.playedToEnd = { [weak voiceMediaPlayer] in
-                                if let strongSelf = self, let voiceMediaPlayer = voiceMediaPlayer, voiceMediaPlayer === strongSelf.voiceMediaPlayer {
-                                    voiceMediaPlayer.stop()
-                                    strongSelf.voiceMediaPlayer = nil
+                            if areSharedMediaPlaylistsEqual(playlist, strongSelf.voiceMediaPlayer?.playlist), case .seek = control {
+                                strongSelf.voiceMediaPlayer?.control(control)
+                            } else {
+                                strongSelf.voiceMediaPlayer?.stop()
+                                var continueInstantVideoLoopAfterFinish: Bool = true
+                                var controlPlaybackWithProximity: Bool = true
+                                if let playlist = playlist as? PeerMessagesMediaPlaylist {
+                                    continueInstantVideoLoopAfterFinish = playlist.context.sharedContext.energyUsageSettings.autoplayVideo
+                                    controlPlaybackWithProximity = playlist.context.sharedContext.currentMediaInputSettings.with({ $0.enableRaiseToSpeak })
                                 }
-                            }
-                            voiceMediaPlayer.cancelled = { [weak voiceMediaPlayer] in
-                                if let strongSelf = self, let voiceMediaPlayer = voiceMediaPlayer, voiceMediaPlayer === strongSelf.voiceMediaPlayer {
-                                    voiceMediaPlayer.stop()
-                                    strongSelf.voiceMediaPlayer = nil
+                                
+                                let voiceMediaPlayer = SharedMediaPlayer(mediaManager: strongSelf, inForeground: strongSelf.inForeground, account: account, audioSession: strongSelf.audioSession, overlayMediaManager: strongSelf.overlayMediaManager, playlist: playlist, initialOrder: .reversed, initialLooping: .none, initialPlaybackRate: settings.voicePlaybackRate, playerIndex: nextPlayerIndex, controlPlaybackWithProximity: controlPlaybackWithProximity, type: type, continueInstantVideoLoopAfterFinish: continueInstantVideoLoopAfterFinish)
+                                strongSelf.voiceMediaPlayer = voiceMediaPlayer
+                                voiceMediaPlayer.playedToEnd = { [weak voiceMediaPlayer] in
+                                    if let strongSelf = self, let voiceMediaPlayer = voiceMediaPlayer, voiceMediaPlayer === strongSelf.voiceMediaPlayer {
+                                        voiceMediaPlayer.stop()
+                                        strongSelf.voiceMediaPlayer = nil
+                                    }
                                 }
+                                voiceMediaPlayer.cancelled = { [weak voiceMediaPlayer] in
+                                    if let strongSelf = self, let voiceMediaPlayer = voiceMediaPlayer, voiceMediaPlayer === strongSelf.voiceMediaPlayer {
+                                        voiceMediaPlayer.stop()
+                                        strongSelf.voiceMediaPlayer = nil
+                                    }
+                                }
+                                
+                                var control = control
+                                if case .seek = control {
+                                } else if let timestamp = storedState?.timestamp {
+                                    control = .seek(timestamp)
+                                }
+                                voiceMediaPlayer.control(control)
+                                voiceMediaPlayer.control(.playback(.play))
                             }
-                            
-                            var control = control
-                            if let timestamp = storedState?.timestamp {
-                                control = .seek(timestamp)
-                            }
-                            voiceMediaPlayer.control(control)
                         } else {
+                            strongSelf.voiceMediaPlayer?.stop()
                             strongSelf.voiceMediaPlayer = nil
                         }
                     case .music, .file:
-                        strongSelf.musicMediaPlayer?.stop()
                         strongSelf.voiceMediaPlayer?.control(.playback(.pause))
                         if let (account, playlist, settings, storedState) = inputData {
-                            let musicMediaPlayer = SharedMediaPlayer(mediaManager: strongSelf, inForeground: strongSelf.inForeground, account: account, audioSession: strongSelf.audioSession, overlayMediaManager: strongSelf.overlayMediaManager, playlist: playlist, initialOrder: settings.order, initialLooping: settings.looping, initialPlaybackRate: storedState?.playbackRate ?? .x1, playerIndex: nextPlayerIndex, controlPlaybackWithProximity: false, type: type)
-                            strongSelf.musicMediaPlayer = musicMediaPlayer
-                            musicMediaPlayer.cancelled = { [weak musicMediaPlayer] in
-                                if let strongSelf = self, let musicMediaPlayer = musicMediaPlayer, musicMediaPlayer === strongSelf.musicMediaPlayer {
-                                    musicMediaPlayer.stop()
-                                    strongSelf.musicMediaPlayer = nil
+                            if areSharedMediaPlaylistsEqual(playlist, strongSelf.musicMediaPlayer?.playlist), case .seek = control {
+                                strongSelf.musicMediaPlayer?.control(control)
+                            } else {
+                                strongSelf.musicMediaPlayer?.stop()
+                                let musicMediaPlayer = SharedMediaPlayer(mediaManager: strongSelf, inForeground: strongSelf.inForeground, account: account, audioSession: strongSelf.audioSession, overlayMediaManager: strongSelf.overlayMediaManager, playlist: playlist, initialOrder: settings.order, initialLooping: settings.looping, initialPlaybackRate: storedState?.playbackRate ?? .x1, playerIndex: nextPlayerIndex, controlPlaybackWithProximity: false, type: type, continueInstantVideoLoopAfterFinish: true)
+                                strongSelf.musicMediaPlayer = musicMediaPlayer
+                                musicMediaPlayer.cancelled = { [weak musicMediaPlayer] in
+                                    if let strongSelf = self, let musicMediaPlayer = musicMediaPlayer, musicMediaPlayer === strongSelf.musicMediaPlayer {
+                                        musicMediaPlayer.stop()
+                                        strongSelf.musicMediaPlayer = nil
+                                    }
                                 }
+                                
+                                var control = control
+                                if case .seek = control {
+                                } else if let timestamp = storedState?.timestamp {
+                                    control = .seek(timestamp)
+                                }
+                                strongSelf.musicMediaPlayer?.control(control)
+                                strongSelf.musicMediaPlayer?.control(.playback(.play))
                             }
-                            
-                            var control = control
-                            if let timestamp = storedState?.timestamp {
-                                control = .seek(timestamp)
-                            }
-                            strongSelf.musicMediaPlayer?.control(control)
                         } else {
+                            strongSelf.musicMediaPlayer?.stop()
                             strongSelf.musicMediaPlayer = nil
                         }
                 }

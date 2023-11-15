@@ -29,8 +29,6 @@ public enum PresentationResourceKey: Int32 {
     
     case navigationLiveLocationIcon
     
-    case navigationPlayerPlayIcon
-    case navigationPlayerPauseIcon
     case navigationPlayerRateActiveIcon
     case navigationPlayerRateInactiveIcon
     case navigationPlayerMaximizedRateActiveIcon
@@ -43,6 +41,7 @@ public enum PresentationResourceKey: Int32 {
     case itemListCheckIcon
     case itemListSecondaryCheckIcon
     case itemListPlusIcon
+    case itemListRoundPlusIcon
     case itemListDeleteIcon
     case itemListDeleteIndicatorIcon
     case itemListReorderIndicatorIcon
@@ -71,6 +70,7 @@ public enum PresentationResourceKey: Int32 {
     case itemListImageIcon
     case itemListCloudIcon
     case itemListTopicArrowIcon
+    case itemListAddBoostsIcon
     
     case itemListVoiceCallIcon
     case itemListVideoCallIcon
@@ -108,6 +108,9 @@ public enum PresentationResourceKey: Int32 {
     case chatListRecentStatusVoiceChatPinnedIcon
     case chatListRecentStatusVoiceChatPanelIcon
     
+    case chatListForwardedIcon
+    case chatListStoryReplyIcon
+    
     case chatListGeneralTopicIcon
     case chatListGeneralTopicSmallIcon
 
@@ -132,10 +135,7 @@ public enum PresentationResourceKey: Int32 {
     case chatMediaConsumableContentIcon
     
     case chatBubbleMediaOverlayControlSecret
-    
-    case chatBubbleSecretMediaIcon
-    case chatBubbleSecretMediaCompactIcon
-    
+        
     case chatInstantVideoWithWallpaperBackgroundImage
     case chatInstantVideoWithoutWallpaperBackgroundImage
     
@@ -167,20 +167,11 @@ public enum PresentationResourceKey: Int32 {
     case chatInputPanelEditIconImage
     case chatInputPanelWebpageIconImage
     
-    case chatMediaInputPanelHighlightedIconImage
-    case chatInputMediaPanelSavedStickersIconImage
-    case chatInputMediaPanelRecentStickersIconImage
-    case chatInputMediaPanelRecentGifsIconImage
-    case chatInputMediaPanelTrendingIconImage
-    case chatInputMediaPanelSettingsIconImage
     case chatInputMediaPanelAddPackButtonImage
     case chatInputMediaPanelAddedPackButtonImage
     case chatInputMediaPanelGridSetupImage
     case chatInputMediaPanelGridDismissImage
-    case chatInputMediaPanelTrendingGifsIcon
-    case chatInputMediaPanelStickersModeIcon
-    case chatInputMediaPanelPremiumIcon
-    
+
     case chatInputButtonPanelButtonHighlightImage
     case chatInputButtonPanelButtonShadowImage
     
@@ -209,6 +200,7 @@ public enum PresentationResourceKey: Int32 {
     case chatInputTextFieldSilentPostOffImage
     case chatInputTextFieldTimerImage
     case chatInputTextFieldScheduleImage
+    case chatInputTextFieldGiftImage
     
     case chatInputSearchPanelUpImage
     case chatInputSearchPanelUpDisabledImage
@@ -216,16 +208,7 @@ public enum PresentationResourceKey: Int32 {
     case chatInputSearchPanelDownDisabledImage
     case chatInputSearchPanelCalendarImage
     case chatInputSearchPanelMembersImage
-    
-    case chatTitlePanelInfoImage
-    case chatTitlePanelSearchImage
-    case chatTitlePanelUnarchiveImage
-    case chatTitlePanelMuteImage
-    case chatTitlePanelUnmuteImage
-    case chatTitlePanelCallImage
-    case chatTitlePanelReportImage
-    case chatTitlePanelGroupingImage
-    
+        
     case chatHistoryNavigationButtonImage
     case chatHistoryMentionsButtonImage
     case chatHistoryReactionsButtonImage
@@ -242,6 +225,13 @@ public enum PresentationResourceKey: Int32 {
     case chatMessageAttachedContentButtonIconInstantOutgoing
     case chatMessageAttachedContentHighlightedButtonIconInstantOutgoingWithWallpaper
     case chatMessageAttachedContentHighlightedButtonIconInstantOutgoingWithoutWallpaper
+    
+    case chatMessageAttachedContentButtonIconLinkIncoming
+    case chatMessageAttachedContentHighlightedButtonIconLinkIncomingWithWallpaper
+    case chatMessageAttachedContentHighlightedButtonIconLinkIncomingWithoutWallpaper
+    case chatMessageAttachedContentButtonIconLinkOutgoing
+    case chatMessageAttachedContentHighlightedButtonIconLinkOutgoingWithWallpaper
+    case chatMessageAttachedContentHighlightedButtonIconLinkOutgoingWithoutWallpaper
     
     case chatCommandPanelArrowImage
     
@@ -268,7 +258,6 @@ public enum PresentationResourceKey: Int32 {
     case genericSearchBar
     
     case inAppNotificationBackground
-    case inAppNotificationSecretChatIcon
     
     case groupInfoAdminsIcon
     case groupInfoPermissionsIcon
@@ -299,6 +288,21 @@ public enum PresentationResourceKey: Int32 {
     case chatGeneralThreadFreeIcon
     
     case uploadToneIcon
+    
+    case storyViewListLikeIcon
+    case navigationPostStoryIcon
+    
+    case chatReplyBackgroundTemplateIncomingImage
+    case chatReplyBackgroundTemplateOutgoingDashedImage
+    case chatReplyServiceBackgroundTemplateImage
+    
+    case chatBubbleCloseIcon
+}
+
+public enum ChatExpiredStoryIndicatorType: Hashable {
+    case incoming
+    case outgoing
+    case free
 }
 
 public enum PresentationResourceParameterKey: Hashable {
@@ -328,10 +332,6 @@ public enum PresentationResourceParameterKey: Hashable {
     case chatBubbleLamp(incoming: Bool)
     case chatPsaInfo(color: UInt32)
     
-    case chatMessageLike(incoming: Bool, isSelected: Bool)
-    case chatMessageFreeLike(isSelected: Bool)
-    case chatMessageMediaLike(isSelected: Bool)
-    
     case chatMessageCommentsIcon(incoming: Bool)
     case chatMessageCommentsArrowIcon(incoming: Bool)
     case chatMessageCommentsUnreadDotIcon(incoming: Bool)
@@ -341,4 +341,7 @@ public enum PresentationResourceParameterKey: Hashable {
     case chatInputMediaPanelGridDismissImage(color: UInt32)
     
     case statusAutoremoveIcon(isActive: Bool)
+    
+    case chatExpiredStoryIndicatorIcon(type: ChatExpiredStoryIndicatorType)
+    case chatReplyStoryIndicatorIcon(type: ChatExpiredStoryIndicatorType)
 }

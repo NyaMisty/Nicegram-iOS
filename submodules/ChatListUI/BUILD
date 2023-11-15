@@ -2,14 +2,18 @@ load("@build_bazel_rules_swift//swift:swift.bzl", "swift_library")
 
 NGDEPS = [
     "//Nicegram/NGData:NGData",
-    "//Nicegram/NGAssistant:NGAssistant",
-    "//Nicegram/NGSpecialOffer:NGSpecialOffer",
-    "//Nicegram/NGTheme:NGTheme",
+    "//Nicegram/NGModels:NGModels",
+    "//Nicegram/NGUI:NGUI",
     "//Nicegram/NGEnv:NGEnv",
-    # Delete later
-    "//Nicegram/NGAuth:NGAuth",
+    "//Nicegram/NGTranslate:NGTranslate",
     # Nicegram downloading feature
     "//submodules/SaveToCameraRoll:SaveToCameraRoll",
+    "@swiftpkg_nicegram_assistant_ios//:Sources_FeatPinnedChats",
+    "@swiftpkg_nicegram_assistant_ios//:Sources_NGAiChat",
+    "@swiftpkg_nicegram_assistant_ios//:Sources_NGAssistantUI",
+    "@swiftpkg_nicegram_assistant_ios//:Sources_NGRepoTg",
+    "@swiftpkg_nicegram_assistant_ios//:Sources_NGRepoUser",
+    "@swiftpkg_nicegram_assistant_ios//:Sources_NGSpecialOffer",
 ]
 
 swift_library(
@@ -98,6 +102,20 @@ swift_library(
         "//submodules/PeerInfoUI",
 		"//submodules/TelegramUI/Components/ChatListHeaderComponent",
         "//submodules/TelegramUI/Components/ChatListTitleView",
+        "//submodules/AvatarNode:AvatarNode",
+        "//submodules/AvatarVideoNode:AvatarVideoNode",
+        "//submodules/InviteLinksUI",
+        "//submodules/TelegramUI/Components/ChatFolderLinkPreviewScreen",
+        "//submodules/ItemListUI",
+        "//submodules/QrCodeUI",
+        "//submodules/TelegramUI/Components/ActionPanelComponent",
+        "//submodules/TelegramUI/Components/Stories/StoryContainerScreen",
+        "//submodules/TelegramUI/Components/Stories/StoryPeerListComponent",
+        "//submodules/TelegramUI/Components/FullScreenEffectView",
+        "//submodules/TelegramUI/Components/Stories/AvatarStoryIndicatorComponent",
+        "//submodules/TelegramUI/Components/PeerInfo/PeerInfoStoryGridScreen",
+        "//submodules/TelegramUI/Components/Settings/ArchiveInfoScreen",
+        "//submodules/TelegramUI/Components/Settings/NewSessionInfoScreen",
     ],
     visibility = [
         "//visibility:public",

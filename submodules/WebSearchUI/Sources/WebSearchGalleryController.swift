@@ -37,12 +37,12 @@ struct WebSearchGalleryEntry: Equatable {
         switch self.result {
             case let .externalReference(externalReference):
                 if let content = externalReference.content, externalReference.type == "gif", let thumbnailResource = externalReference.thumbnail?.resource, let dimensions = content.dimensions {
-                    let fileReference = FileMediaReference.standalone(media: TelegramMediaFile(fileId: EngineMedia.Id(namespace: Namespaces.Media.LocalFile, id: 0), partialReference: nil, resource: content.resource, previewRepresentations: [TelegramMediaImageRepresentation(dimensions: dimensions, resource: thumbnailResource, progressiveSizes: [], immediateThumbnailData: nil, hasVideo: false, isPersonal: false)], videoThumbnails: [], immediateThumbnailData: nil, mimeType: "video/mp4", size: nil, attributes: [.Animated, .Video(duration: 0, size: dimensions, flags: [])]))
-                    return WebSearchVideoGalleryItem(context: context, presentationData: presentationData, index: self.index, result: self.result, content: NativeVideoContent(id: .contextResult(self.result.queryId, self.result.id), userLocation: .other, fileReference: fileReference, loopVideo: true, enableSound: false, fetchAutomatically: true), controllerInteraction: controllerInteraction)
+                    let fileReference = FileMediaReference.standalone(media: TelegramMediaFile(fileId: EngineMedia.Id(namespace: Namespaces.Media.LocalFile, id: 0), partialReference: nil, resource: content.resource, previewRepresentations: [TelegramMediaImageRepresentation(dimensions: dimensions, resource: thumbnailResource, progressiveSizes: [], immediateThumbnailData: nil, hasVideo: false, isPersonal: false)], videoThumbnails: [], immediateThumbnailData: nil, mimeType: "video/mp4", size: nil, attributes: [.Animated, .Video(duration: 0, size: dimensions, flags: [], preloadSize: nil)]))
+                    return WebSearchVideoGalleryItem(context: context, presentationData: presentationData, index: self.index, result: self.result, content: NativeVideoContent(id: .contextResult(self.result.queryId, self.result.id), userLocation: .other, fileReference: fileReference, loopVideo: true, enableSound: false, fetchAutomatically: true, storeAfterDownload: nil), controllerInteraction: controllerInteraction)
                 }
             case let .internalReference(internalReference):
                 if let file = internalReference.file {
-                    return WebSearchVideoGalleryItem(context: context, presentationData: presentationData, index: self.index, result: self.result, content: NativeVideoContent(id: .contextResult(self.result.queryId, self.result.id), userLocation: .other, fileReference: .standalone(media: file), loopVideo: true, enableSound: false, fetchAutomatically: true), controllerInteraction: controllerInteraction)
+                    return WebSearchVideoGalleryItem(context: context, presentationData: presentationData, index: self.index, result: self.result, content: NativeVideoContent(id: .contextResult(self.result.queryId, self.result.id), userLocation: .other, fileReference: .standalone(media: file), loopVideo: true, enableSound: false, fetchAutomatically: true, storeAfterDownload: nil), controllerInteraction: controllerInteraction)
                 }
         }
         preconditionFailure()
@@ -227,6 +227,8 @@ class WebSearchGalleryController: ViewController {
                 strongSelf.replaceRootController(controller, ready)
             }
         }, editMedia: { _ in
+        }, controller: { [weak self] in
+            return self
         })
         self.displayNode = GalleryControllerNode(controllerInteraction: controllerInteraction)
         self.displayNodeDidLoad()

@@ -163,7 +163,37 @@ private func attachmentFileControllerEntries(presentationData: PresentationData,
     return entries
 }
 
-private class AttachmentFileControllerImpl: ItemListController, AttachmentContainable {
+private final class AttachmentFileContext: AttachmentMediaPickerContext {
+    var selectionCount: Signal<Int, NoError> {
+        return .single(0)
+    }
+    
+    var caption: Signal<NSAttributedString?, NoError> {
+        return .single(nil)
+    }
+    
+    public var loadingProgress: Signal<CGFloat?, NoError> {
+        return .single(nil)
+    }
+    
+    public var mainButtonState: Signal<AttachmentMainButtonState?, NoError> {
+        return .single(nil)
+    }
+            
+    func setCaption(_ caption: NSAttributedString) {
+    }
+    
+    func send(mode: AttachmentMediaPickerSendMode, attachmentMode: AttachmentMediaPickerAttachmentMode) {
+    }
+    
+    func schedule() {
+    }
+    
+    func mainButtonAction() {
+    }
+}
+
+class AttachmentFileControllerImpl: ItemListController, AttachmentFileController, AttachmentContainable {
     public var requestAttachmentMenuExpansion: () -> Void = {}
     public var updateNavigationStack: (@escaping ([AttachmentContainable]) -> ([AttachmentContainable], AttachmentMediaPickerContext?)) -> Void = { _ in }
     public var updateTabBarAlpha: (CGFloat, ContainedViewLayoutTransition) -> Void = { _, _ in }
@@ -174,15 +204,19 @@ private class AttachmentFileControllerImpl: ItemListController, AttachmentContai
     var delayDisappear = false
     
     var resetForReuseImpl: () -> Void = {}
-    public func resetForReuse() {
+    func resetForReuse() {
         self.resetForReuseImpl()
         self.scrollToTop?()
     }
     
-    public func prepareForReuse() {
+    func prepareForReuse() {
         self.delayDisappear = true
         self.visibleBottomContentOffsetChanged?(self.visibleBottomContentOffset)
         self.delayDisappear = false
+    }
+    
+    public var mediaPickerContext: AttachmentMediaPickerContext? {
+        return AttachmentFileContext()
     }
 }
 
@@ -190,7 +224,7 @@ private struct AttachmentFileControllerState: Equatable {
     var searching: Bool
 }
 
-public func attachmentFileController(context: AccountContext, updatedPresentationData: (initial: PresentationData, signal: Signal<PresentationData, NoError>)? = nil, bannedSendMedia: (Int32, Bool)?, presentGallery: @escaping () -> Void, presentFiles: @escaping () -> Void, send: @escaping (AnyMediaReference) -> Void) -> AttachmentContainable {
+func makeAttachmentFileControllerImpl(context: AccountContext, updatedPresentationData: (initial: PresentationData, signal: Signal<PresentationData, NoError>)? = nil, bannedSendMedia: (Int32, Bool)?, presentGallery: @escaping () -> Void, presentFiles: @escaping () -> Void, send: @escaping (AnyMediaReference) -> Void) -> AttachmentFileController {
     let actionsDisposable = DisposableSet()
     
     let statePromise = ValuePromise(AttachmentFileControllerState(searching: false), ignoreRepeated: true)
@@ -212,7 +246,13 @@ public func attachmentFileController(context: AccountContext, updatedPresentatio
         },
         send: { message in
             let _ = (context.engine.messages.getMessagesLoadIfNecessary([message.id], strategy: .cloud(skipLocal: true))
-            |> deliverOnMainQueue).start(next: { messages in
+            |> mapToSignal { result -> Signal<[Message], NoError> in
+                guard case let .result(result) = result else {
+                    return .complete()
+                }
+                return .single(result)
+            }
+            |> deliverOnMainQueue).startStandalone(next: { messages in
                 if let message = messages.first, let file = message.media.first(where: { $0 is TelegramMediaFile }) as? TelegramMediaFile {
                     send(.message(message: MessageReference(message), media: file))
                 }
@@ -239,10 +279,9 @@ public func attachmentFileController(context: AccountContext, updatedPresentatio
     )
     |> map { presentationData, recentDocuments, state -> (ItemListControllerState, (ItemListNodeState, Any)) in
         var presentationData = presentationData
-        if presentationData.theme.list.blocksBackgroundColor.rgb == presentationData.theme.list.plainBackgroundColor.rgb {
-            let updatedTheme = presentationData.theme.withModalBlocksBackground()
-            presentationData = presentationData.withUpdated(theme: updatedTheme)
-        }
+        
+        let updatedTheme = presentationData.theme.withModalBlocksBackground()
+        presentationData = presentationData.withUpdated(theme: updatedTheme)
         
         let previousRecentDocuments = previousRecentDocuments.swap(recentDocuments)
         let crossfade = previousRecentDocuments == nil && recentDocuments != nil

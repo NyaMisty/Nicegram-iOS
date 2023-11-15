@@ -1,9 +1,5 @@
 load("@build_bazel_rules_swift//swift:swift.bzl", "swift_library")
 
-NGDEPS = [
-    "@FirebaseSDK//:FirebaseAnalytics",
-]
-
 swift_library(
     name = "Postbox",
     module_name = "Postbox",
@@ -13,7 +9,7 @@ swift_library(
     copts = [
         "-warnings-as-errors",
     ],
-    deps = NGDEPS + [
+    deps = [
         "//submodules/Crc32:Crc32",
     	"//submodules/SSignalKit/SwiftSignalKit:SwiftSignalKit",
     	"//submodules/sqlcipher:sqlcipher",
@@ -22,6 +18,7 @@ swift_library(
         "//submodules/ManagedFile:ManagedFile",
         "//submodules/Utils/RangeSet:RangeSet",
         "//submodules/CryptoUtils",
+        "//submodules/Utils/DarwinDirStat",
     ],
     visibility = [
         "//visibility:public",

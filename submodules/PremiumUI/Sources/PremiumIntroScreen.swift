@@ -7,8 +7,8 @@ import UIKit
 import Display
 import ComponentFlow
 import SwiftSignalKit
-import Postbox
 import TelegramCore
+import Postbox
 import TelegramPresentationData
 import PresentationDataUtils
 import ViewControllerComponent
@@ -18,6 +18,7 @@ import MultilineTextComponent
 import MultilineTextWithEntitiesComponent
 import BundleIconComponent
 import SolidRoundedButtonComponent
+import BlurredBackgroundComponent
 import Markdown
 import InAppPurchaseManager
 import ConfettiEffect
@@ -27,6 +28,7 @@ import UniversalMediaPlayer
 import CheckNode
 import AnimationCache
 import MultiAnimationRenderer
+import TelegramNotices
 
 public enum PremiumSource: Equatable {
     public static func == (lhs: PremiumSource, rhs: PremiumSource) -> Bool {
@@ -169,6 +171,78 @@ public enum PremiumSource: Equatable {
             } else {
                 return false
             }
+        case .translation:
+            if case .translation = rhs {
+                return true
+            } else {
+                return false
+            }
+        case .linksPerSharedFolder:
+            if case .linksPerSharedFolder = rhs {
+                return true
+            } else {
+                return false
+            }
+        case .membershipInSharedFolders:
+            if case .membershipInSharedFolders = rhs {
+                return true
+            } else {
+                return false
+            }
+        case .stories:
+            if case .stories = rhs {
+                return true
+            } else {
+                return false
+            }
+        case .storiesDownload:
+            if case .storiesDownload = rhs {
+                return true
+            } else {
+                return false
+            }
+        case .storiesStealthMode:
+            if case .storiesStealthMode = rhs {
+                return true
+            } else {
+                return false
+            }
+        case .storiesPermanentViews:
+            if case .storiesPermanentViews = rhs {
+                return true
+            } else {
+                return false
+            }
+        case .storiesFormatting:
+            if case .storiesFormatting = rhs {
+                return true
+            } else {
+                return false
+            }
+        case .storiesExpirationDurations:
+            if case .storiesExpirationDurations = rhs {
+                return true
+            } else {
+                return false
+            }
+        case .storiesSuggestedReactions:
+            if case .storiesSuggestedReactions = rhs {
+                return true
+            } else {
+                return false
+            }
+        case let .channelBoost(peerId):
+            if case .channelBoost(peerId) = rhs {
+                return true
+            } else {
+                return false
+            }
+        case .nameColor:
+            if case .nameColor = rhs {
+                return true
+            } else {
+                return false
+            }
         }
     }
     
@@ -189,68 +263,104 @@ public enum PremiumSource: Equatable {
     case appIcons
     case animatedEmoji
     case deeplink(String?)
-    case profile(PeerId)
-    case emojiStatus(PeerId, Int64, TelegramMediaFile?, LoadedStickerPack?)
-    case gift(from: PeerId, to: PeerId, duration: Int32)
+    case profile(EnginePeer.Id)
+    case emojiStatus(EnginePeer.Id, Int64, TelegramMediaFile?, LoadedStickerPack?)
+    case gift(from: EnginePeer.Id, to: EnginePeer.Id, duration: Int32)
     case giftTerms
     case voiceToText
     case fasterDownload
+    case translation
+    case linksPerSharedFolder
+    case membershipInSharedFolders
+    case stories
+    case storiesDownload
+    case storiesStealthMode
+    case storiesPermanentViews
+    case storiesFormatting
+    case storiesExpirationDurations
+    case storiesSuggestedReactions
+    case channelBoost(EnginePeer.Id)
+    case nameColor
     
     var identifier: String? {
         switch self {
-            case .settings:
-                return "settings"
-            case .stickers:
-                return "premium_stickers"
-            case .reactions:
-                return "infinite_reactions"
-            case .ads:
-                return "no_ads"
-            case .upload:
-                return "more_upload"
-            case .appIcons:
-                return "app_icons"
-            case .groupsAndChannels:
-                return "double_limits__channels"
-            case .pinnedChats:
-                return "double_limits__dialog_pinned"
-            case .publicLinks:
-                return "double_limits__channels_public"
-            case .savedGifs:
-                return "double_limits__saved_gifs"
-            case .savedStickers:
-                return "double_limits__stickers_faved"
-            case .folders:
-                return "double_limits__dialog_filters"
-            case .chatsPerFolder:
-                return "double_limits__dialog_filters_chats"
-            case .accounts:
-                return "double_limits__accounts"
-            case .about:
-                return "double_limits__about"
-            case .animatedEmoji:
-                return "animated_emoji"
-            case let .profile(id):
-                return "profile__\(id.id._internalGetInt64Value())"
-            case .emojiStatus:
-                return "emoji_status"
-            case .voiceToText:
-                return "voice_to_text"
-            case .fasterDownload:
-                return "faster_download"
-            case .gift, .giftTerms:
-                return nil
-            case let .deeplink(reference):
-                if let reference = reference {
-                    return "deeplink_\(reference)"
-                } else {
-                    return "deeplink"
-                }
+        case .settings:
+            return "settings"
+        case .stickers:
+            return "premium_stickers"
+        case .reactions:
+            return "infinite_reactions"
+        case .ads:
+            return "no_ads"
+        case .upload:
+            return "more_upload"
+        case .appIcons:
+            return "app_icons"
+        case .groupsAndChannels:
+            return "double_limits__channels"
+        case .pinnedChats:
+            return "double_limits__dialog_pinned"
+        case .publicLinks:
+            return "double_limits__channels_public"
+        case .savedGifs:
+            return "double_limits__saved_gifs"
+        case .savedStickers:
+            return "double_limits__stickers_faved"
+        case .folders:
+            return "double_limits__dialog_filters"
+        case .chatsPerFolder:
+            return "double_limits__dialog_filters_chats"
+        case .accounts:
+            return "double_limits__accounts"
+        case .about:
+            return "double_limits__about"
+        case .animatedEmoji:
+            return "animated_emoji"
+        case let .profile(id):
+            return "profile__\(id.id._internalGetInt64Value())"
+        case .emojiStatus:
+            return "emoji_status"
+        case .voiceToText:
+            return "voice_to_text"
+        case .fasterDownload:
+            return "faster_download"
+        case .gift, .giftTerms:
+            return nil
+        case let .deeplink(reference):
+            if let reference = reference {
+                return "deeplink_\(reference)"
+            } else {
+                return "deeplink"
+            }
+        case .translation:
+            return "translations"
+        case .linksPerSharedFolder:
+            return "double_limits__community_invites"
+        case .membershipInSharedFolders:
+            return "double_limits__communities_joined"
+        case .stories:
+            return "stories"
+        case .storiesDownload:
+            return "stories__save_stories_to_gallery"
+        case .storiesStealthMode:
+            return "stories__stealth_mode"
+        case .storiesPermanentViews:
+            return "stories__permanent_views_history"
+        case .storiesFormatting:
+            return "stories__links_and_formatting"
+        case .storiesExpirationDurations:
+            return "stories__expiration_durations"
+        case .storiesSuggestedReactions:
+            return "stories__suggested_reactions"
+        case let .channelBoost(peerId):
+            return "channel_boost__\(peerId.id._internalGetInt64Value())"
+        case .nameColor:
+            return "name_color"
         }
     }
 }
 
-enum PremiumPerk: CaseIterable {
+public enum PremiumPerk: CaseIterable {
     case doubleLimits
     case moreUpload
     case fasterDownload
@@ -264,8 +374,10 @@ enum PremiumPerk: CaseIterable {
     case appIcons
     case animatedEmoji
     case emojiStatus
+    case translation
+    case stories
     
-    static var allCases: [PremiumPerk] {
+    public static var allCases: [PremiumPerk] {
         return [
             .doubleLimits,
             .moreUpload,
@@ -279,7 +391,9 @@ enum PremiumPerk: CaseIterable {
             .animatedUserpics,
             .appIcons,
             .animatedEmoji,
-            .emojiStatus
+            .emojiStatus,
+            .translation,
+            .stories
         ]
     }
     
@@ -295,125 +409,141 @@ enum PremiumPerk: CaseIterable {
     
     var identifier: String {
         switch self {
-            case .doubleLimits:
-                return "double_limits"
-            case .moreUpload:
-                return "more_upload"
-            case .fasterDownload:
-                return "faster_download"
-            case .voiceToText:
-                return "voice_to_text"
-            case .noAds:
-                return "no_ads"
-            case .uniqueReactions:
-                return "infinite_reactions"
-            case .premiumStickers:
-                return "premium_stickers"
-            case .advancedChatManagement:
-                return "advanced_chat_management"
-            case .profileBadge:
-                return "profile_badge"
-            case .animatedUserpics:
-                return "animated_userpics"
-            case .appIcons:
-                return "app_icons"
-            case .animatedEmoji:
-                return "animated_emoji"
-            case .emojiStatus:
-                return "emoji_status"
+        case .doubleLimits:
+            return "double_limits"
+        case .moreUpload:
+            return "more_upload"
+        case .fasterDownload:
+            return "faster_download"
+        case .voiceToText:
+            return "voice_to_text"
+        case .noAds:
+            return "no_ads"
+        case .uniqueReactions:
+            return "infinite_reactions"
+        case .premiumStickers:
+            return "premium_stickers"
+        case .advancedChatManagement:
+            return "advanced_chat_management"
+        case .profileBadge:
+            return "profile_badge"
+        case .animatedUserpics:
+            return "animated_userpics"
+        case .appIcons:
+            return "app_icons"
+        case .animatedEmoji:
+            return "animated_emoji"
+        case .emojiStatus:
+            return "emoji_status"
+        case .translation:
+            return "translations"
+        case .stories:
+            return "stories"
         }
     }
     
     func title(strings: PresentationStrings) -> String {
         switch self {
-            case .doubleLimits:
-                return strings.Premium_DoubledLimits
-            case .moreUpload:
-                return strings.Premium_UploadSize
-            case .fasterDownload:
-                return strings.Premium_FasterSpeed
-            case .voiceToText:
-                return strings.Premium_VoiceToText
-            case .noAds:
-                return strings.Premium_NoAds
-            case .uniqueReactions:
-                return strings.Premium_InfiniteReactions
-            case .premiumStickers:
-                return strings.Premium_Stickers
-            case .advancedChatManagement:
-                return strings.Premium_ChatManagement
-            case .profileBadge:
-                return strings.Premium_Badge
-            case .animatedUserpics:
-                return strings.Premium_Avatar
-            case .appIcons:
-                return strings.Premium_AppIcon
-            case .animatedEmoji:
-                return strings.Premium_AnimatedEmoji
-            case .emojiStatus:
-                return strings.Premium_EmojiStatus
+        case .doubleLimits:
+            return strings.Premium_DoubledLimits
+        case .moreUpload:
+            return strings.Premium_UploadSize
+        case .fasterDownload:
+            return strings.Premium_FasterSpeed
+        case .voiceToText:
+            return strings.Premium_VoiceToText
+        case .noAds:
+            return strings.Premium_NoAds
+        case .uniqueReactions:
+            return strings.Premium_InfiniteReactions
+        case .premiumStickers:
+            return strings.Premium_Stickers
+        case .advancedChatManagement:
+            return strings.Premium_ChatManagement
+        case .profileBadge:
+            return strings.Premium_Badge
+        case .animatedUserpics:
+            return strings.Premium_Avatar
+        case .appIcons:
+            return strings.Premium_AppIcon
+        case .animatedEmoji:
+            return strings.Premium_AnimatedEmoji
+        case .emojiStatus:
+            return strings.Premium_EmojiStatus
+        case .translation:
+            return strings.Premium_Translation
+        case .stories:
+            return strings.Premium_Stories
         }
     }
     
     func subtitle(strings: PresentationStrings) -> String {
         switch self {
-            case .doubleLimits:
-                return strings.Premium_DoubledLimitsInfo
-            case .moreUpload:
-                return strings.Premium_UploadSizeInfo
-            case .fasterDownload:
-                return strings.Premium_FasterSpeedInfo
-            case .voiceToText:
-                return strings.Premium_VoiceToTextInfo
-            case .noAds:
-                return strings.Premium_NoAdsInfo
-            case .uniqueReactions:
-                return strings.Premium_InfiniteReactionsInfo
-            case .premiumStickers:
-                return strings.Premium_StickersInfo
-            case .advancedChatManagement:
-                return strings.Premium_ChatManagementInfo
-            case .profileBadge:
-                return strings.Premium_BadgeInfo
-            case .animatedUserpics:
-                return strings.Premium_AvatarInfo
-            case .appIcons:
-                return strings.Premium_AppIconInfo
-            case .animatedEmoji:
-                return strings.Premium_AnimatedEmojiInfo
-            case .emojiStatus:
-                return strings.Premium_EmojiStatusInfo
+        case .doubleLimits:
+            return strings.Premium_DoubledLimitsInfo
+        case .moreUpload:
+            return strings.Premium_UploadSizeInfo
+        case .fasterDownload:
+            return strings.Premium_FasterSpeedInfo
+        case .voiceToText:
+            return strings.Premium_VoiceToTextInfo
+        case .noAds:
+            return strings.Premium_NoAdsInfo
+        case .uniqueReactions:
+            return strings.Premium_InfiniteReactionsInfo
+        case .premiumStickers:
+            return strings.Premium_StickersInfo
+        case .advancedChatManagement:
+            return strings.Premium_ChatManagementInfo
+        case .profileBadge:
+            return strings.Premium_BadgeInfo
+        case .animatedUserpics:
+            return strings.Premium_AvatarInfo
+        case .appIcons:
+            return strings.Premium_AppIconInfo
+        case .animatedEmoji:
+            return strings.Premium_AnimatedEmojiInfo
+        case .emojiStatus:
+            return strings.Premium_EmojiStatusInfo
+        case .translation:
+            return strings.Premium_TranslationInfo
+        case .stories:
+            return strings.Premium_StoriesInfo
         }
     }
     
     var iconName: String {
         switch self {
-            case .doubleLimits:
-                return "Premium/Perk/Limits"
-            case .moreUpload:
-                return "Premium/Perk/Upload"
-            case .fasterDownload:
-                return "Premium/Perk/Speed"
-            case .voiceToText:
-                return "Premium/Perk/Voice"
-            case .noAds:
-                return "Premium/Perk/NoAds"
-            case .uniqueReactions:
-                return "Premium/Perk/Reactions"
-            case .premiumStickers:
-                return "Premium/Perk/Stickers"
-            case .advancedChatManagement:
-                return "Premium/Perk/Chat"
-            case .profileBadge:
-                return "Premium/Perk/Badge"
-            case .animatedUserpics:
-                return "Premium/Perk/Avatar"
-            case .appIcons:
-                return "Premium/Perk/AppIcon"
-            case .animatedEmoji:
-                return "Premium/Perk/Emoji"
-            case .emojiStatus:
-                return "Premium/Perk/Status"
+        case .doubleLimits:
+            return "Premium/Perk/Limits"
+        case .moreUpload:
+            return "Premium/Perk/Upload"
+        case .fasterDownload:
+            return "Premium/Perk/Speed"
+        case .voiceToText:
+            return "Premium/Perk/Voice"
+        case .noAds:
+            return "Premium/Perk/NoAds"
+        case .uniqueReactions:
+            return "Premium/Perk/Reactions"
+        case .premiumStickers:
+            return "Premium/Perk/Stickers"
+        case .advancedChatManagement:
+            return "Premium/Perk/Chat"
+        case .profileBadge:
+            return "Premium/Perk/Badge"
+        case .animatedUserpics:
+            return "Premium/Perk/Avatar"
+        case .appIcons:
+            return "Premium/Perk/AppIcon"
+        case .animatedEmoji:
+            return "Premium/Perk/Emoji"
+        case .emojiStatus:
+            return "Premium/Perk/Status"
+        case .translation:
+            return "Premium/Perk/Translation"
+        case .stories:
+            return "Premium/Perk/Stories"
         }
     }
 }
@@ -421,9 +551,11 @@ enum PremiumPerk: CaseIterable {
 struct PremiumIntroConfiguration {
     static var defaultValue: PremiumIntroConfiguration {
         return PremiumIntroConfiguration(perks: [
+            .stories,
             .doubleLimits,
             .moreUpload,
             .fasterDownload,
+            .translation,
             .voiceToText,
             .noAds,
             .emojiStatus,
@@ -487,6 +619,14 @@ private struct PremiumProduct: Equatable {
     
     var pricePerMonth: String {
         return self.storeProduct.pricePerMonth(Int(self.months))
+    }
+    
+    var isCurrent: Bool {
+        return self.option.isCurrent
+    }
+    
+    var transactionId: String? {
+        return self.option.transactionId
     }
 }
 
@@ -626,7 +766,7 @@ final class PremiumOptionComponent: CombinedComponent {
                         text: .plain(subtitleString),
                         maximumNumberOfLines: 1
                     ),
-                    availableSize: CGSize(width: context.availableSize.width - insets.left - insets.right - label.size.width, height: context.availableSize.height),
+                    availableSize: CGSize(width: context.availableSize.width - insets.left - insets.right, height: context.availableSize.height),
                     transition: context.transition
                 )
                 context.add(subtitle
@@ -819,10 +959,14 @@ private final class CheckComponent: Component {
 final class SectionGroupComponent: Component {
     public final class Item: Equatable {
         public let content: AnyComponentWithIdentity<Empty>
+        public let accessibilityLabel: String
+        public let isEnabled: Bool
         public let action: () -> Void
         
-        public init(_ content: AnyComponentWithIdentity<Empty>, action: @escaping () -> Void) {
+        public init(_ content: AnyComponentWithIdentity<Empty>, accessibilityLabel: String, isEnabled: Bool = true, action: @escaping () -> Void) {
             self.content = content
+            self.accessibilityLabel = accessibilityLabel
+            self.isEnabled = isEnabled
             self.action = action
         }
         
@@ -830,7 +974,12 @@ final class SectionGroupComponent: Component {
             if lhs.content != rhs.content {
                 return false
             }
-            
+            if lhs.accessibilityLabel != rhs.accessibilityLabel {
+                return false
+            }
+            if lhs.isEnabled != rhs.isEnabled {
+                return false
+            }
             return true
         }
     }
@@ -920,6 +1069,7 @@ final class SectionGroupComponent: Component {
                     self.buttonViews[item.content.id] = buttonView
                     self.addSubview(buttonView)
                 }
+                buttonView.accessibilityLabel = item.accessibilityLabel
                 
                 if let current = self.itemViews[item.content.id] {
                     itemView = current
@@ -935,6 +1085,8 @@ final class SectionGroupComponent: Component {
                     environment: {},
                     containerSize: CGSize(width: size.width - sideInset, height: .greatestFiniteMagnitude)
                 )
+                buttonView.isEnabled = item.isEnabled
+                itemView.alpha = item.isEnabled ? 1.0 : 0.3
                 
                 let itemFrame = CGRect(origin: CGPoint(x: 0.0, y: size.height), size: itemSize)
                 buttonView.frame = CGRect(origin: itemFrame.origin, size: CGSize(width: availableSize.width, height: itemSize.height + UIScreenPixel))
@@ -1010,6 +1162,8 @@ final class PerkComponent: CombinedComponent {
     let subtitle: String
     let subtitleColor: UIColor
     let arrowColor: UIColor
+    let accentColor: UIColor
+    let badge: String?
     
     init(
         iconName: String,
@@ -1018,7 +1172,9 @@ final class PerkComponent: CombinedComponent {
         titleColor: UIColor,
         subtitle: String,
         subtitleColor: UIColor,
-        arrowColor: UIColor
+        arrowColor: UIColor,
+        accentColor: UIColor,
+        badge: String? = nil
     ) {
         self.iconName = iconName
         self.iconBackgroundColors = iconBackgroundColors
@@ -1027,6 +1183,8 @@ final class PerkComponent: CombinedComponent {
         self.subtitle = subtitle
         self.subtitleColor = subtitleColor
         self.arrowColor = arrowColor
+        self.accentColor = accentColor
+        self.badge = badge
     }
     
     static func ==(lhs: PerkComponent, rhs: PerkComponent) -> Bool {
@@ -1051,6 +1209,12 @@ final class PerkComponent: CombinedComponent {
         if lhs.arrowColor != rhs.arrowColor {
             return false
         }
+        if lhs.accentColor != rhs.accentColor {
+            return false
+        }
+        if lhs.badge != rhs.badge {
+            return false
+        }
         return true
     }
     
@@ -1060,6 +1224,8 @@ final class PerkComponent: CombinedComponent {
         let title = Child(MultilineTextComponent.self)
         let subtitle = Child(MultilineTextComponent.self)
         let arrow = Child(BundleIconComponent.self)
+        let badgeBackground = Child(RoundedRectangle.self)
+        let badgeText = Child(MultilineTextComponent.self)
 
         return { context in
             let component = context.component
@@ -1076,7 +1242,8 @@ final class PerkComponent: CombinedComponent {
                     colors: component.iconBackgroundColors,
                     cornerRadius: 7.0,
                     gradientDirection: .vertical),
-                availableSize: iconSize, transition: context.transition
+                availableSize: iconSize,
+                transition: context.transition
             )
             
             let icon = icon.update(
@@ -1142,6 +1309,32 @@ final class PerkComponent: CombinedComponent {
                 .position(CGPoint(x: iconBackground.size.width + sideInset + title.size.width / 2.0, y: textTopInset + title.size.height / 2.0))
             )
             
+            if let badge = component.badge {
+                let badgeText = badgeText.update(
+                    component: MultilineTextComponent(text: .plain(NSAttributedString(string: badge, font: Font.semibold(11.0), textColor: .white))),
+                    availableSize: context.availableSize,
+                    transition: context.transition
+                )
+                
+                let badgeWidth = badgeText.size.width + 7.0
+                let badgeBackground = badgeBackground.update(
+                    component: RoundedRectangle(
+                        colors: [component.accentColor],
+                        cornerRadius: 5.0,
+                        gradientDirection: .vertical),
+                    availableSize: CGSize(width: badgeWidth, height: 16.0),
+                    transition: context.transition
+                )
+                
+                context.add(badgeBackground
+                    .position(CGPoint(x: iconBackground.size.width + sideInset + title.size.width + badgeWidth / 2.0 + 8.0, y: textTopInset + title.size.height / 2.0 - 1.0))
+                )
+                
+                context.add(badgeText
+                    .position(CGPoint(x: iconBackground.size.width + sideInset + title.size.width + badgeWidth / 2.0 + 8.0, y: textTopInset + title.size.height / 2.0 - 1.0))
+                )
+            }
+            
             context.add(subtitle
                 .position(CGPoint(x: iconBackground.size.width + sideInset + subtitle.size.width / 2.0, y: textTopInset + title.size.height + spacing + subtitle.size.height / 2.0))
             )
@@ -1150,7 +1343,7 @@ final class PerkComponent: CombinedComponent {
             context.add(arrow
                 .position(CGPoint(x: context.availableSize.width - 7.0 - arrow.size.width / 2.0, y: size.height / 2.0))
             )
-        
+            
             return size
         }
     }
@@ -1162,23 +1355,44 @@ private final class PremiumIntroScreenContentComponent: CombinedComponent {
     
     let context: AccountContext
     let source: PremiumSource
+    let forceDark: Bool
     let isPremium: Bool?
+    let justBought: Bool
     let otherPeerName: String?
     let products: [PremiumProduct]?
     let selectedProductId: String?
+    let validPurchases: [InAppPurchaseManager.ReceiptPurchase]
     let promoConfiguration: PremiumPromoConfiguration?
     let present: (ViewController) -> Void
     let selectProduct: (String) -> Void
     let buy: () -> Void
     let updateIsFocused: (Bool) -> Void
     
-    init(context: AccountContext, source: PremiumSource, isPremium: Bool?, otherPeerName: String?, products: [PremiumProduct]?, selectedProductId: String?, promoConfiguration: PremiumPromoConfiguration?, present: @escaping (ViewController) -> Void, selectProduct: @escaping (String) -> Void, buy: @escaping () -> Void, updateIsFocused: @escaping (Bool) -> Void) {
+    init(
+        context: AccountContext,
+        source: PremiumSource,
+        forceDark: Bool,
+        isPremium: Bool?,
+        justBought: Bool,
+        otherPeerName: String?,
+        products: [PremiumProduct]?,
+        selectedProductId: String?,
+        validPurchases: [InAppPurchaseManager.ReceiptPurchase],
+        promoConfiguration: PremiumPromoConfiguration?,
+        present: @escaping (ViewController) -> Void,
+        selectProduct: @escaping (String) -> Void,
+        buy: @escaping () -> Void,
+        updateIsFocused: @escaping (Bool) -> Void
+    ) {
         self.context = context
         self.source = source
+        self.forceDark = forceDark
         self.isPremium = isPremium
+        self.justBought = justBought
         self.otherPeerName = otherPeerName
         self.products = products
         self.selectedProductId = selectedProductId
+        self.validPurchases = validPurchases
         self.promoConfiguration = promoConfiguration
         self.present = present
         self.selectProduct = selectProduct
@@ -1196,6 +1410,12 @@ private final class PremiumIntroScreenContentComponent: CombinedComponent {
         if lhs.isPremium != rhs.isPremium {
             return false
         }
+        if lhs.forceDark != rhs.forceDark {
+            return false
+        }
+        if lhs.justBought != rhs.justBought {
+            return false
+        }
         if lhs.otherPeerName != rhs.otherPeerName {
             return false
         }
@@ -1203,6 +1423,9 @@ private final class PremiumIntroScreenContentComponent: CombinedComponent {
             return false
         }
         if lhs.selectedProductId != rhs.selectedProductId {
+            return false
+        }
+        if lhs.validPurchases != rhs.validPurchases {
             return false
         }
         if lhs.promoConfiguration != rhs.promoConfiguration {
@@ -1217,6 +1440,9 @@ private final class PremiumIntroScreenContentComponent: CombinedComponent {
     
         var products: [PremiumProduct]?
         var selectedProductId: String?
+        var validPurchases: [InAppPurchaseManager.ReceiptPurchase] = []
+        
+        var newPerks: [String] = []
         
         var isPremium: Bool?
         
@@ -1224,6 +1450,7 @@ private final class PremiumIntroScreenContentComponent: CombinedComponent {
         private(set) var configuration = PremiumIntroConfiguration.defaultValue
     
         private var stickersDisposable: Disposable?
+        private var newPerksDisposable: Disposable?
         private var preloadDisposableSet =  DisposableSet()
         
         var price: String? {
@@ -1232,6 +1459,18 @@ private final class PremiumIntroScreenContentComponent: CombinedComponent {
         
         var isAnnual: Bool {
             return self.products?.first(where: { $0.id == self.selectedProductId })?.id.hasSuffix(".annual") ?? false
+        }
+        
+        var canUpgrade: Bool {
+            if let products = self.products, let current = products.first(where: { $0.isCurrent }), let transactionId = current.transactionId {
+                if self.validPurchases.contains(where: { $0.transactionId == transactionId }) {
+                    return products.first(where: { $0.months > current.months }) != nil
+                } else {
+                    return false
+                }
+            } else {
+                return false
+            }
         }
         
         init(context: AccountContext, source: PremiumSource) {
@@ -1289,12 +1528,24 @@ private final class PremiumIntroScreenContentComponent: CombinedComponent {
                     }
                 }
             })
+            
+            
+            self.newPerksDisposable = (ApplicationSpecificNotice.dismissedPremiumAppIconsBadge(accountManager: context.sharedContext.accountManager)
+            |> deliverOnMainQueue).startStrict(next: { [weak self] dismissedPremiumAppIconsBadge in
+                guard let self else {
+                    return
+                }
+                let newPerks: [String] = []
+                self.newPerks = newPerks
+                self.updated()
+            })
         }
         
         deinit {
             self.disposable?.dispose()
             self.preloadDisposableSet.dispose()
             self.stickersDisposable?.dispose()
+            self.newPerksDisposable?.dispose()
         }
     }
     
@@ -1321,6 +1572,7 @@ private final class PremiumIntroScreenContentComponent: CombinedComponent {
             let state = context.state
             state.products = context.component.products
             state.selectedProductId = context.component.selectedProductId
+            state.validPurchases = context.component.validPurchases
             state.isPremium = context.component.isPremium
             
             let theme = environment.theme
@@ -1330,8 +1582,14 @@ private final class PremiumIntroScreenContentComponent: CombinedComponent {
             let sideInsets = sideInset * 2.0 + environment.safeInsets.left + environment.safeInsets.right
             var size = CGSize(width: context.availableSize.width, height: 0.0)
             
+            var topBackgroundColor = theme.list.plainBackgroundColor
+            let bottomBackgroundColor = theme.list.blocksBackgroundColor
+            if theme.overallDarkAppearance {
+                topBackgroundColor = bottomBackgroundColor
+            }
+        
             let overscroll = overscroll.update(
-                component: Rectangle(color: theme.list.plainBackgroundColor),
+                component: Rectangle(color: topBackgroundColor),
                 availableSize: CGSize(width: context.availableSize.width, height: 1000),
                 transition: context.transition
             )
@@ -1342,8 +1600,8 @@ private final class PremiumIntroScreenContentComponent: CombinedComponent {
             let fade = fade.update(
                 component: RoundedRectangle(
                     colors: [
-                        theme.list.plainBackgroundColor,
-                        theme.list.blocksBackgroundColor
+                        topBackgroundColor,
+                        bottomBackgroundColor
                     ],
                     cornerRadius: 0.0,
                     gradientDirection: .vertical
@@ -1383,7 +1641,11 @@ private final class PremiumIntroScreenContentComponent: CombinedComponent {
                     textString = strings.Premium_PersonalDescription
                 }
             } else if context.component.isPremium == true {
-                textString = strings.Premium_SubscribedDescription
+                if !context.component.justBought, let products = state.products, let current = products.first(where: { $0.isCurrent }), current.months == 1 {
+                    textString = strings.Premium_UpgradeDescription
+                } else {
+                    textString = strings.Premium_SubscribedDescription
+                }
             } else {
                 textString = strings.Premium_Description
             }
@@ -1409,8 +1671,8 @@ private final class PremiumIntroScreenContentComponent: CombinedComponent {
                     lineSpacing: 0.2
                 ),
                 environment: {},
-                availableSize: CGSize(width: availableWidth - sideInsets, height: 240.0),
-                transition: context.transition
+                availableSize: CGSize(width: availableWidth - sideInsets - 8.0, height: 240.0),
+                transition: .immediate
             )
             context.add(text
                 .position(CGPoint(x: size.width / 2.0, y: size.height + text.size.height / 2.0))
@@ -1437,7 +1699,9 @@ private final class PremiumIntroScreenContentComponent: CombinedComponent {
                 UIColor(rgb: 0x5A6EEE),
                 UIColor(rgb: 0x548DFF),
                 UIColor(rgb: 0x54A3FF),
-                UIColor(rgb: 0x54bdff)
+                UIColor(rgb: 0x54bdff),
+                UIColor(rgb: 0x71c8ff),
+                UIColor(rgb: 0xa0daff)
             ]
                         
             let accountContext = context.component.context
@@ -1447,9 +1711,7 @@ private final class PremiumIntroScreenContentComponent: CombinedComponent {
             let updateIsFocused = context.component.updateIsFocused
             
             let layoutOptions = {
-                if state.isPremium == true {
-                    
-                } else if let products = state.products, products.count > 1 {
+                if let products = state.products, products.count > 1, state.isPremium == false || (!context.component.justBought && state.canUpgrade) {
                     var optionsItems: [SectionGroupComponent.Item] = []
                     let gradientColors: [UIColor] = [
                         UIColor(rgb: 0x8e77ff),
@@ -1464,11 +1726,11 @@ private final class PremiumIntroScreenContentComponent: CombinedComponent {
                         shortestOptionPrice = (1, NSDecimalNumber(decimal: 1))
                     }
                     
+                    let currentProductMonths = state.products?.first(where: { $0.isCurrent })?.months ?? 0
+                    
                     var i = 0
                     for product in products {
                         let giftTitle: String
-                        let months = product.months
-                        
                         if product.id.hasSuffix(".monthly") {
                             giftTitle = strings.Premium_Monthly
                         } else if product.id.hasSuffix(".semiannual") {
@@ -1476,8 +1738,9 @@ private final class PremiumIntroScreenContentComponent: CombinedComponent {
                         } else {
                             giftTitle = strings.Premium_Annual
                         }
-                                            
-                        let discountValue = Int((1.0 - Float(product.storeProduct.priceCurrencyAndAmount.amount) / Float(months) / Float(shortestOptionPrice.0)) * 100.0)
+                        
+                        let fraction = Float(product.storeProduct.priceCurrencyAndAmount.amount) / Float(product.months) / Float(shortestOptionPrice.0)
+                        let discountValue = Int(round((1.0 - fraction) * 20.0) * 5.0)
                         let discount: String
                         if discountValue > 0 {
                             discount = "-\(discountValue)%"
@@ -1485,21 +1748,28 @@ private final class PremiumIntroScreenContentComponent: CombinedComponent {
                             discount = ""
                         }
                         
-                        let defaultPrice = product.storeProduct.defaultPrice(shortestOptionPrice.1, monthsCount: Int(months))
+                        let defaultPrice = product.storeProduct.defaultPrice(shortestOptionPrice.1, monthsCount: Int(product.months))
                         
                         var subtitle = ""
+                        var accessibilitySubtitle = ""
                         var pricePerMonth = product.price
-                        if months > 1 {
-                            pricePerMonth = product.storeProduct.pricePerMonth(Int(months))
+                        if product.months > 1 {
+                            pricePerMonth = product.storeProduct.pricePerMonth(Int(product.months))
                             
                             if discountValue > 0 {
                                 subtitle = "**\(defaultPrice)** \(product.price)"
-                                if months == 12 {
+                                accessibilitySubtitle = product.price
+                                if product.months == 12 {
                                     subtitle = environment.strings.Premium_PricePerYear(subtitle).string
+                                    accessibilitySubtitle = environment.strings.Premium_PricePerYear(accessibilitySubtitle).string
                                 }
                             } else {
                                 subtitle = product.price
                             }
+                        }
+                        if product.isCurrent {
+                            subtitle = environment.strings.Premium_CurrentPlan
+                            accessibilitySubtitle = subtitle
                         }
                         pricePerMonth = environment.strings.Premium_PricePerMonth(pricePerMonth).string
                         
@@ -1513,7 +1783,7 @@ private final class PremiumIntroScreenContentComponent: CombinedComponent {
                                             subtitle: subtitle,
                                             labelPrice: pricePerMonth,
                                             discount: discount,
-                                            selected: product.id == state.selectedProductId,
+                                            selected: !product.isCurrent && product.id == state.selectedProductId,
                                             primaryTextColor: textColor,
                                             secondaryTextColor: subtitleColor,
                                             accentColor: gradientColors[i],
@@ -1522,6 +1792,8 @@ private final class PremiumIntroScreenContentComponent: CombinedComponent {
                                         )
                                     )
                                 ),
+                                accessibilityLabel: "\(giftTitle). \(accessibilitySubtitle). \(pricePerMonth)",
+                                isEnabled: product.months > currentProductMonths,
                                 action: {
                                     selectProduct(product.id)
                                 }
@@ -1555,7 +1827,8 @@ private final class PremiumIntroScreenContentComponent: CombinedComponent {
                     }
                 }
             }
-                        
+             
+            let forceDark = context.component.forceDark
             let layoutPerks = {
                 var i = 0
                 var perksItems: [SectionGroupComponent.Item] = []
@@ -1574,10 +1847,13 @@ private final class PremiumIntroScreenContentComponent: CombinedComponent {
                                     titleColor: titleColor,
                                     subtitle: perk.subtitle(strings: strings),
                                     subtitleColor: subtitleColor,
-                                    arrowColor: arrowColor
+                                    arrowColor: arrowColor,
+                                    accentColor: accentColor,
+                                    badge: state.newPerks.contains(perk.identifier) ? strings.Premium_New : nil
                                 )
                             )
                         ),
+                        accessibilityLabel: "\(perk.title(strings: strings)). \(perk.subtitle(strings: strings))",
                         action: { [weak state] in
                             var demoSubject: PremiumDemoScreen.Subject
                             switch perk {
@@ -1603,16 +1879,20 @@ private final class PremiumIntroScreenContentComponent: CombinedComponent {
                                 demoSubject = .animatedUserpics
                             case .appIcons:
                                 demoSubject = .appIcons
+//                                let _ = ApplicationSpecificNotice.setDismissedPremiumAppIconsBadge(accountManager: accountContext.sharedContext.accountManager).startStandalone()
                             case .animatedEmoji:
                                 demoSubject = .animatedEmoji
                             case .emojiStatus:
                                 demoSubject = .emojiStatus
+                            case .translation:
+                                demoSubject = .translation
+                            case .stories:
+                                demoSubject = .stories
                             }
                             
                             let isPremium = state?.isPremium == true
-                            
                             var dismissImpl: (() -> Void)?
-                            let controller = PremiumLimitsListScreen(context: accountContext, subject: demoSubject, source: .intro(state?.price), order: state?.configuration.perks, buttonText: isPremium ? strings.Common_OK : (state?.isAnnual == true ? strings.Premium_SubscribeForAnnual(state?.price ?? "—").string :  strings.Premium_SubscribeFor(state?.price ?? "–").string), isPremium: isPremium)
+                            let controller = PremiumLimitsListScreen(context: accountContext, subject: demoSubject, source: .intro(state?.price), order: state?.configuration.perks, buttonText: isPremium ? strings.Common_OK : (state?.isAnnual == true ? strings.Premium_SubscribeForAnnual(state?.price ?? "—").string :  strings.Premium_SubscribeFor(state?.price ?? "–").string), isPremium: isPremium, forceDark: forceDark)
                             controller.action = { [weak state] in
                                 dismissImpl?()
                                 if state?.isPremium == false {
@@ -1755,13 +2035,45 @@ private final class PremiumIntroScreenContentComponent: CombinedComponent {
                     )
                 }
                 
+                let controller = environment.controller
+                let termsTapActionImpl: ([NSAttributedString.Key: Any]) -> Void = { attributes in
+                    if let url = attributes[NSAttributedString.Key(rawValue: TelegramTextAttributes.URL)] as? String,
+                        let controller = controller() as? PremiumIntroScreen, let navigationController = controller.navigationController as? NavigationController {
+                        if url.hasPrefix("https://apps.apple.com/account/subscriptions") {
+                            controller.context.sharedContext.applicationBindings.openSubscriptions()
+                        } else if url.hasPrefix("https://") || url.hasPrefix("tg://") {
+                            controller.context.sharedContext.openExternalUrl(context: controller.context, urlContext: .generic, url: url, forceExternal: !url.hasPrefix("tg://"), presentationData: controller.context.sharedContext.currentPresentationData.with({$0}), navigationController: nil, dismissInput: {})
+                        } else {
+                            let context = controller.context
+                            let signal: Signal<ResolvedUrl, NoError>?
+                            switch url {
+                                case "terms":
+                                    signal = cachedTermsPage(context: context)
+                                case "privacy":
+                                    signal = cachedPrivacyPage(context: context)
+                                default:
+                                    signal = nil
+                            }
+                            if let signal = signal {
+                                let _ = (signal
+                                |> deliverOnMainQueue).start(next: { resolvedUrl in
+                                    context.sharedContext.openResolvedUrl(resolvedUrl, context: context, urlContext: .generic, navigationController: navigationController, forceExternal: false, openPeer: { peer, navigation in
+                                    }, sendFile: nil, sendSticker: nil, requestMessageActionUrlAuth: nil, joinVoiceChat: nil, present: { [weak controller] c, arguments in
+                                        controller?.push(c)
+                                    }, dismissInput: {}, contentContext: nil, progress: nil)
+                                })
+                            }
+                        }
+                    }
+                }
+                
                 let termsText = termsText.update(
                     component: MultilineTextComponent(
                         text: termsString,
                         horizontalAlignment: .natural,
                         maximumNumberOfLines: 0,
                         lineSpacing: 0.0,
-                        highlightColor: environment.theme.list.itemAccentColor.withAlphaComponent(0.3),
+                        highlightColor: environment.theme.list.itemAccentColor.withAlphaComponent(0.2),
                         highlightAction: { attributes in
                             if let _ = attributes[NSAttributedString.Key(rawValue: TelegramTextAttributes.URL)] {
                                 return NSAttributedString.Key(rawValue: TelegramTextAttributes.URL)
@@ -1769,35 +2081,8 @@ private final class PremiumIntroScreenContentComponent: CombinedComponent {
                                 return nil
                             }
                         },
-                        tapAction: { [weak environment] attributes, _ in
-                            if let url = attributes[NSAttributedString.Key(rawValue: TelegramTextAttributes.URL)] as? String,
-                                let controller = environment?.controller() as? PremiumIntroScreen, let navigationController = controller.navigationController as? NavigationController {
-                                if url.hasPrefix("https://apps.apple.com/account/subscriptions") {
-                                    controller.context.sharedContext.applicationBindings.openSubscriptions()
-                                } else if url.hasPrefix("https://") || url.hasPrefix("tg://") {
-                                    controller.context.sharedContext.openExternalUrl(context: controller.context, urlContext: .generic, url: url, forceExternal: !url.hasPrefix("tg://"), presentationData: controller.context.sharedContext.currentPresentationData.with({$0}), navigationController: nil, dismissInput: {})
-                                } else {
-                                    let context = controller.context
-                                    let signal: Signal<ResolvedUrl, NoError>?
-                                    switch url {
-                                        case "terms":
-                                            signal = cachedTermsPage(context: context)
-                                        case "privacy":
-                                            signal = cachedPrivacyPage(context: context)
-                                        default:
-                                            signal = nil
-                                    }
-                                    if let signal = signal {
-                                        let _ = (signal
-                                        |> deliverOnMainQueue).start(next: { resolvedUrl in
-                                            context.sharedContext.openResolvedUrl(resolvedUrl, context: context, urlContext: .generic, navigationController: navigationController, forceExternal: false, openPeer: { peer, navigation in
-                                            }, sendFile: nil, sendSticker: nil, requestMessageActionUrlAuth: nil, joinVoiceChat: nil, present: { [weak controller] c, arguments in
-                                                controller?.push(c)
-                                            }, dismissInput: {}, contentContext: nil)
-                                        })
-                                    }
-                                }
-                            }
+                        tapAction: { attributes, _ in
+                            termsTapActionImpl(attributes)
                         }
                     ),
                     environment: {},
@@ -1822,63 +2107,13 @@ private final class PremiumIntroScreenContentComponent: CombinedComponent {
     }
 }
 
-class BlurredRectangle: Component {
-    let color: UIColor
-    let radius: CGFloat
-
-    init(color: UIColor, radius: CGFloat = 0.0) {
-        self.color = color
-        self.radius = radius
-    }
-
-    static func ==(lhs: BlurredRectangle, rhs: BlurredRectangle) -> Bool {
-        if !lhs.color.isEqual(rhs.color) {
-            return false
-        }
-        if lhs.radius != rhs.radius {
-            return false
-        }
-        return true
-    }
-
-    final class View: UIView {
-        private let background: NavigationBackgroundNode
-
-        init() {
-            self.background = NavigationBackgroundNode(color: .clear)
-
-            super.init(frame: CGRect())
-
-            self.addSubview(self.background.view)
-        }
-
-        required init?(coder aDecoder: NSCoder) {
-            preconditionFailure()
-        }
-
-        func update(component: BlurredRectangle, availableSize: CGSize, transition: Transition) -> CGSize {
-            transition.setFrame(view: self.background.view, frame: CGRect(origin: CGPoint(), size: availableSize))
-            self.background.updateColor(color: component.color, transition: .immediate)
-            self.background.update(size: availableSize, cornerRadius: component.radius, transition: .immediate)
-
-            return availableSize
-        }
-    }
-
-    func makeView() -> View {
-        return View()
-    }
-
-    func update(view: View, availableSize: CGSize, state: EmptyComponentState, environment: Environment<Empty>, transition: Transition) -> CGSize {
-        return view.update(component: self, availableSize: availableSize, transition: transition)
-    }
-}
-
 private final class PremiumIntroScreenComponent: CombinedComponent {
     typealias EnvironmentType = ViewControllerComponentContainer.Environment
     
     let context: AccountContext
     let source: PremiumSource
+    let forceDark: Bool
+    let forceHasPremium: Bool
     let updateInProgress: (Bool) -> Void
     let present: (ViewController) -> Void
     let push: (ViewController) -> Void
@@ -1888,9 +2123,11 @@ private final class PremiumIntroScreenComponent: CombinedComponent {
     let completion: () -> Void
     
     // MARK: Nicegram (dismiss)
-    init(context: AccountContext, source: PremiumSource, updateInProgress: @escaping (Bool) -> Void, present: @escaping (ViewController) -> Void, push: @escaping (ViewController) -> Void, dismiss: @escaping () -> Void, completion: @escaping () -> Void) {
+    init(context: AccountContext, source: PremiumSource, forceDark: Bool, forceHasPremium: Bool, updateInProgress: @escaping (Bool) -> Void, present: @escaping (ViewController) -> Void, push: @escaping (ViewController) -> Void, dismiss: @escaping () -> Void, completion: @escaping () -> Void) {
         self.context = context
         self.source = source
+        self.forceDark = forceDark
+        self.forceHasPremium = forceHasPremium
         self.updateInProgress = updateInProgress
         self.present = present
         self.push = push
@@ -1905,6 +2142,12 @@ private final class PremiumIntroScreenComponent: CombinedComponent {
             return false
         }
         if lhs.source != rhs.source {
+            return false
+        }
+        if lhs.forceDark != rhs.forceDark {
+            return false
+        }
+        if lhs.forceHasPremium != rhs.forceHasPremium {
             return false
         }
         return true
@@ -1930,9 +2173,11 @@ private final class PremiumIntroScreenComponent: CombinedComponent {
         
         private(set) var products: [PremiumProduct]?
         private(set) var selectedProductId: String?
+        fileprivate var validPurchases: [InAppPurchaseManager.ReceiptPurchase] = []
         
         var isPremium: Bool?
         var otherPeerName: String?
+        var justBought = false
         
         let animationCache: AnimationCache
         let animationRenderer: MultiAnimationRenderer
@@ -1955,8 +2200,20 @@ private final class PremiumIntroScreenComponent: CombinedComponent {
             return self.products?.first(where: { $0.id == self.selectedProductId })?.id.hasSuffix(".annual") ?? false
         }
         
+        var canUpgrade: Bool {
+            if let products = self.products, let current = products.first(where: { $0.isCurrent }), let transactionId = current.transactionId {
+                if self.validPurchases.contains(where: { $0.transactionId == transactionId }) {
+                    return products.first(where: { $0.months > current.months }) != nil
+                } else {
+                    return false
+                }
+            } else {
+                return false
+            }
+        }
+        
         // MARK: Nicegram (dismiss)
-        init(context: AccountContext, source: PremiumSource, updateInProgress: @escaping (Bool) -> Void, present: @escaping (ViewController) -> Void, dismiss: @escaping () -> Void, completion: @escaping () -> Void) {
+        init(context: AccountContext, source: PremiumSource, forceHasPremium: Bool, updateInProgress: @escaping (Bool) -> Void, present: @escaping (ViewController) -> Void, dismiss: @escaping () -> Void, completion: @escaping () -> Void) {
             self.context = context
             self.updateInProgress = updateInProgress
             self.present = present
@@ -1970,6 +2227,8 @@ private final class PremiumIntroScreenComponent: CombinedComponent {
             
             super.init()
             
+            self.validPurchases = context.inAppPurchaseManager?.getReceiptPurchases() ?? []
+            
             let availableProducts: Signal<[InAppPurchaseManager.Product], NoError>
             if let inAppPurchaseManager = context.inAppPurchaseManager {
                 availableProducts = inAppPurchaseManager.availableProducts
@@ -1977,26 +2236,29 @@ private final class PremiumIntroScreenComponent: CombinedComponent {
                 availableProducts = .single([])
             }
             
-            let presentationData = context.sharedContext.currentPresentationData.with { $0 }
             let otherPeerName: Signal<String?, NoError>
             if case let .gift(fromPeerId, toPeerId, _) = source {
                 let otherPeerId = fromPeerId != context.account.peerId ? fromPeerId : toPeerId
                 otherPeerName = context.engine.data.get(TelegramEngine.EngineData.Item.Peer.Peer(id: otherPeerId))
                 |> map { peer -> String? in
-                    return peer?.displayTitle(strings: presentationData.strings, displayOrder: presentationData.nameDisplayOrder)
+                    return peer?.compactDisplayTitle
                 }
             } else if case let .profile(peerId) = source {
                 otherPeerName = context.engine.data.get(TelegramEngine.EngineData.Item.Peer.Peer(id: peerId))
                 |> map { peer -> String? in
-                    return peer?.displayTitle(strings: presentationData.strings, displayOrder: presentationData.nameDisplayOrder)
+                    return peer?.compactDisplayTitle
                 }
             } else if case let .emojiStatus(peerId, _, _, _) = source {
                 otherPeerName = context.engine.data.get(TelegramEngine.EngineData.Item.Peer.Peer(id: peerId))
                 |> map { peer -> String? in
-                    return peer?.displayTitle(strings: presentationData.strings, displayOrder: presentationData.nameDisplayOrder)
+                    return peer?.compactDisplayTitle
                 }
             } else {
                 otherPeerName = .single(nil)
+            }
+            
+            if forceHasPremium {
+                self.isPremium = true
             }
             
             self.disposable = combineLatest(
@@ -2022,11 +2284,11 @@ private final class PremiumIntroScreenComponent: CombinedComponent {
                     }
                     
                     strongSelf.products = products
-                    strongSelf.isPremium = isPremium
+                    strongSelf.isPremium = forceHasPremium || isPremium
                     strongSelf.otherPeerName = otherPeerName
                     
                     if !hadProducts {
-                        strongSelf.selectedProductId = strongSelf.products?.last?.id
+                        strongSelf.selectedProductId = strongSelf.products?.first?.id
                         
                         for (_, video) in promoConfiguration.videos {
                             strongSelf.preloadDisposableSet.add(preloadVideoResource(postbox: context.account.postbox, userLocation: .other, userContentType: .video, resourceReference: .standalone(resource: video.resource), duration: 3.0).start())
@@ -2074,18 +2336,41 @@ private final class PremiumIntroScreenComponent: CombinedComponent {
                   let premiumProduct = self.products?.first(where: { $0.id == self.selectedProductId }), !self.inProgress else {
                 return
             }
+            let presentationData = self.context.sharedContext.currentPresentationData.with { $0 }
+            
+            let isUpgrade = self.products?.first(where: { $0.isCurrent }) != nil
+            
+            var hasActiveSubsciption = false
+            if let data = self.context.currentAppConfiguration.with({ $0 }).data, let _ = data["ios_killswitch_disable_receipt_check"] {
+                
+            } else if !self.validPurchases.isEmpty && !isUpgrade {
+                let now = Date()
+                for purchase in self.validPurchases.reversed() {
+                    if (purchase.productId.hasSuffix(".monthly") || purchase.productId.hasSuffix(".annual")) && purchase.expirationDate > now {
+                        hasActiveSubsciption = true
+                    }
+                }
+            }
+            
+            if hasActiveSubsciption {
+                let errorText = presentationData.strings.Premium_Purchase_OnlyOneSubscriptionAllowed
+                let alertController = textAlertController(context: self.context, title: nil, text: errorText, actions: [TextAlertAction(type: .defaultAction, title: presentationData.strings.Common_OK, action: {})])
+                self.present(alertController)
+                return
+            }
                         
             addAppLogEvent(postbox: self.context.account.postbox, type: "premium.promo_screen_accept")
 
             self.inProgress = true
             self.updateInProgress(true)
             self.updated(transition: .immediate)
-
-            let _ = (self.context.engine.payments.canPurchasePremium(purpose: .subscription)
+            
+            let purpose: AppStoreTransactionPurpose = isUpgrade ? .upgrade : .subscription
+            let _ = (self.context.engine.payments.canPurchasePremium(purpose: purpose)
             |> deliverOnMainQueue).start(next: { [weak self] available in
                 if let strongSelf = self {
                     if available {
-                        strongSelf.paymentDisposable.set((inAppPurchaseManager.buyProduct(premiumProduct.storeProduct)
+                        strongSelf.paymentDisposable.set((inAppPurchaseManager.buyProduct(premiumProduct.storeProduct, purpose: purpose)
                         |> deliverOnMainQueue).start(next: { [weak self] status in
                             if let strongSelf = self, case .purchased = status {
                                 strongSelf.activationDisposable.set((strongSelf.context.account.postbox.peerView(id: strongSelf.context.account.peerId)
@@ -2110,7 +2395,6 @@ private final class PremiumIntroScreenComponent: CombinedComponent {
                                         
                                         addAppLogEvent(postbox: strongSelf.context.account.postbox, type: "premium.promo_screen_fail")
                                         
-                                        let presentationData = strongSelf.context.sharedContext.currentPresentationData.with { $0 }
                                         let errorText = presentationData.strings.Premium_Purchase_ErrorUnknown
                                         let alertController = textAlertController(context: strongSelf.context, title: nil, text: errorText, actions: [TextAlertAction(type: .defaultAction, title: presentationData.strings.Common_OK, action: {})])
                                         strongSelf.present(alertController)
@@ -2122,6 +2406,8 @@ private final class PremiumIntroScreenComponent: CombinedComponent {
                                         strongSelf.updateInProgress(false)
                                         
                                         strongSelf.isPremium = true
+                                        strongSelf.justBought = true
+                                                                                
                                         strongSelf.updated(transition: .easeInOut(duration: 0.25))
                                         strongSelf.completion()
                                     }
@@ -2133,7 +2419,6 @@ private final class PremiumIntroScreenComponent: CombinedComponent {
                                 strongSelf.updateInProgress(false)
                                 strongSelf.updated(transition: .immediate)
 
-                                let presentationData = strongSelf.context.sharedContext.currentPresentationData.with { $0 }
                                 var errorText: String?
                                 switch error {
                                     case .generic:
@@ -2180,7 +2465,7 @@ private final class PremiumIntroScreenComponent: CombinedComponent {
     
     func makeState() -> State {
         // MARK: Nicegram (dismiss)
-        return State(context: self.context, source: self.source, updateInProgress: self.updateInProgress, present: self.present, dismiss: self.dismiss, completion: self.completion)
+        return State(context: self.context, source: self.source, forceHasPremium: self.forceHasPremium, updateInProgress: self.updateInProgress, present: self.present, dismiss: self.dismiss, completion: self.completion)
     }
     
     static var body: Body {
@@ -2188,18 +2473,18 @@ private final class PremiumIntroScreenComponent: CombinedComponent {
         let scrollContent = Child(ScrollComponent<EnvironmentType>.self)
         let star = Child(PremiumStarComponent.self)
         let emoji = Child(EmojiHeaderComponent.self)
-        let topPanel = Child(BlurredRectangle.self)
+        let topPanel = Child(BlurredBackgroundComponent.self)
         let topSeparator = Child(Rectangle.self)
         let title = Child(MultilineTextComponent.self)
         let secondaryTitle = Child(MultilineTextWithEntitiesComponent.self)
-        let bottomPanel = Child(BlurredRectangle.self)
+        let bottomPanel = Child(BlurredBackgroundComponent.self)
         let bottomSeparator = Child(Rectangle.self)
         let button = Child(SolidRoundedButtonComponent.self)
         
         return { context in
             let environment = context.environment[EnvironmentType.self].value
             let state = context.state
-            
+                        
             let background = background.update(component: Rectangle(color: environment.theme.list.blocksBackgroundColor), environment: {}, availableSize: context.availableSize, transition: context.transition)
             
             var starIsVisible = true
@@ -2225,7 +2510,7 @@ private final class PremiumIntroScreenComponent: CombinedComponent {
                         isVisible: starIsVisible,
                         hasIdleAnimations: state.hasIdleAnimations
                     ),
-                    availableSize: CGSize(width: min(390.0, context.availableSize.width), height: 220.0),
+                    availableSize: CGSize(width: min(414.0, context.availableSize.width), height: 220.0),
                     transition: context.transition
                 )
             } else {
@@ -2235,13 +2520,13 @@ private final class PremiumIntroScreenComponent: CombinedComponent {
                         isVisible: starIsVisible,
                         hasIdleAnimations: state.hasIdleAnimations
                     ),
-                    availableSize: CGSize(width: min(390.0, context.availableSize.width), height: 220.0),
+                    availableSize: CGSize(width: min(414.0, context.availableSize.width), height: 220.0),
                     transition: context.transition
                 )
             }
             
             let topPanel = topPanel.update(
-                component: BlurredRectangle(
+                component: BlurredBackgroundComponent(
                     color: environment.theme.rootController.navigationBar.blurredBackgroundColor
                 ),
                 availableSize: CGSize(width: context.availableSize.width, height: environment.navigationHeight),
@@ -2264,7 +2549,11 @@ private final class PremiumIntroScreenComponent: CombinedComponent {
             } else if case .gift = context.component.source {
                 titleString = environment.strings.Premium_GiftedTitle
             } else if state.isPremium == true {
-                titleString = environment.strings.Premium_SubscribedTitle
+                if !state.justBought && state.canUpgrade {
+                    titleString = environment.strings.Premium_Title
+                } else {
+                    titleString = environment.strings.Premium_SubscribedTitle
+                }
             } else {
                 titleString = environment.strings.Premium_Title
             }
@@ -2279,26 +2568,12 @@ private final class PremiumIntroScreenComponent: CombinedComponent {
                 availableSize: context.availableSize,
                 transition: context.transition
             )
-            
-            let textColor = environment.theme.list.itemPrimaryTextColor
-            let accentColor: UIColor
-            if case .emojiStatus = context.component.source {
-                accentColor = environment.theme.list.itemAccentColor
-            } else {
-                accentColor = UIColor(rgb: 0x597cf5)
-            }
-            
-            let textFont = Font.bold(18.0)
-            let boldTextFont = Font.bold(18.0)
-            
-            let markdownAttributes = MarkdownAttributes(body: MarkdownAttributeSet(font: textFont, textColor: textColor), bold: MarkdownAttributeSet(font: boldTextFont, textColor: textColor), link: MarkdownAttributeSet(font: textFont, textColor: accentColor), linkAttribute: { _ in
-                return nil
-            })
-            
+
             var loadedEmojiPack: LoadedStickerPack?
             var highlightableLinks = false
             let secondaryTitleText: String
-            if let otherPeerName = state.otherPeerName {
+            var isAnonymous = false
+            if var otherPeerName = state.otherPeerName {
                 if case let .emojiStatus(_, _, file, maybeEmojiPack) = context.component.source, let emojiPack = maybeEmojiPack, case let .result(info, _, _) = emojiPack {
                     loadedEmojiPack = maybeEmojiPack
                     highlightableLinks = true
@@ -2330,6 +2605,10 @@ private final class PremiumIntroScreenComponent: CombinedComponent {
                             secondaryTitleText = ""
                         }
                     } else {
+                        if fromPeerId.namespace == Namespaces.Peer.CloudUser && fromPeerId.id._internalGetInt64Value() == 777000 {
+                            isAnonymous = true
+                            otherPeerName = environment.strings.Premium_GiftedTitle_Someone
+                        }
                         if duration == 12 {
                             secondaryTitleText = environment.strings.Premium_GiftedTitle_12Month(otherPeerName).string
                         } else if duration == 6 {
@@ -2346,6 +2625,20 @@ private final class PremiumIntroScreenComponent: CombinedComponent {
             } else {
                 secondaryTitleText = ""
             }
+            
+            let textColor = environment.theme.list.itemPrimaryTextColor
+            let accentColor: UIColor
+            if case .emojiStatus = context.component.source {
+                accentColor = environment.theme.list.itemAccentColor
+            } else {
+                accentColor = UIColor(rgb: 0x597cf5)
+            }
+            
+            let textFont = Font.bold(18.0)
+            let boldTextFont = Font.bold(18.0)
+            let markdownAttributes = MarkdownAttributes(body: MarkdownAttributeSet(font: textFont, textColor: textColor), bold: MarkdownAttributeSet(font: boldTextFont, textColor: textColor), link: MarkdownAttributeSet(font: textFont, textColor: isAnonymous ? textColor : accentColor), linkAttribute: { _ in
+                return nil
+            })
             
             let secondaryAttributedText = NSMutableAttributedString(attributedString: parseMarkdownIntoAttributedString(secondaryTitleText, attributes: markdownAttributes))
             if let emojiFile = state.emojiFile {
@@ -2395,17 +2688,20 @@ private final class PremiumIntroScreenComponent: CombinedComponent {
             
             let bottomPanelPadding: CGFloat = 12.0
             let bottomInset: CGFloat = environment.safeInsets.bottom > 0.0 ? environment.safeInsets.bottom + 5.0 : bottomPanelPadding
-            let bottomPanelHeight: CGFloat = state.isPremium == true ? bottomInset : bottomPanelPadding + 50.0 + bottomInset
+            let bottomPanelHeight: CGFloat = state.isPremium == true && !state.canUpgrade ? bottomInset : bottomPanelPadding + 50.0 + bottomInset
                        
             let scrollContent = scrollContent.update(
                 component: ScrollComponent<EnvironmentType>(
                     content: AnyComponent(PremiumIntroScreenContentComponent(
                         context: context.component.context,
                         source: context.component.source,
+                        forceDark: context.component.forceDark,
                         isPremium: state.isPremium,
+                        justBought: state.justBought,
                         otherPeerName: state.otherPeerName,
                         products: state.products,
                         selectedProductId: state.selectedProductId,
+                        validPurchases: state.validPurchases,
                         promoConfiguration: state.promoConfiguration,
                         present: context.component.present,
                         selectProduct: { [weak state] productId in
@@ -2507,15 +2803,16 @@ private final class PremiumIntroScreenComponent: CombinedComponent {
                 }
             }
                         
-            if state.isPremium == true || isGiftView {
+            if (state.isPremium == true && (!state.canUpgrade || state.justBought)) || isGiftView {
                 
             } else {
+                // MARK: Nicegram, subscribe button text always = 'OK'
+                let buttonTitle = environment.strings.Common_OK
                 
                 let sideInset: CGFloat = 16.0
                 let button = button.update(
                     component: SolidRoundedButtonComponent(
-                        // MARK: Nicegram change (title)
-                        title: environment.strings.Common_OK,
+                        title: buttonTitle,
                         theme: SolidRoundedButtonComponent.Theme(
                             backgroundColor: UIColor(rgb: 0x8878ff),
                             backgroundColors: [
@@ -2538,7 +2835,7 @@ private final class PremiumIntroScreenComponent: CombinedComponent {
                     transition: context.transition)
                                
                 let bottomPanel = bottomPanel.update(
-                    component: BlurredRectangle(
+                    component: BlurredBackgroundComponent(
                         color: environment.theme.rootController.tabBar.backgroundColor
                     ),
                     availableSize: CGSize(width: context.availableSize.width, height: bottomPanelPadding + button.size.height + bottomInset),
@@ -2618,7 +2915,7 @@ public final class PremiumIntroScreen: ViewControllerComponentContainer {
     public weak var containerView: UIView?
     public var animationColor: UIColor?
     
-    public init(context: AccountContext, modal: Bool = true, source: PremiumSource) {
+    public init(context: AccountContext, modal: Bool = true, source: PremiumSource, forceDark: Bool = false, forceHasPremium: Bool = false) {
         self.context = context
             
         var updateInProgressImpl: ((Bool) -> Void)?
@@ -2631,6 +2928,8 @@ public final class PremiumIntroScreen: ViewControllerComponentContainer {
         super.init(context: context, component: PremiumIntroScreenComponent(
             context: context,
             source: source,
+            forceDark: forceDark,
+            forceHasPremium: forceHasPremium,
             updateInProgress: { inProgress in
                 updateInProgressImpl?(inProgress)
             },
@@ -2648,12 +2947,12 @@ public final class PremiumIntroScreen: ViewControllerComponentContainer {
             completion: {
                 completionImpl?()
             }
-        ), navigationBarAppearance: .transparent)
+        ), navigationBarAppearance: .transparent, presentationMode: modal ? .modal : .default, theme: forceDark ? .dark : .default)
         
         let presentationData = context.sharedContext.currentPresentationData.with { $0 }
         
         if modal {
-            let cancelItem = UIBarButtonItem(title: presentationData.strings.Common_Cancel, style: .plain, target: self, action: #selector(self.cancelPressed))
+            let cancelItem = UIBarButtonItem(title: presentationData.strings.Common_Close, style: .plain, target: self, action: #selector(self.cancelPressed))
             self.navigationItem.setLeftBarButton(cancelItem, animated: false)
             self.navigationPresentation = .modal
         } else {
@@ -2683,8 +2982,8 @@ public final class PremiumIntroScreen: ViewControllerComponentContainer {
         //
         
         completionImpl = { [weak self] in
-            if let strongSelf = self {
-                strongSelf.view.addSubview(ConfettiView(frame: strongSelf.view.bounds))
+            if let self {
+                self.animateSuccess()
             }
         }
     }
@@ -2695,6 +2994,11 @@ public final class PremiumIntroScreen: ViewControllerComponentContainer {
     
     @objc private func cancelPressed() {
         self.dismiss()
+        self.wasDismissed?()
+    }
+    
+    public func animateSuccess() {
+        self.view.addSubview(ConfettiView(frame: self.view.bounds))
     }
     
     public override func containerLayoutUpdated(_ layout: ContainerViewLayout, transition: ContainedViewLayoutTransition) {

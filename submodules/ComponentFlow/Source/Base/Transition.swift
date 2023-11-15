@@ -6,7 +6,7 @@ import Display
 @_silgen_name("UIAnimationDragCoefficient") func UIAnimationDragCoefficient() -> Float
 #endif
 
-private extension UIView {
+public extension UIView {
     static var animationDurationFactor: Double {
         #if targetEnvironment(simulator)
         return Double(UIAnimationDragCoefficient())
@@ -73,6 +73,21 @@ public struct Transition {
             case easeInOut
             case spring
             case custom(Float, Float, Float, Float)
+            
+            public func solve(at offset: CGFloat) -> CGFloat {
+                switch self {
+                case .easeInOut:
+                    return listViewAnimationCurveEaseInOut(offset)
+                case .spring:
+                    return listViewAnimationCurveSystem(offset)
+                case let .custom(c1x, c1y, c2x, c2y):
+                    return bezierPoint(CGFloat(c1x), CGFloat(c1y), CGFloat(c2x), CGFloat(c2y), offset)
+                }
+            }
+            
+            public static var slide: Curve {
+                return .custom(0.33, 0.52, 0.25, 0.99)
+            }
         }
 
         case none
@@ -83,7 +98,7 @@ public struct Transition {
     private var _userData: [Any] = []
 
     public func userData<T>(_ type: T.Type) -> T? {
-        for item in self._userData {
+        for item in self._userData.reversed() {
             if let item = item as? T {
                 return item
             }
@@ -119,6 +134,10 @@ public struct Transition {
     public static func easeInOut(duration: Double) -> Transition {
         return Transition(animation: .curve(duration: duration, curve: .easeInOut))
     }
+    
+    public static func spring(duration: Double) -> Transition {
+        return Transition(animation: .curve(duration: duration, curve: .spring))
+    }
 
     public init(animation: Animation) {
         self.animation = animation
@@ -136,21 +155,30 @@ public struct Transition {
             //view.layer.position = CGPoint(x: frame.midX, y: frame.midY)
             view.layer.removeAnimation(forKey: "position")
             view.layer.removeAnimation(forKey: "bounds")
+            view.layer.removeAnimation(forKey: "bounds.size")
             completion?(true)
         case .curve:
-            let previousFrame: CGRect
-            if (view.layer.animation(forKey: "position") != nil || view.layer.animation(forKey: "bounds") != nil), let presentation = view.layer.presentation() {
-                previousFrame = presentation.frame
+            let previousPosition: CGPoint
+            let previousBounds: CGRect
+            if (view.layer.animation(forKey: "position") != nil || view.layer.animation(forKey: "bounds") != nil || view.layer.animation(forKey: "bounds.size") != nil), let presentation = view.layer.presentation() {
+                previousPosition = presentation.position
+                previousBounds = presentation.bounds
             } else {
-                previousFrame = view.frame
+                previousPosition = view.layer.position
+                previousBounds = view.layer.bounds
             }
             
             view.frame = frame
             //view.bounds = CGRect(origin: previousBounds.origin, size: frame.size)
             //view.center = CGPoint(x: frame.midX, y: frame.midY)
+            
+            let anchorPoint = view.layer.anchorPoint
+            let updatedPosition = CGPoint(x: frame.minX + frame.width * anchorPoint.x, y: frame.minY + frame.height * anchorPoint.y)
 
-            self.animatePosition(view: view, from: CGPoint(x: previousFrame.midX, y: previousFrame.midY), to: CGPoint(x: frame.midX, y: frame.midY), completion: completion)
-            self.animateBounds(view: view, from: CGRect(origin: view.bounds.origin, size: previousFrame.size), to: CGRect(origin: view.bounds.origin, size: frame.size))
+            self.animatePosition(view: view, from: previousPosition, to: updatedPosition, completion: completion)
+            if previousBounds.size != frame.size {
+                self.animateBoundsSize(view: view, from: previousBounds.size, to: frame.size)
+            }
         }
     }
     
@@ -184,6 +212,62 @@ public struct Transition {
         }
     }
     
+    public func setFrameWithAdditivePosition(view: UIView, frame: CGRect, completion: ((Bool) -> Void)? = nil) {
+        assert(view.layer.anchorPoint == CGPoint())
+        
+        if view.frame == frame {
+            completion?(true)
+            return
+        }
+        
+        var completedBounds: Bool?
+        var completedPosition: Bool?
+        let processCompletion: () -> Void = {
+            guard let completedBounds, let completedPosition else {
+                return
+            }
+            completion?(completedBounds && completedPosition)
+        }
+        
+        self.setBounds(view: view, bounds: CGRect(origin: view.bounds.origin, size: frame.size), completion: { value in
+            completedBounds = value
+            processCompletion()
+        })
+        self.animatePosition(view: view, from: CGPoint(x: -frame.minX + view.layer.position.x, y: -frame.minY + view.layer.position.y), to: CGPoint(), additive: true, completion: { value in
+            completedPosition = value
+            processCompletion()
+        })
+        view.layer.position = frame.origin
+    }
+    
+    public func setFrameWithAdditivePosition(layer: CALayer, frame: CGRect, completion: ((Bool) -> Void)? = nil) {
+        assert(layer.anchorPoint == CGPoint())
+        
+        if layer.frame == frame {
+            completion?(true)
+            return
+        }
+        
+        var completedBounds: Bool?
+        var completedPosition: Bool?
+        let processCompletion: () -> Void = {
+            guard let completedBounds, let completedPosition else {
+                return
+            }
+            completion?(completedBounds && completedPosition)
+        }
+        
+        self.setBounds(layer: layer, bounds: CGRect(origin: layer.bounds.origin, size: frame.size), completion: { value in
+            completedBounds = value
+            processCompletion()
+        })
+        self.animatePosition(layer: layer, from: CGPoint(x: -frame.minX + layer.position.x, y: -frame.minY + layer.position.y), to: CGPoint(), additive: true, completion: { value in
+            completedPosition = value
+            processCompletion()
+        })
+        layer.position = frame.origin
+    }
+    
     public func setBounds(view: UIView, bounds: CGRect, completion: ((Bool) -> Void)? = nil) {
         if view.bounds == bounds {
             completion?(true)
@@ -193,10 +277,12 @@ public struct Transition {
         case .none:
             view.bounds = bounds
             view.layer.removeAnimation(forKey: "bounds")
+            view.layer.removeAnimation(forKey: "bounds.origin")
+            view.layer.removeAnimation(forKey: "bounds.size")
             completion?(true)
         case .curve:
             let previousBounds: CGRect
-            if view.layer.animation(forKey: "bounds") != nil, let presentation = view.layer.presentation() {
+            if (view.layer.animation(forKey: "bounds") != nil || view.layer.animation(forKey: "bounds.origin") != nil || view.layer.animation(forKey: "bounds.size") != nil), let presentation = view.layer.presentation() {
                 previousBounds = presentation.bounds
             } else {
                 previousBounds = view.layer.bounds
@@ -204,6 +290,30 @@ public struct Transition {
             view.bounds = bounds
 
             self.animateBounds(view: view, from: previousBounds, to: view.bounds, completion: completion)
+        }
+    }
+    
+    public func setBoundsOrigin(view: UIView, origin: CGPoint, completion: ((Bool) -> Void)? = nil) {
+        if view.bounds.origin == origin {
+            completion?(true)
+            return
+        }
+        switch self.animation {
+        case .none:
+            view.bounds = CGRect(origin: origin, size: view.bounds.size)
+            view.layer.removeAnimation(forKey: "bounds")
+            view.layer.removeAnimation(forKey: "bounds.origin")
+            completion?(true)
+        case .curve:
+            let previousOrigin: CGPoint
+            if (view.layer.animation(forKey: "bounds") != nil || view.layer.animation(forKey: "bounds.origin") != nil), let presentation = view.layer.presentation() {
+                previousOrigin = presentation.bounds.origin
+            } else {
+                previousOrigin = view.layer.bounds.origin
+            }
+            view.bounds = CGRect(origin: origin, size: view.bounds.size)
+
+            self.animateBoundsOrigin(view: view, from: previousOrigin, to: origin, completion: completion)
         }
     }
     
@@ -299,7 +409,30 @@ public struct Transition {
         }
     }
     
-    public func attachAnimation(view: UIView, completion: @escaping (Bool) -> Void) {
+    public func setAnchorPoint(layer: CALayer, anchorPoint: CGPoint, completion: ((Bool) -> Void)? = nil) {
+        if layer.anchorPoint == anchorPoint {
+            completion?(true)
+            return
+        }
+        switch self.animation {
+        case .none:
+            layer.anchorPoint = anchorPoint
+            layer.removeAnimation(forKey: "anchorPoint")
+            completion?(true)
+        case .curve:
+            let previousAnchorPoint: CGPoint
+            if layer.animation(forKey: "anchorPoint") != nil, let presentation = layer.presentation() {
+                previousAnchorPoint = presentation.anchorPoint
+            } else {
+                previousAnchorPoint = layer.anchorPoint
+            }
+            layer.anchorPoint = anchorPoint
+
+            self.animateAnchorPoint(layer: layer, from: previousAnchorPoint, to: layer.anchorPoint, completion: completion)
+        }
+    }
+    
+    public func attachAnimation(view: UIView, id: String, completion: @escaping (Bool) -> Void) {
         switch self.animation {
         case .none:
             completion(true)
@@ -307,12 +440,12 @@ public struct Transition {
             view.layer.animate(
                 from: 0.0 as NSNumber,
                 to: 1.0 as NSNumber,
-                keyPath: "attached\(UInt32.random(in: 0 ... UInt32.max))",
+                keyPath: id,
                 duration: duration,
                 delay: 0.0,
                 curve: curve,
                 removeOnCompletion: true,
-                additive: true,
+                additive: false,
                 completion: completion
             )
         }
@@ -347,8 +480,15 @@ public struct Transition {
         let t = layer.presentation()?.transform ?? layer.transform
         let currentScale = sqrt((t.m11 * t.m11) + (t.m12 * t.m12) + (t.m13 * t.m13))
         if currentScale == scale {
-            completion?(true)
-            return
+            if let animation = layer.animation(forKey: "transform.scale") as? CABasicAnimation, let toValue = animation.toValue as? NSNumber {
+                if toValue.doubleValue == scale {
+                    completion?(true)
+                    return
+                }
+            } else {
+                completion?(true)
+                return
+            }
         }
         switch self.animation {
         case .none:
@@ -375,9 +515,40 @@ public struct Transition {
         self.setTransform(layer: view.layer, transform: transform, completion: completion)
     }
     
+    public func setTransformAsKeyframes(view: UIView, transform: (CGFloat, Bool) -> CATransform3D, completion: ((Bool) -> Void)? = nil) {
+        self.setTransformAsKeyframes(layer: view.layer, transform: transform, completion: completion)
+    }
+    
     public func setTransform(layer: CALayer, transform: CATransform3D, completion: ((Bool) -> Void)? = nil) {
+        if let animation = layer.animation(forKey: "transform") as? CABasicAnimation, let toValue = animation.toValue as? NSValue {
+            if CATransform3DEqualToTransform(toValue.caTransform3DValue, transform) {
+                completion?(true)
+                return
+            }
+        } else if let animation = layer.animation(forKey: "transform") as? CAKeyframeAnimation, let toValue = animation.values?.last as? NSValue {
+            if CATransform3DEqualToTransform(toValue.caTransform3DValue, transform) {
+                completion?(true)
+                return
+            }
+        }
+        
+        if CATransform3DEqualToTransform(layer.transform, transform) {
+            completion?(true)
+            return
+        }
+        
         switch self.animation {
         case .none:
+            if layer.animation(forKey: "transform") != nil {
+                if let animation = layer.animation(forKey: "transform") as? CAKeyframeAnimation, let toValue = animation.values?.last as? NSValue {
+                    if CATransform3DEqualToTransform(toValue.caTransform3DValue, transform) {
+                        completion?(true)
+                        return
+                    }
+                }
+                
+                layer.removeAnimation(forKey: "transform")
+            }
             layer.transform = transform
             completion?(true)
         case let .curve(duration, curve):
@@ -387,6 +558,7 @@ public struct Transition {
             } else {
                 previousValue = layer.transform
             }
+            
             layer.transform = transform
             layer.animate(
                 from: NSValue(caTransform3D: previousValue),
@@ -397,6 +569,67 @@ public struct Transition {
                 curve: curve,
                 removeOnCompletion: true,
                 additive: false,
+                completion: completion
+            )
+        }
+    }
+    
+    public func setTransformAsKeyframes(layer: CALayer, transform: (CGFloat, Bool) -> CATransform3D, completion: ((Bool) -> Void)? = nil) {
+        let finalTransform = transform(1.0, true)
+        
+        let t = layer.transform
+        do {
+            if let animation = layer.animation(forKey: "transform") as? CABasicAnimation, let toValue = animation.toValue as? NSValue {
+                if CATransform3DEqualToTransform(toValue.caTransform3DValue, finalTransform) {
+                    completion?(true)
+                    return
+                }
+            } else if let animation = layer.animation(forKey: "transform") as? CAKeyframeAnimation, let toValue = animation.values?.last as? NSValue {
+                if CATransform3DEqualToTransform(toValue.caTransform3DValue, finalTransform) {
+                    completion?(true)
+                    return
+                }
+            } else if CATransform3DEqualToTransform(t, finalTransform) {
+                completion?(true)
+                return
+            }
+        }
+        
+        switch self.animation {
+        case .none:
+            if layer.animation(forKey: "transform") != nil {
+                layer.removeAnimation(forKey: "transform")
+            }
+            layer.transform = transform(1.0, true)
+            completion?(true)
+        case let .curve(duration, curve):
+            let framesPerSecond: CGFloat
+            if #available(iOS 15.0, *) {
+                framesPerSecond = duration * CGFloat(UIScreen.main.maximumFramesPerSecond)
+            } else {
+                framesPerSecond = 60.0
+            }
+            
+            let numValues = Int(framesPerSecond * duration)
+            if numValues == 0 {
+                layer.transform = transform(1.0, true)
+                completion?(true)
+                return
+            }
+            
+            var values: [AnyObject] = []
+            
+            for i in 0 ... numValues {
+                let t = curve.solve(at: CGFloat(i) / CGFloat(numValues))
+                values.append(NSValue(caTransform3D: transform(t, false)))
+            }
+            
+            layer.transform = transform(1.0, true)
+            layer.animateKeyframes(
+                values: values,
+                duration: duration,
+                keyPath: "transform",
+                removeOnCompletion: true,
                 completion: completion
             )
         }
@@ -528,6 +761,26 @@ public struct Transition {
             )
         }
     }
+    
+    public func animateAnchorPoint(layer: CALayer, from fromValue: CGPoint, to toValue: CGPoint, additive: Bool = false, completion: ((Bool) -> Void)? = nil) {
+        switch self.animation {
+        case .none:
+            completion?(true)
+        case let .curve(duration, curve):
+            layer.animate(
+                from: NSValue(cgPoint: fromValue),
+                to: NSValue(cgPoint: toValue),
+                keyPath: "anchorPoint",
+                duration: duration,
+                delay: 0.0,
+                curve: curve,
+                removeOnCompletion: true,
+                additive: additive,
+                completion: completion
+            )
+        }
+    }
+
 
     public func animateBounds(layer: CALayer, from fromValue: CGRect, to toValue: CGRect, additive: Bool = false, completion: ((Bool) -> Void)? = nil) {
         switch self.animation {
@@ -693,6 +946,80 @@ public struct Transition {
         }
     }
     
+    public func setShapeLayerStrokeStart(layer: CAShapeLayer, strokeStart: CGFloat, completion: ((Bool) -> Void)? = nil) {
+        switch self.animation {
+        case .none:
+            layer.strokeStart = strokeStart
+            completion?(true)
+        case let .curve(duration, curve):
+            let previousStrokeStart = layer.strokeStart
+            layer.strokeStart = strokeStart
+            
+            layer.animate(
+                from: previousStrokeStart as NSNumber,
+                to: strokeStart as NSNumber,
+                keyPath: "strokeStart",
+                duration: duration,
+                delay: 0.0,
+                curve: curve,
+                removeOnCompletion: true,
+                additive: false,
+                completion: completion
+            )
+        }
+    }
+    
+    public func setShapeLayerStrokeEnd(layer: CAShapeLayer, strokeEnd: CGFloat, completion: ((Bool) -> Void)? = nil) {
+        switch self.animation {
+        case .none:
+            layer.strokeEnd = strokeEnd
+            completion?(true)
+        case let .curve(duration, curve):
+            let previousStrokeEnd = layer.strokeEnd
+            layer.strokeEnd = strokeEnd
+            
+            layer.animate(
+                from: previousStrokeEnd as NSNumber,
+                to: strokeEnd as NSNumber,
+                keyPath: "strokeEnd",
+                duration: duration,
+                delay: 0.0,
+                curve: curve,
+                removeOnCompletion: true,
+                additive: false,
+                completion: completion
+            )
+        }
+    }
+    
+    public func setShapeLayerFillColor(layer: CAShapeLayer, color: UIColor, completion: ((Bool) -> Void)? = nil) {
+        if let current = layer.layerTintColor, current == color.cgColor {
+            completion?(true)
+            return
+        }
+        
+        switch self.animation {
+        case .none:
+            layer.fillColor = color.cgColor
+            completion?(true)
+        case let .curve(duration, curve):
+            let previousColor: CGColor = layer.fillColor ?? UIColor.clear.cgColor
+            layer.fillColor = color.cgColor
+            
+            layer.animate(
+                from: previousColor,
+                to: color.cgColor,
+                keyPath: "fillColor",
+                duration: duration,
+                delay: 0.0,
+                curve: curve,
+                removeOnCompletion: true,
+                additive: false,
+                completion: completion
+            )
+        }
+    }
+    
     public func setBackgroundColor(view: UIView, color: UIColor, completion: ((Bool) -> Void)? = nil) {
         self.setBackgroundColor(layer: view.layer, color: color, completion: completion)
     }
@@ -723,5 +1050,75 @@ public struct Transition {
                 completion: completion
             )
         }
+    }
+    
+    public func setTintColor(view: UIView, color: UIColor, completion: ((Bool) -> Void)? = nil) {
+        if let current = view.tintColor, current == color {
+            completion?(true)
+            return
+        }
+        
+        switch self.animation {
+        case .none:
+            view.tintColor = color
+            completion?(true)
+        case let .curve(duration, curve):
+            let previousColor: UIColor = view.tintColor ?? UIColor.clear
+            view.tintColor = color
+            
+            view.layer.animate(
+                from: previousColor,
+                to: color.cgColor,
+                keyPath: "contentsMultiplyColor",
+                duration: duration,
+                delay: 0.0,
+                curve: curve,
+                removeOnCompletion: true,
+                additive: false,
+                completion: completion
+            )
+        }
+    }
+    
+    public func setTintColor(layer: CALayer, color: UIColor, completion: ((Bool) -> Void)? = nil) {
+        if let current = layer.layerTintColor, current == color.cgColor {
+            completion?(true)
+            return
+        }
+        
+        switch self.animation {
+        case .none:
+            layer.layerTintColor = color.cgColor
+            completion?(true)
+        case let .curve(duration, curve):
+            let previousColor: CGColor = layer.layerTintColor ?? UIColor.clear.cgColor
+            layer.layerTintColor = color.cgColor
+            
+            layer.animate(
+                from: previousColor,
+                to: color.cgColor,
+                keyPath: "contentsMultiplyColor",
+                duration: duration,
+                delay: 0.0,
+                curve: curve,
+                removeOnCompletion: true,
+                additive: false,
+                completion: completion
+            )
+        }
+    }
+    
+    public func animateContentsImage(layer: CALayer, from fromImage: CGImage, to toImage: CGImage, duration: Double, curve: Transition.Animation.Curve, completion: ((Bool) -> Void)? = nil) {
+        layer.animate(
+            from: fromImage,
+            to: toImage,
+            keyPath: "contents",
+            duration: duration,
+            delay: 0.0,
+            curve: .easeInOut,
+            removeOnCompletion: true,
+            additive: false,
+            completion: completion
+        )
     }
 }

@@ -189,12 +189,15 @@ open class ListView: ASDisplayNode, UIScrollViewAccessibilityDelegate, UIGesture
     public private(set) final var visibleSize: CGSize = CGSize()
     public private(set) final var insets = UIEdgeInsets()
     public final var visualInsets: UIEdgeInsets?
+    public final var dynamicVisualInsets: (() -> UIEdgeInsets)?
     public private(set) final var headerInsets = UIEdgeInsets()
     public private(set) final var scrollIndicatorInsets = UIEdgeInsets()
     private final var ensureTopInsetForOverlayHighlightedItems: CGFloat?
     private final var lastContentOffset: CGPoint = CGPoint()
     private final var lastContentOffsetTimestamp: CFAbsoluteTime = 0.0
     private final var ignoreScrollingEvents: Bool = false
+    public final var globalIgnoreScrollingEvents: Bool = false
+    public final var ignoreStopScrolling: Bool = false
 
     private let infiniteScrollSize: CGFloat
     
@@ -204,6 +207,7 @@ open class ListView: ASDisplayNode, UIScrollViewAccessibilityDelegate, UIGesture
     public final var dynamicBounceEnabled = true
     public final var rotated = false
     public final var experimentalSnapScrollToItem = false
+    public final var useMainQueueTransactions = false
     
     public final var scrollEnabled: Bool = true {
         didSet {
@@ -248,10 +252,12 @@ open class ListView: ASDisplayNode, UIScrollViewAccessibilityDelegate, UIGesture
         }
     }
     public final var snapToBottomInsetUntilFirstInteraction: Bool = false
+    public final var allowInsetFixWhileTracking: Bool = false
     
     public final var updateFloatingHeaderOffset: ((CGFloat, ContainedViewLayoutTransition) -> Void)?
     public final var didScrollWithOffset: ((CGFloat, ContainedViewLayoutTransition, ListViewItemNode?, Bool) -> Void)?
     public final var addContentOffset: ((CGFloat, ListViewItemNode?) -> Void)?
+    public final var shouldStopScrolling: ((CGFloat) -> Bool)?
 
     public final var updateScrollingIndicator: ((ScrollingIndicatorState?, ContainedViewLayoutTransition) -> Void)?
     
@@ -382,8 +388,41 @@ open class ListView: ASDisplayNode, UIScrollViewAccessibilityDelegate, UIGesture
     private let waitingForNodesDisposable = MetaDisposable()
     
     private var auxiliaryDisplayLink: CADisplayLink?
+    private var auxiliaryDisplayLinkHandle: SharedDisplayLinkDriver.Link?
+    private var debugView: UIView?
     private var isAuxiliaryDisplayLinkEnabled: Bool = false {
         didSet {
+            if self.isAuxiliaryDisplayLinkEnabled {
+                if self.auxiliaryDisplayLinkHandle == nil {
+                    self.auxiliaryDisplayLinkHandle = SharedDisplayLinkDriver.shared.add(needsHighestFramerate: true, { [weak self] in
+                        guard let self else {
+                            return
+                        }
+                        if self.debugView == nil {
+                            let debugView = UIView(frame: CGRect(origin: CGPoint(), size: CGSize(width: 1.0, height: 1.0)))
+                            debugView.backgroundColor = .black
+                            debugView.alpha = 0.0001
+                            self.debugView = debugView
+                            self.view.addSubview(debugView)
+                        }
+                        if let debugView = self.debugView {
+                            if debugView.frame.origin.x == 0.0 {
+                                debugView.frame = CGRect(origin: CGPoint(x: 1.0, y: 0.0), size: CGSize(width: 1.0, height: 1.0))
+                            } else {
+                                debugView.frame = CGRect(origin: CGPoint(x: 0.0, y: 0.0), size: CGSize(width: 1.0, height: 1.0))
+                            }
+                        }
+                    })
+                }
+            } else if let auxiliaryDisplayLinkHandle = self.auxiliaryDisplayLinkHandle {
+                self.auxiliaryDisplayLinkHandle = nil
+                auxiliaryDisplayLinkHandle.invalidate()
+                if let debugView = self.debugView {
+                    self.debugView = nil
+                    debugView.removeFromSuperview()
+                }
+            }
+            
             /*if self.isAuxiliaryDisplayLinkEnabled != oldValue {
                 if self.isAuxiliaryDisplayLinkEnabled {
                     if self.auxiliaryDisplayLink == nil {
@@ -560,7 +599,11 @@ open class ListView: ASDisplayNode, UIScrollViewAccessibilityDelegate, UIGesture
                 action()
             }
         }*/
-        DispatchQueue.main.async(execute: action)
+        if self.useMainQueueTransactions && Thread.isMainThread {
+            action()
+        } else {
+            DispatchQueue.main.async(execute: action)
+        }
     }
     
     private func beginReordering(itemNode: ListViewItemNode) {
@@ -802,6 +845,7 @@ open class ListView: ASDisplayNode, UIScrollViewAccessibilityDelegate, UIGesture
         }
         self.scrolledToItem = nil
 
+        self.scroller.forceDecelerating = false
         self.isDragging = true
         
         self.beganInteractiveDragging(self.touchesPosition)
@@ -813,13 +857,13 @@ open class ListView: ASDisplayNode, UIScrollViewAccessibilityDelegate, UIGesture
         }
     }
     
-    public func scrollViewDidEndDragging(_ scrollView: UIScrollView, willDecelerate decelerate: Bool) {
-        if #available(iOS 15.0, *) {
-            if let scrollDisplayLink = self.scroller.value(forKey: "_scrollHeartbeat") as? CADisplayLink {
-                let _ = scrollDisplayLink
-            }
+    public func scrollViewWillEndDragging(_ scrollView: UIScrollView, withVelocity velocity: CGPoint, targetContentOffset: UnsafeMutablePointer<CGPoint>) {
+        if let shouldStopScrolling = self.shouldStopScrolling, shouldStopScrolling(velocity.y) {
+            targetContentOffset.pointee.y = scrollView.contentOffset.y
         }
-        
+    }
+    
+    public func scrollViewDidEndDragging(_ scrollView: UIScrollView, willDecelerate decelerate: Bool) {
         self.isDragging = false
         if decelerate {
             self.lastContentOffsetTimestamp = CACurrentMediaTime()
@@ -835,10 +879,14 @@ open class ListView: ASDisplayNode, UIScrollViewAccessibilityDelegate, UIGesture
             self.resetScrollIndicatorFlashTimer(start: true)
             
             self.lastContentOffsetTimestamp = 0.0
-            self.didEndScrolling?(false)
             self.isAuxiliaryDisplayLinkEnabled = false
         }
+        self.ignoreScrollingEvents = true
+        self.ignoreScrollingEvents = false
         self.endedInteractiveDragging(self.touchesPosition)
+        if !decelerate {
+            self.didEndScrolling?(false)
+        }
     }
     
     public func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) {
@@ -860,6 +908,7 @@ open class ListView: ASDisplayNode, UIScrollViewAccessibilityDelegate, UIGesture
         self.decelerationAnimator?.isPaused = true
         let startTime = CACurrentMediaTime()
         let decelerationRate: CGFloat = 0.998
+        self.scroller.forceDecelerating = true
         self.decelerationAnimator = ConstantDisplayLinkAnimator(update: { [weak self] in
             guard let strongSelf = self else {
                 return
@@ -885,6 +934,7 @@ open class ListView: ASDisplayNode, UIScrollViewAccessibilityDelegate, UIGesture
             }
             
             if abs(currentVelocity) < 0.1 {
+                strongSelf.scroller.forceDecelerating = false
                 strongSelf.decelerationAnimator?.isPaused = true
                 strongSelf.decelerationAnimator = nil
             }
@@ -905,8 +955,13 @@ open class ListView: ASDisplayNode, UIScrollViewAccessibilityDelegate, UIGesture
     private var generalAccumulatedDeltaY: CGFloat = 0.0
     private var previousDidScrollTimestamp: Double = 0.0
     
+    private var ignoreNextScrollAdjustment: Bool = false
+    
     private func updateScrollViewDidScroll(_ scrollView: UIScrollView, synchronous: Bool) {
         if self.ignoreScrollingEvents || scroller !== self.scroller {
+            return
+        }
+        if self.globalIgnoreScrollingEvents {
             return
         }
 
@@ -924,6 +979,16 @@ open class ListView: ASDisplayNode, UIScrollViewAccessibilityDelegate, UIGesture
         
         let deltaY = scrollView.contentOffset.y - self.lastContentOffset.y
         
+        /*if self.ignoreNextScrollAdjustment {
+            self.ignoreNextScrollAdjustment = false
+            self.lastContentOffset = scrollView.contentOffset
+            return
+        }*/
+        
+        //if abs(deltaY) > 30.0 {
+        //    print("deltaY: \(deltaY)")
+        //}
+        
         self.generalAccumulatedDeltaY += deltaY
         if abs(self.generalAccumulatedDeltaY) > 14.0 {
             let direction: GeneralScrollDirection = self.generalAccumulatedDeltaY < 0 ? .up : .down
@@ -935,6 +1000,7 @@ open class ListView: ASDisplayNode, UIScrollViewAccessibilityDelegate, UIGesture
         }
         
         self.lastContentOffset = scrollView.contentOffset
+        //print("lastContentOffset9 = \(self.lastContentOffset.y)")
         if !self.lastContentOffsetTimestamp.isZero {
             self.lastContentOffsetTimestamp = CACurrentMediaTime()
         }
@@ -945,7 +1011,13 @@ open class ListView: ASDisplayNode, UIScrollViewAccessibilityDelegate, UIGesture
             self.trackingOffset += -deltaY
         }
         
-        self.enqueueUpdateVisibleItems(synchronous: false)
+        if self.useMainQueueTransactions {
+            DispatchQueue.main.async { [weak self] in
+                self?.enqueueUpdateVisibleItems(synchronous: false)
+            }
+        } else {
+            self.enqueueUpdateVisibleItems(synchronous: false)
+        }
         
         var useScrollDynamics = false
         
@@ -1094,6 +1166,22 @@ open class ListView: ASDisplayNode, UIScrollViewAccessibilityDelegate, UIGesture
         return false
     }
     
+    public var tempTopInset: CGFloat = 0.0 {
+        didSet {
+            if self.tempTopInset != oldValue {
+                self.updateScroller(transition: .immediate)
+            }
+        }
+    }
+    
+    private func getAdjustedContentHeight(effectiveInsets: UIEdgeInsets) -> CGFloat {
+        if let keepMinimalScrollHeightWithTopInset = self.keepMinimalScrollHeightWithTopInset, !keepMinimalScrollHeightWithTopInset.isZero {
+            return self.visibleSize.height + effectiveInsets.top + effectiveInsets.bottom// - 137.0
+        } else {
+            return 0.0
+        }
+    }
+    
     private func snapToBounds(snapTopItem: Bool, stackFromBottom: Bool, updateSizeAndInsets: ListViewUpdateSizeAndInsets? = nil, scrollToItem: ListViewScrollToItem? = nil, isExperimentalSnapToScrollToItem: Bool = false, insetDeltaOffsetFix: CGFloat) -> (snappedTopInset: CGFloat, offset: CGFloat) {
         if self.itemNodes.count == 0 {
             return (0.0, 0.0)
@@ -1128,7 +1216,7 @@ open class ListView: ASDisplayNode, UIScrollViewAccessibilityDelegate, UIGesture
         }
         
         if topItemFound {
-            topItemEdge = self.itemNodes[0].apparentFrame.origin.y
+            topItemEdge = self.itemNodes[0].apparentFrame.origin.y - self.tempTopInset
         }
         
         var bottomItemNode: ListViewItemNode?
@@ -1156,7 +1244,10 @@ open class ListView: ASDisplayNode, UIScrollViewAccessibilityDelegate, UIGesture
         
         if let keepMinimalScrollHeightWithTopInset = self.keepMinimalScrollHeightWithTopInset, topItemFound {
             if !self.stackFromBottom {
-                completeHeight = max(completeHeight, self.visibleSize.height + keepMinimalScrollHeightWithTopInset - effectiveInsets.bottom - effectiveInsets.top)
+                if !keepMinimalScrollHeightWithTopInset.isZero {
+                    completeHeight = max(completeHeight, self.getAdjustedContentHeight(effectiveInsets: effectiveInsets))
+                }
+                //completeHeight = max(completeHeight, self.visibleSize.height + keepMinimalScrollHeightWithTopInset - effectiveInsets.bottom - effectiveInsets.top)
                 bottomItemEdge = max(bottomItemEdge, topItemEdge + completeHeight)
             } else {
                 effectiveInsets.top = max(effectiveInsets.top, self.visibleSize.height - completeHeight)
@@ -1325,11 +1416,16 @@ open class ListView: ASDisplayNode, UIScrollViewAccessibilityDelegate, UIGesture
         self.visibleBottomContentOffsetChanged(self.visibleBottomContentOffset())
     }
     
-    private func stopScrolling() {
+    public func stopScrolling() {
         let wasIgnoringScrollingEvents = self.ignoreScrollingEvents
         self.ignoreScrollingEvents = true
         self.scroller.setContentOffset(self.scroller.contentOffset, animated: false)
         self.ignoreScrollingEvents = wasIgnoringScrollingEvents
+    }
+    
+    public func cancelTracking() {
+        self.scroller.panGestureRecognizer.isEnabled = false
+        self.scroller.panGestureRecognizer.isEnabled = true
     }
     
     private func updateTopItemOverscrollBackground(transition: ContainedViewLayoutTransition) {
@@ -1563,7 +1659,10 @@ open class ListView: ASDisplayNode, UIScrollViewAccessibilityDelegate, UIGesture
                 
                 if let keepMinimalScrollHeightWithTopInset = self.keepMinimalScrollHeightWithTopInset {
                     if !self.stackFromBottom {
-                        completeHeight = max(completeHeight, self.visibleSize.height + keepMinimalScrollHeightWithTopInset)
+                        if !keepMinimalScrollHeightWithTopInset.isZero {
+                            completeHeight = max(completeHeight, self.getAdjustedContentHeight(effectiveInsets: effectiveInsets))
+                        }
+                        //completeHeight = max(completeHeight, self.visibleSize.height + keepMinimalScrollHeightWithTopInset)
                         bottomItemEdge = max(bottomItemEdge, topItemEdge + completeHeight)
                     }
                 }
@@ -1591,39 +1690,54 @@ open class ListView: ASDisplayNode, UIScrollViewAccessibilityDelegate, UIGesture
         self.ignoreScrollingEvents = true
         if topItemFound && bottomItemFound {
             self.scroller.contentSize = CGSize(width: self.visibleSize.width, height: completeHeight)
-            self.lastContentOffset = CGPoint(x: 0.0, y: -topItemEdge)
+            self.lastContentOffset = CGPoint(x: 0.0, y: -topItemEdge + self.tempTopInset)
+            //print("lastContentOffset1 = \(self.lastContentOffset.y)")
             self.scroller.contentOffset = self.lastContentOffset
         } else if topItemFound {
             self.scroller.contentSize = CGSize(width: self.visibleSize.width, height: infiniteScrollSize * 2.0)
-            self.lastContentOffset = CGPoint(x: 0.0, y: -topItemEdge)
+            self.lastContentOffset = CGPoint(x: 0.0, y: -topItemEdge + self.tempTopInset)
+            //print("lastContentOffset2 = \(self.lastContentOffset.y), ignoreNextScrollAdjustment: \(self.ignoreNextScrollAdjustment)")
             if self.scroller.contentOffset != self.lastContentOffset {
                 self.scroller.contentOffset = self.lastContentOffset
             }
+            self.lastContentOffset = self.scroller.contentOffset
+            //print("lastContentOffset2.1 = \(self.lastContentOffset.y), ignoreNextScrollAdjustment: \(self.ignoreNextScrollAdjustment)")
         } else if bottomItemFound {
             self.scroller.contentSize = CGSize(width: self.visibleSize.width, height: infiniteScrollSize * 2.0)
             self.lastContentOffset = CGPoint(x: 0.0, y: infiniteScrollSize * 2.0 - bottomItemEdge)
+            //print("lastContentOffset3 = \(self.lastContentOffset.y)")
             self.scroller.contentOffset = self.lastContentOffset
         } else if self.itemNodes.isEmpty {
             self.scroller.contentSize = self.visibleSize
             if self.lastContentOffset.y == infiniteScrollSize && self.scroller.contentOffset.y.isZero {
                 self.scroller.contentOffset = .zero
                 self.lastContentOffset = .zero
+                //print("lastContentOffset4 = \(self.lastContentOffset.y)")
             }
         } else {
             self.scroller.contentSize = CGSize(width: self.visibleSize.width, height: infiniteScrollSize * 2.0)
             if abs(self.scroller.contentOffset.y - infiniteScrollSize) > infiniteScrollSize / 2.0 {
                 self.lastContentOffset = CGPoint(x: 0.0, y: infiniteScrollSize)
+                //print("lastContentOffset5 = \(self.lastContentOffset.y)")
                 self.scroller.contentOffset = self.lastContentOffset
             } else {
                 self.lastContentOffset = self.scroller.contentOffset
+                //print("lastContentOffset6 = \(self.lastContentOffset.y)")
             }
         }
         self.ignoreScrollingEvents = wasIgnoringScrollingEvents
     }
     
     private func async(_ f: @escaping () -> Void) {
-        DispatchQueue.global(qos: .userInteractive).async(execute: f)
-        //DispatchQueue.main.async(execute: f)
+        if self.useMainQueueTransactions {
+            if Thread.isMainThread {
+                f()
+            } else {
+                DispatchQueue.main.async(execute: f)
+            }
+        } else {
+            DispatchQueue.global(qos: .userInteractive).async(execute: f)
+        }
     }
     
     private func nodeForItem(synchronous: Bool, synchronousLoads: Bool, item: ListViewItem, previousNode: QueueLocalObject<ListViewItemNode>?, index: Int, previousItem: ListViewItem?, nextItem: ListViewItem?, params: ListViewItemLayoutParams, updateAnimationIsAnimated: Bool, updateAnimationIsCrossfade: Bool, completion: @escaping (QueueLocalObject<ListViewItemNode>, ListViewItemNodeLayout, @escaping () -> (Signal<Void, NoError>?, (ListViewItemApply) -> Void)) -> Void) {
@@ -1705,7 +1819,7 @@ open class ListView: ASDisplayNode, UIScrollViewAccessibilityDelegate, UIGesture
             if let index = node.index {
                 nodes.append(.Node(index: index, frame: node.apparentFrame, referenceNode: QueueLocalObject(queue: Queue.mainQueue(), generate: {
                     return node
-                })))
+                }), newNode: nil))
             } else {
                 nodes.append(.Placeholder(frame: node.apparentFrame))
             }
@@ -1746,9 +1860,10 @@ open class ListView: ASDisplayNode, UIScrollViewAccessibilityDelegate, UIGesture
                 let wasIgnoringScrollingEvents = self.ignoreScrollingEvents
                 self.ignoreScrollingEvents = true
                 self.scroller.frame = CGRect(origin: CGPoint(), size: updateSizeAndInsets.size)
-                self.scroller.contentSize = CGSize(width: updateSizeAndInsets.size.width, height: infiniteScrollSize * 2.0)
-                self.lastContentOffset = CGPoint(x: 0.0, y: infiniteScrollSize)
-                self.scroller.contentOffset = self.lastContentOffset
+                //self.scroller.contentSize = CGSize(width: updateSizeAndInsets.size.width, height: infiniteScrollSize * 2.0)
+                //self.lastContentOffset = CGPoint(x: 0.0, y: infiniteScrollSize)
+                //print("lastContentOffset7 = \(self.lastContentOffset.y)")
+                //self.scroller.contentOffset = self.lastContentOffset
                 self.ignoreScrollingEvents = wasIgnoringScrollingEvents
                 
                 self.updateScroller(transition: .immediate)
@@ -1885,10 +2000,10 @@ open class ListView: ASDisplayNode, UIScrollViewAccessibilityDelegate, UIGesture
                         }
                         
                         switch state.nodes[i] {
-                            case let .Node(_, frame, referenceNode):
-                                state.nodes[i] = .Node(index: updatedIndex, frame: frame, referenceNode: referenceNode)
-                            case .Placeholder:
-                                break
+                        case let .Node(_, frame, referenceNode, newNode):
+                            state.nodes[i] = .Node(index: updatedIndex, frame: frame, referenceNode: referenceNode, newNode: newNode)
+                        case .Placeholder:
+                            break
                         }
                         i += 1
                     }
@@ -1924,10 +2039,10 @@ open class ListView: ASDisplayNode, UIScrollViewAccessibilityDelegate, UIGesture
                         }
                         
                         switch state.nodes[i] {
-                            case let .Node(_, frame, referenceNode):
-                                state.nodes[i] = .Node(index: updatedIndex, frame: frame, referenceNode: referenceNode)
-                            case .Placeholder:
-                                break
+                        case let .Node(_, frame, referenceNode, newNode):
+                            state.nodes[i] = .Node(index: updatedIndex, frame: frame, referenceNode: referenceNode, newNode: newNode)
+                        case .Placeholder:
+                            break
                         }
                     }
                 }
@@ -1982,7 +2097,7 @@ open class ListView: ASDisplayNode, UIScrollViewAccessibilityDelegate, UIGesture
                 
                 var updateIndices = updateAdjacentItemsIndices
                 if widthUpdated {
-                    for case let .Node(index, _, _) in updatedState.nodes {
+                    for case let .Node(index, _, _, _) in updatedState.nodes {
                         updateIndices.insert(index)
                     }
                 }
@@ -2090,7 +2205,7 @@ open class ListView: ASDisplayNode, UIScrollViewAccessibilityDelegate, UIGesture
             
             var i = 0
             for node in state.nodes {
-                if case let .Node(index, _, referenceNode) = node , index == nodeIndex {
+                if case let .Node(index, _, referenceNode, _) = node, index == nodeIndex {
                     if let referenceNode = referenceNode {
                         continueWithoutNode = false
                         var controlledTransition: ControlledTransition?
@@ -2817,7 +2932,7 @@ open class ListView: ASDisplayNode, UIScrollViewAccessibilityDelegate, UIGesture
                 if let index = itemNode.index, index == scrollToItem.index {
                     let insets = self.insets// updateSizeAndInsets?.insets ?? self.insets
                     
-                    let offset: CGFloat
+                    var offset: CGFloat
                     switch scrollToItem.position {
                         case let .bottom(additionalOffset):
                             offset = (self.visibleSize.height - insets.bottom) - itemNode.apparentFrame.maxY + itemNode.scrollPositioningInsets.bottom + additionalOffset
@@ -2829,10 +2944,15 @@ open class ListView: ASDisplayNode, UIScrollViewAccessibilityDelegate, UIGesture
                                 offset = insets.top + floor(((self.visibleSize.height - insets.bottom - insets.top) - itemNode.frame.size.height) / 2.0) - itemNode.apparentFrame.minY
                             } else {
                                 switch overflow {
-                                    case .top:
-                                        offset = insets.top - itemNode.apparentFrame.minY
-                                    case .bottom:
-                                        offset = (self.visibleSize.height - insets.bottom) - itemNode.apparentFrame.maxY
+                                case .top:
+                                    offset = insets.top - itemNode.apparentFrame.minY
+                                case .bottom:
+                                    offset = (self.visibleSize.height - insets.bottom) - itemNode.apparentFrame.maxY
+                                case let .custom(getOverflow):
+                                    let overflow = getOverflow(itemNode)
+                                    offset = (self.visibleSize.height - insets.bottom) - itemNode.apparentFrame.maxY + itemNode.insets.top
+                                    offset += overflow
+                                    offset -= floor((self.visibleSize.height - insets.bottom - insets.top) * 0.5)
                                 }
                             }
                         case .visible:
@@ -2891,7 +3011,9 @@ open class ListView: ASDisplayNode, UIScrollViewAccessibilityDelegate, UIGesture
                 }
             }
         } else if !additionalScrollDistance.isZero {
-            self.stopScrolling()
+            if !self.ignoreStopScrolling {
+                self.stopScrolling()
+            }
         }
         
         self.debugCheckMonotonity()
@@ -2909,7 +3031,7 @@ open class ListView: ASDisplayNode, UIScrollViewAccessibilityDelegate, UIGesture
                 
                 var offsetFix: CGFloat
                 let insetDeltaOffsetFix: CGFloat = 0.0
-                if self.isTracking || isExperimentalSnapToScrollToItem {
+                if (self.isTracking && !self.allowInsetFixWhileTracking) || isExperimentalSnapToScrollToItem {
                     offsetFix = 0.0
                 } else if self.snapToBottomInsetUntilFirstInteraction {
                     offsetFix = -updateSizeAndInsets.insets.bottom + self.insets.bottom
@@ -2922,6 +3044,11 @@ open class ListView: ASDisplayNode, UIScrollViewAccessibilityDelegate, UIGesture
                 }
                 
                 offsetFix += additionalScrollDistance
+                
+                /*if let topItemNode = self.itemNodes.first(where: { $0.index == 0 }) {
+                    let topEdge = self.scroller.contentOffset.y + updateSizeAndInsets.insets.top
+                    offsetFix = -(topEdge - topItemNode.apparentFrame.minY)
+                }*/
                 
                 self.insets = updateSizeAndInsets.insets
                 self.headerInsets = updateSizeAndInsets.headerInsets ?? self.insets
@@ -3076,10 +3203,17 @@ open class ListView: ASDisplayNode, UIScrollViewAccessibilityDelegate, UIGesture
             
             let wasIgnoringScrollingEvents = self.ignoreScrollingEvents
             self.ignoreScrollingEvents = true
-            self.scroller.frame = CGRect(origin: CGPoint(), size: self.visibleSize)
-            self.scroller.contentSize = CGSize(width: self.visibleSize.width, height: infiniteScrollSize * 2.0)
-            self.lastContentOffset = CGPoint(x: 0.0, y: infiniteScrollSize)
-            self.scroller.contentOffset = self.lastContentOffset
+            if self.scroller.bounds.size != self.visibleSize {
+                self.scroller.frame = CGRect(origin: CGPoint(), size: self.visibleSize)
+            }
+            //self.scroller.contentSize = CGSize(width: self.visibleSize.width, height: infiniteScrollSize * 2.0)
+            
+            //self.lastContentOffset = CGPoint(x: 0.0, y: infiniteScrollSize)
+            //self.scroller.contentOffset = self.lastContentOffset
+            
+            //self.lastContentOffset = self.scroller.contentOffset
+            //print("lastContentOffset8 = \(self.lastContentOffset.y)")
+            
             self.ignoreScrollingEvents = wasIgnoringScrollingEvents
         } else {
             let (snappedTopInset, snapToBoundsOffset) = self.snapToBounds(snapTopItem: scrollToItem != nil && scrollToItem?.directionHint != .Down, stackFromBottom: self.stackFromBottom, updateSizeAndInsets: updateSizeAndInsets, scrollToItem: scrollToItem, insetDeltaOffsetFix: 0.0)
@@ -3432,7 +3566,9 @@ open class ListView: ASDisplayNode, UIScrollViewAccessibilityDelegate, UIGesture
                 headerNodesTransition.0.animatePositionAdditive(node: topItemOverscrollBackground, offset: CGPoint(x: 0.0, y: -headerNodesTransition.2))
             }
             
-            self.updateVisibleContentOffset()
+            if !self.useMainQueueTransactions {
+                self.updateVisibleContentOffset()
+            }
             
             if self.debugInfo {
                 //let delta = CACurrentMediaTime() - timestamp
@@ -3440,6 +3576,10 @@ open class ListView: ASDisplayNode, UIScrollViewAccessibilityDelegate, UIGesture
             }
             
             completion()
+            
+            if self.useMainQueueTransactions {
+                self.updateVisibleContentOffset()
+            }
         }
     }
     
@@ -3539,7 +3679,7 @@ open class ListView: ASDisplayNode, UIScrollViewAccessibilityDelegate, UIGesture
         }
     }
     
-    private func updateItemHeaders(leftInset: CGFloat, rightInset: CGFloat, synchronousLoad: Bool, transition: (ContainedViewLayoutTransition, Bool, CGFloat) = (.immediate, false, 0.0), animateInsertion: Bool = false) {
+    private func updateItemHeaders(leftInset: CGFloat, rightInset: CGFloat, synchronousLoad: Bool, transition: (ContainedViewLayoutTransition, Bool, CGFloat) = (.immediate, false, 0.0), animateInsertion: Bool = false) {        
         self.assignHeaderSpaceAffinities()
 
         let upperDisplayBound = self.headerInsets.top
@@ -4254,7 +4394,7 @@ open class ListView: ASDisplayNode, UIScrollViewAccessibilityDelegate, UIGesture
             if abs(apparentHeightDelta) > CGFloat.ulpOfOne {
                 itemNode.updateFrame(itemNode.frame, within: self.visibleSize)
                 
-                let visualInsets = self.visualInsets ?? self.insets
+                let visualInsets = self.dynamicVisualInsets?() ?? self.visualInsets ?? self.insets
                 
                 if itemNode.apparentFrame.maxY <= visualInsets.top {
                     offsetRanges.offset(IndexRange(first: 0, last: index), offset: -apparentHeightDelta)
@@ -4401,7 +4541,15 @@ open class ListView: ASDisplayNode, UIScrollViewAccessibilityDelegate, UIGesture
                     if let index = strongSelf.itemIndexAtPoint(strongSelf.touchesPosition) {
                         var canBeSelectedOrLongTapped = false
                         for itemNode in strongSelf.itemNodes {
-                            if itemNode.index == index && (strongSelf.items[index].selectable && itemNode.canBeSelected) || itemNode.canBeLongTapped {
+                            var canBeSelected = itemNode.canBeSelected
+                            if canBeSelected {
+                                if !itemNode.isLayerBacked {
+                                    if !itemNode.visibleForSelection(at: strongSelf.view.convert(strongSelf.touchesPosition, to: itemNode.view)) {
+                                        canBeSelected = false
+                                    }
+                                }
+                            }
+                            if itemNode.index == index && (strongSelf.items[index].selectable && canBeSelected) || itemNode.canBeLongTapped {
                                 canBeSelectedOrLongTapped = true
                             }
                         }
@@ -4409,7 +4557,20 @@ open class ListView: ASDisplayNode, UIScrollViewAccessibilityDelegate, UIGesture
                         if canBeSelectedOrLongTapped {
                             strongSelf.highlightedItemIndex = index
                             for itemNode in strongSelf.itemNodes {
-                                if itemNode.index == index && itemNode.canBeSelected {
+                                let itemNodeFrame = itemNode.frame
+                                let itemNodeBounds = itemNode.bounds
+                                let itemPoint = strongSelf.touchesPosition.offsetBy(dx: -itemNodeFrame.minX + itemNodeBounds.minX, dy: -itemNodeFrame.minY + itemNodeBounds.minY)
+                                
+                                var canBeSelected = itemNode.canBeSelected
+                                if canBeSelected {
+                                    if !itemNode.isLayerBacked {
+                                        if !itemNode.visibleForSelection(at: itemPoint) {
+                                            canBeSelected = false
+                                        }
+                                    }
+                                }
+                                
+                                if itemNode.index == index && canBeSelected {
                                     if true {
                                         if !itemNode.isLayerBacked {
                                             strongSelf.reorderItemNodeToFront(itemNode)
@@ -4417,10 +4578,8 @@ open class ListView: ASDisplayNode, UIScrollViewAccessibilityDelegate, UIGesture
                                                 strongSelf.reorderHeaderNodeToFront(headerNode)
                                             }
                                         }
-                                        let itemNodeFrame = itemNode.frame
-                                        let itemNodeBounds = itemNode.bounds
                                         if strongSelf.items[index].selectable {
-                                            itemNode.setHighlighted(true, at: strongSelf.touchesPosition.offsetBy(dx: -itemNodeFrame.minX + itemNodeBounds.minX, dy: -itemNodeFrame.minY + itemNodeBounds.minY), animated: false)
+                                            itemNode.setHighlighted(true, at: itemPoint, animated: false)
                                         }
                                         
                                         if itemNode.canBeLongTapped {
@@ -4792,10 +4951,13 @@ open class ListView: ASDisplayNode, UIScrollViewAccessibilityDelegate, UIGesture
     public func scrollToOffsetFromTop(_ offset: CGFloat, animated: Bool) -> Bool {
         for itemNode in self.itemNodes {
             if itemNode.index == 0 {
-                if animated {
-                    self.scroller.setContentOffset(CGPoint(x: 0.0, y: offset), animated: animated)
-                } else {
-                    self.scroller.contentOffset = CGPoint(x: 0.0, y: offset)
+                if self.scroller.contentOffset.y != offset + self.tempTopInset {
+                    self.stopScrolling()
+                    if animated {
+                        self.scroller.setContentOffset(CGPoint(x: 0.0, y: offset + self.tempTopInset), animated: animated)
+                    } else {
+                        self.scroller.contentOffset = CGPoint(x: 0.0, y: offset + self.tempTopInset)
+                    }
                 }
                 return true
             }

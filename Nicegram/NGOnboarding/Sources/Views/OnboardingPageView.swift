@@ -1,6 +1,7 @@
-import UIKit
-import SnapKit
 import AVKit
+import NGCoreUI
+import SnapKit
+import UIKit
 
 struct OnboardingPageViewModel {
     let title: String
@@ -32,7 +33,7 @@ class OnboardingPageView: UIView {
         titleLabel.textAlignment = .center
         
         descriptionLabel.font = .systemFont(ofSize: 14, weight: .regular)
-        descriptionLabel.textColor = .ngSubtitle
+        descriptionLabel.textColor = .subtitle4
         descriptionLabel.numberOfLines = 0
         descriptionLabel.textAlignment = .center
         

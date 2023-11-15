@@ -1,7 +1,6 @@
 import Foundation
 import UIKit
 import AsyncDisplayKit
-import Postbox
 import TelegramCore
 import Display
 import TelegramPresentationData
@@ -11,6 +10,7 @@ import AccountContext
 import SwiftSignalKit
 import ChatPresentationInterfaceState
 import ChatControllerInteraction
+import ChatInputContextPanelNode
 
 private enum VerticalChatContextResultsEntryStableId: Hashable {
     case action
@@ -187,6 +187,11 @@ final class VerticalListContextResultsChatInputContextPanelNode: ChatInputContex
             entries.append(entry)
             resultIds.insert(entry.stableId)
         }
+        if let webView = results.webView {
+            let entry: VerticalListContextResultsChatInputContextPanelEntry = .action(self.theme, webView.text)
+            entries.append(entry)
+            resultIds.insert(entry.stableId)
+        }
         for result in results.results {
             let entry: VerticalListContextResultsChatInputContextPanelEntry = .result(index, self.theme, result)
             if resultIds.contains(entry.stableId) {
@@ -204,8 +209,17 @@ final class VerticalListContextResultsChatInputContextPanelNode: ChatInputContex
     private func prepareTransition(from: [VerticalListContextResultsChatInputContextPanelEntry]?, to: [VerticalListContextResultsChatInputContextPanelEntry], results: ChatContextResultCollection) {
         let firstTime = self.currentEntries == nil
         let transition = preparedTransition(from: from ?? [], to: to, account: self.context.account, actionSelected: { [weak self] in
-            if let strongSelf = self, let interfaceInteraction = strongSelf.interfaceInteraction, let switchPeer = results.switchPeer {
-                interfaceInteraction.botSwitchChatWithPayload(results.botId, switchPeer.startParam)
+            if let strongSelf = self, let interfaceInteraction = strongSelf.interfaceInteraction {
+                if let switchPeer = results.switchPeer {
+                    interfaceInteraction.botSwitchChatWithPayload(results.botId, switchPeer.startParam)
+                } else if let webView = results.webView {
+                    let _ = (strongSelf.context.engine.data.get(TelegramEngine.EngineData.Item.Peer.Peer(id: results.botId))
+                    |> deliverOnMainQueue).startStandalone(next: { bot in
+                        if let bot {
+                            interfaceInteraction.openWebView(webView.text, webView.url, true, .inline(bot: bot))
+                        }
+                    })
+                }
             }
         }, resultSelected: { [weak self] result, node, rect in
             if let strongSelf = self, let interfaceInteraction = strongSelf.interfaceInteraction {
@@ -241,7 +255,7 @@ final class VerticalListContextResultsChatInputContextPanelNode: ChatInputContex
             }
             
             var insets = UIEdgeInsets()
-            insets.top = topInsetForLayout(size: validLayout.0, hasSwitchPeer: self.currentExternalResults?.switchPeer != nil)
+            insets.top = topInsetForLayout(size: validLayout.0, hasSwitchPeer: self.currentExternalResults?.switchPeer != nil || self.currentExternalResults?.webView != nil)
             insets.left = validLayout.1
             insets.right = validLayout.2
             
@@ -284,7 +298,7 @@ final class VerticalListContextResultsChatInputContextPanelNode: ChatInputContex
         self.validLayout = (size, leftInset, rightInset, bottomInset)
         
         var insets = UIEdgeInsets()
-        insets.top = self.topInsetForLayout(size: size, hasSwitchPeer: self.currentExternalResults?.switchPeer != nil)
+        insets.top = self.topInsetForLayout(size: size, hasSwitchPeer: self.currentExternalResults?.switchPeer != nil || self.currentExternalResults?.webView != nil)
         insets.left = leftInset
         insets.right = rightInset
         
@@ -345,7 +359,7 @@ final class VerticalListContextResultsChatInputContextPanelNode: ChatInputContex
         |> map { results -> ChatContextResultCollection? in
             return results?.results
         }
-        |> deliverOnMainQueue).start(next: { [weak self] nextResults in
+        |> deliverOnMainQueue).startStrict(next: { [weak self] nextResults in
             guard let strongSelf = self, let nextResults = nextResults else {
                 return
             }
@@ -362,7 +376,7 @@ final class VerticalListContextResultsChatInputContextPanelNode: ChatInputContex
                     existingIds.insert(result.id)
                 }
             }
-            let mergedResults = ChatContextResultCollection(botId: currentProcessedResults.botId, peerId: currentProcessedResults.peerId, query: currentProcessedResults.query, geoPoint: currentProcessedResults.geoPoint, queryId: nextResults.queryId, nextOffset: nextResults.nextOffset, presentation: currentProcessedResults.presentation, switchPeer: currentProcessedResults.switchPeer, results: results, cacheTimeout: currentProcessedResults.cacheTimeout)
+            let mergedResults = ChatContextResultCollection(botId: currentProcessedResults.botId, peerId: currentProcessedResults.peerId, query: currentProcessedResults.query, geoPoint: currentProcessedResults.geoPoint, queryId: nextResults.queryId, nextOffset: nextResults.nextOffset, presentation: currentProcessedResults.presentation, switchPeer: currentProcessedResults.switchPeer, webView: currentProcessedResults.webView, results: results, cacheTimeout: currentProcessedResults.cacheTimeout)
             strongSelf.currentProcessedResults = mergedResults
             strongSelf.updateInternalResults(mergedResults)
         }))

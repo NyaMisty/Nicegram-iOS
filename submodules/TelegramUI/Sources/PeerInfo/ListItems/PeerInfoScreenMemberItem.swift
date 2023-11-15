@@ -19,23 +19,25 @@ enum PeerInfoScreenMemberItemAction {
 
 final class PeerInfoScreenMemberItem: PeerInfoScreenItem {
     let id: AnyHashable
-    let context: AccountContext
+    let context: ItemListPeerItem.Context
     let enclosingPeer: Peer?
     let member: PeerInfoMember
     let badge: String?
     let isAccount: Bool
     let action: ((PeerInfoScreenMemberItemAction) -> Void)?
     let contextAction: ((ASDisplayNode, ContextGesture?) -> Void)?
+    let openStories: ((UIView) -> Void)?
     
     init(
         id: AnyHashable,
-        context: AccountContext,
+        context: ItemListPeerItem.Context,
         enclosingPeer: Peer?,
         member: PeerInfoMember,
         badge: String? = nil,
         isAccount: Bool,
         action: ((PeerInfoScreenMemberItemAction) -> Void)?,
-        contextAction: ((ASDisplayNode, ContextGesture?) -> Void)? = nil
+        contextAction: ((ASDisplayNode, ContextGesture?) -> Void)? = nil,
+        openStories: ((UIView) -> Void)? = nil
     ) {
         self.id = id
         self.context = context
@@ -45,6 +47,7 @@ final class PeerInfoScreenMemberItem: PeerInfoScreenItem {
         self.isAccount = isAccount
         self.action = action
         self.contextAction = contextAction
+        self.openStories = openStories
     }
     
     func node() -> PeerInfoScreenItemNode {
@@ -146,7 +149,7 @@ private final class PeerInfoScreenMemberItemNode: PeerInfoScreenItemNode {
             }
         }
         
-        let actions = availableActionsForMemberOfPeer(accountPeerId: item.context.account.peerId, peer: item.enclosingPeer, member: item.member)
+        let actions = availableActionsForMemberOfPeer(accountPeerId: item.context.accountPeerId, peer: item.enclosingPeer, member: item.member)
         
         var options: [ItemListPeerItemRevealOption] = []
         if actions.contains(.promote) && item.enclosingPeer is TelegramChannel {
@@ -195,7 +198,12 @@ private final class PeerInfoScreenMemberItemNode: PeerInfoScreenItemNode {
             
         }, removePeer: { _ in
             
-        }, contextAction: item.contextAction, hasTopStripe: false, hasTopGroupInset: false, noInsets: true, noCorners: true, displayDecorations: false)
+        }, contextAction: item.contextAction, hasTopStripe: false, hasTopGroupInset: false, noInsets: true, noCorners: true, displayDecorations: false, storyStats: item.member.storyStats, openStories: { [weak self] sourceView in
+            guard let self, let item = self.item else {
+                return
+            }
+            item.openStories?(sourceView)
+        })
         
         let params = ListViewItemLayoutParams(width: width, leftInset: safeInsets.left, rightInset: safeInsets.right, availableHeight: 1000.0)
         
@@ -264,7 +272,10 @@ private final class PeerInfoScreenMemberItemNode: PeerInfoScreenItemNode {
         }
         var highlight = point != nil
         if case .account = item.member {
-        } else if item.context.account.peerId == item.member.id {
+        } else if item.context.accountPeerId == item.member.id {
+            highlight = false
+        }
+        if let point, let itemNode = self.itemNode, let value = itemNode.view.hitTest(self.view.convert(point, to: itemNode.view), with: nil), value is UIControl {
             highlight = false
         }
         if highlight {

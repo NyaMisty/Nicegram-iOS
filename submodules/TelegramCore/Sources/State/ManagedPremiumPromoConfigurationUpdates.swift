@@ -5,10 +5,10 @@ import TelegramApi
 import MtProtoKit
 
 public func updatePremiumPromoConfigurationOnce(account: Account) -> Signal<Void, NoError> {
-    return updatePremiumPromoConfigurationOnce(postbox: account.postbox, network: account.network)
+    return updatePremiumPromoConfigurationOnce(accountPeerId: account.peerId, postbox: account.postbox, network: account.network)
 }
 
-func updatePremiumPromoConfigurationOnce(postbox: Postbox, network: Network) -> Signal<Void, NoError> {
+func updatePremiumPromoConfigurationOnce(accountPeerId: PeerId, postbox: Postbox, network: Network) -> Signal<Void, NoError> {
     return network.request(Api.functions.help.getPremiumPromo())
     |> map(Optional.init)
     |> `catch` { _ -> Signal<Api.help.PremiumPromo?, NoError> in
@@ -20,14 +20,8 @@ func updatePremiumPromoConfigurationOnce(postbox: Postbox, network: Network) -> 
         }
         return postbox.transaction { transaction -> Void in
             if case let .premiumPromo(_, _, _, _, _, apiUsers) = result {
-                let users = apiUsers.map { TelegramUser(user: $0) }
-                updatePeers(transaction: transaction, peers: users, update: { current, updated -> Peer in
-                    if let updated = updated as? TelegramUser {
-                        return TelegramUser.merge(lhs: current as? TelegramUser, rhs: updated)
-                    } else {
-                        return updated
-                    }
-                })
+                let parsedPeers = AccumulatedPeers(transaction: transaction, chats: [], users: apiUsers)
+                updatePeers(transaction: transaction, accountPeerId: accountPeerId, peers: parsedPeers)
             }
             
             updatePremiumPromoConfiguration(transaction: transaction, { configuration -> PremiumPromoConfiguration in
@@ -37,9 +31,9 @@ func updatePremiumPromoConfigurationOnce(postbox: Postbox, network: Network) -> 
     }
 }
 
-func managedPremiumPromoConfigurationUpdates(postbox: Postbox, network: Network) -> Signal<Void, NoError> {
+func managedPremiumPromoConfigurationUpdates(accountPeerId: PeerId, postbox: Postbox, network: Network) -> Signal<Void, NoError> {
     let poll = Signal<Void, NoError> { subscriber in
-        return updatePremiumPromoConfigurationOnce(postbox: postbox, network: network).start(completed: {
+        return updatePremiumPromoConfigurationOnce(accountPeerId: accountPeerId, postbox: postbox, network: network).start(completed: {
             subscriber.putCompletion()
         })
     }
@@ -79,8 +73,8 @@ private extension PremiumPromoConfiguration {
             
                 var productOptions: [PremiumProductOption] = []
                 for option in options {
-                    if case let .premiumSubscriptionOption(_, months, currency, amount, botUrl, storeProduct) = option {
-                        productOptions.append(PremiumProductOption(months: months, currency: currency, amount: amount, botUrl: botUrl, storeProductId: storeProduct))
+                    if case let .premiumSubscriptionOption(flags, transaction, months, currency, amount, botUrl, storeProduct) = option {
+                        productOptions.append(PremiumProductOption(isCurrent: (flags & (1 << 1)) != 0, months: months, currency: currency, amount: amount, botUrl: botUrl, transactionId: transaction, availableForUpgrade: (flags & (1 << 2)) != 0, storeProductId: storeProduct))
                     }
                 }
                 self.premiumProductOptions = productOptions

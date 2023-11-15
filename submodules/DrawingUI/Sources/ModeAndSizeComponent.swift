@@ -4,7 +4,6 @@ import Display
 import ComponentFlow
 import LegacyComponents
 import TelegramCore
-import Postbox
 import SegmentedControlNode
 
 private func generateMaskPath(size: CGSize, leftRadius: CGFloat, rightRadius: CGFloat) -> UIBezierPath {
@@ -29,7 +28,7 @@ private func generateKnobImage() -> UIImage? {
     return image?.stretchableImage(withLeftCapWidth: Int(margin + side * 0.5), topCapHeight: Int(margin + side * 0.5))
 }
 
-class ModeAndSizeComponent: Component {
+final class ModeAndSizeComponent: Component {
     let values: [String]
     let sizeValue: CGFloat
     let isEditing: Bool

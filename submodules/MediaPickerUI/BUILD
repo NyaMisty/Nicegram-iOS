@@ -1,5 +1,9 @@
 load("@build_bazel_rules_swift//swift:swift.bzl", "swift_library")
 
+NGDEPS = [
+    "@swiftpkg_nicegram_assistant_ios//:Sources_FeatPartners",
+]
+
 swift_library(
     name = "MediaPickerUI",
     module_name = "MediaPickerUI",
@@ -9,7 +13,7 @@ swift_library(
     copts = [
         "-warnings-as-errors",
     ],
-    deps = [
+    deps = NGDEPS + [
         "//submodules/SSignalKit/SwiftSignalKit:SwiftSignalKit",
         "//submodules/AsyncDisplayKit:AsyncDisplayKit",
         "//submodules/Display:Display",
@@ -41,7 +45,10 @@ swift_library(
         "//submodules/SparseItemGrid:SparseItemGrid",
         "//submodules/UndoUI:UndoUI",
         "//submodules/MoreButtonNode:MoreButtonNode",
-        "//submodules/InvisibleInkDustNode:InvisibleInkDustNode", 
+        "//submodules/InvisibleInkDustNode:InvisibleInkDustNode",
+        "//submodules/TelegramUI/Components/CameraScreen",
+        "//submodules/TelegramUI/Components/MediaEditor",
+        "//submodules/RadialStatusNode",
     ],
     visibility = [
         "//visibility:public",

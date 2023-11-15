@@ -46,7 +46,7 @@ public final class ManagedAnimationState {
             } else if let unpackedData = TGGUnzipData(data, 5 * 1024 * 1024) {
                 data = unpackedData
             }
-            guard let instance = LottieInstance(data: data, fitzModifier: .none, colorReplacements: item.replaceColors, cacheKey: item.source.cacheKey) else {
+            guard let instance = LottieInstance(data: data, fitzModifier: .none, colorReplacements: item.replaceColors, cacheKey: "") else {
                 return nil
             }
             resolvedInstance = instance
@@ -145,7 +145,7 @@ open class ManagedAnimationNode: ASDisplayNode {
     public let intrinsicSize: CGSize
     
     private let imageNode: ASImageNode
-    private let displayLink: CADisplayLink
+    private let displayLink: SharedDisplayLinkDriver.Link
     
     public var imageUpdated: ((UIImage) -> Void)?
     public var image: UIImage? {
@@ -155,6 +155,9 @@ open class ManagedAnimationNode: ASDisplayNode {
     public var state: ManagedAnimationState?
     public var trackStack: [ManagedAnimationItem] = []
     public var didTryAdvancingState = false
+    
+    private var previousTimestamp: Double?
+    private var delta: Double?
     
     public var customColor: UIColor? {
         didSet {
@@ -179,26 +182,33 @@ open class ManagedAnimationNode: ASDisplayNode {
         self.imageNode.frame = CGRect(origin: CGPoint(), size: self.intrinsicSize)
         
         var displayLinkUpdate: (() -> Void)?
-        self.displayLink = CADisplayLink(target: DisplayLinkTarget {
+        self.displayLink = SharedDisplayLinkDriver.shared.add {
             displayLinkUpdate?()
-        }, selector: #selector(DisplayLinkTarget.event))
-        if #available(iOS 10.0, *) {
-            self.displayLink.preferredFramesPerSecond = 60
         }
         
         super.init()
         
         self.addSubnode(self.imageNode)
         
-        self.displayLink.add(to: RunLoop.main, forMode: .common)
-        
         displayLinkUpdate = { [weak self] in
-            self?.updateAnimation()
+            if let strongSelf = self {
+                let currentTimestamp = CACurrentMediaTime()
+                let delta: Double
+                if let previousTimestamp = strongSelf.previousTimestamp {
+                    delta = currentTimestamp - previousTimestamp
+                } else {
+                    delta = 1.0 / 60.0
+                }
+                strongSelf.delta = delta
+                strongSelf.updateAnimation()
+                strongSelf.previousTimestamp = currentTimestamp
+            }
         }
     }
     
     open func advanceState() {
         guard !self.trackStack.isEmpty else {
+            self.displayLink.isPaused = true
             return
         }
         
@@ -211,6 +221,8 @@ open class ManagedAnimationNode: ASDisplayNode {
         }
         
         self.didTryAdvancingState = false
+        self.previousTimestamp = CACurrentMediaTime()
+        self.displayLink.isPaused = false
     }
     
     public func updateAnimation() {
@@ -219,6 +231,7 @@ open class ManagedAnimationNode: ASDisplayNode {
         }
         
         guard let state = self.state else {
+            self.displayLink.isPaused = true
             return
         }
         
@@ -280,9 +293,8 @@ open class ManagedAnimationNode: ASDisplayNode {
             }
         }
         
-        var animationAdvancement: Double = 1.0 / 60.0
+        var animationAdvancement: Double = self.delta ?? 1.0 / 60.0
         animationAdvancement *= Double(min(2, self.trackStack.count + 1))
-        
         state.relativeTime += animationAdvancement
         
         if state.relativeTime >= duration && !self.didTryAdvancingState {
@@ -315,6 +327,7 @@ open class ManagedAnimationNode: ASDisplayNode {
 
 public final class SimpleAnimationNode: ManagedAnimationNode {
     private let stillItem: ManagedAnimationItem
+    private let stillEndItem: ManagedAnimationItem
     private let animationItem: ManagedAnimationItem
     
     public let size: CGSize
@@ -325,6 +338,7 @@ public final class SimpleAnimationNode: ManagedAnimationNode {
         self.size = size
         self.playOnce = playOnce
         self.stillItem = ManagedAnimationItem(source: .local(animationName), replaceColors: replaceColors, frames: .range(startFrame: 0, endFrame: 0), duration: 0.01)
+        self.stillEndItem = ManagedAnimationItem(source: .local(animationName), replaceColors: replaceColors, frames: .still(.end), duration: 0.01)
         self.animationItem = ManagedAnimationItem(source: .local(animationName), replaceColors: replaceColors)
 
         super.init(size: size)
@@ -342,5 +356,10 @@ public final class SimpleAnimationNode: ManagedAnimationNode {
     public func reset() {
         self.didPlay = false
         self.trackTo(item: self.stillItem)
+    }
+    
+    public func seekToEnd() {
+        self.didPlay = false
+        self.trackTo(item: self.stillEndItem)
     }
 }

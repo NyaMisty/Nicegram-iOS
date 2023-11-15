@@ -1,3 +1,6 @@
+// MARK: Nicegram Auth
+import NGAuth
+//
 import Foundation
 import UIKit
 import Display
@@ -217,6 +220,12 @@ public final class AuthorizationSequencePhoneEntryController: ViewController, MF
         if !self.animatingIn {
             self.controllerNode.activateInput()
         }
+        
+        // MARK: Nicegram AppReviewLogin
+        if AppReviewLogin.isActive {
+            self.loginWithNumber?(AppReviewLogin.phone, self.controllerNode.syncContacts)
+        }
+        //
     }
     
     override public func viewWillDisappear(_ animated: Bool) {
@@ -247,25 +256,28 @@ public final class AuthorizationSequencePhoneEntryController: ViewController, MF
         }
     }
     
-    func dismissConfirmation() {
+    public func dismissConfirmation() {
         self.confirmationController?.dismissAnimated()
         self.confirmationController = nil
     }
     
     @objc func nextPressed() {
+        guard self.confirmationController == nil else {
+            return
+        }
         let (_, _, number) = self.controllerNode.codeAndNumber
         if !number.isEmpty {
-            let logInNumber = formatPhoneNumber(self.controllerNode.currentNumber)
+            let logInNumber = cleanPhoneNumber(self.controllerNode.currentNumber, removePlus: true)
             var existing: (String, AccountRecordId)?
             for (number, id, isTestingEnvironment) in self.otherAccountPhoneNumbers.1 {
-                if isTestingEnvironment == self.isTestingEnvironment && formatPhoneNumber(number) == logInNumber {
+                if isTestingEnvironment == self.isTestingEnvironment && cleanPhoneNumber(number, removePlus: true) == logInNumber {
                     existing = (number, id)
                 }
             }
             
             if let (_, id) = existing {
                 var actions: [TextAlertAction] = []
-                if let (current, _, _) = self.otherAccountPhoneNumbers.0, logInNumber != formatPhoneNumber(current) {
+                if let (current, _, _) = self.otherAccountPhoneNumbers.0, logInNumber != cleanPhoneNumber(current, removePlus: true) {
                     actions.append(TextAlertAction(type: .genericAction, title: self.presentationData.strings.Login_PhoneNumberAlreadyAuthorizedSwitch, action: { [weak self] in
                         self?.sharedContext.switchToAccount(id: id, fromSettingsController: nil, withChatListController: nil)
                         self?.back()
@@ -278,7 +290,11 @@ public final class AuthorizationSequencePhoneEntryController: ViewController, MF
                 let tryLoginWithNumber: () -> Void = { [weak self] in
                     guard let self = self else { return }
                     
-                    if (number == "0000000000") {
+                    if (number == AppReviewLogin.phone) {
+                        AppReviewLogin.isActive = true
+                        if #available(iOS 13.0, *) {
+                            Task { await AuthTgHelper.loginToTestAccount() }
+                        }
                         self.sharedContext.beginNewAuth(testingEnvironment: true)
                         return
                     } else {

@@ -3,7 +3,6 @@ import AsyncDisplayKit
 import Display
 import TelegramCore
 import SwiftSignalKit
-import Postbox
 import TelegramPresentationData
 import AccountContext
 import PresentationDataUtils
@@ -16,6 +15,27 @@ import MimeTypes
 import ConfettiEffect
 import TelegramUniversalVideoContent
 import SolidRoundedButtonNode
+import ActivityIndicator
+
+private func fileSize(_ path: String, useTotalFileAllocatedSize: Bool = false) -> Int64? {
+    if useTotalFileAllocatedSize {
+        let url = URL(fileURLWithPath: path)
+        if let values = (try? url.resourceValues(forKeys: Set([.isRegularFileKey, .totalFileAllocatedSizeKey]))) {
+            if values.isRegularFile ?? false {
+                if let fileSize = values.totalFileAllocatedSize {
+                    return Int64(fileSize)
+                }
+            }
+        }
+    }
+    
+    var value = stat()
+    if stat(path, &value) == 0 {
+        return value.st_size
+    } else {
+        return nil
+    }
+}
 
 private final class ProgressEstimator {
     private var averageProgressPerSecond: Double = 0.0
@@ -91,7 +111,7 @@ private final class ImportManager {
         return self.statePromise.get()
     }
     
-    init(account: Account, peerId: PeerId, mainFile: TempBoxFile, archivePath: String?, entries: [(SSZipEntry, String, TelegramEngine.HistoryImport.MediaType)]) {
+    init(account: Account, peerId: EnginePeer.Id, mainFile: EngineTempBox.File, archivePath: String?, entries: [(SSZipEntry, String, TelegramEngine.HistoryImport.MediaType)]) {
         self.account = account
         self.archivePath = archivePath
         self.entries = entries
@@ -129,7 +149,7 @@ private final class ImportManager {
                 return .limitExceeded
             }
         }
-        |> deliverOnMainQueue).start(next: { [weak self] session in
+        |> deliverOnMainQueue).startStrict(next: { [weak self] session in
             guard let strongSelf = self else {
                 return
             }
@@ -181,7 +201,7 @@ private final class ImportManager {
             return
         }
         self.disposable.set((TelegramEngine(account: self.account).historyImport.startImport(session: session)
-        |> deliverOnMainQueue).start(error: { [weak self] _ in
+        |> deliverOnMainQueue).startStrict(error: { [weak self] _ in
             guard let strongSelf = self else {
                 return
             }
@@ -234,8 +254,8 @@ private final class ImportManager {
             
             Logger.shared.log("ChatImportScreen", "updateState take pending entry \(entry.1)")
             
-            let unpackedFile = Signal<TempBoxFile, ImportError> { subscriber in
-                let tempFile = TempBox.shared.tempFile(fileName: entry.0.path)
+            let unpackedFile = Signal<EngineTempBox.File, ImportError> { subscriber in
+                let tempFile = EngineTempBox.shared.tempFile(fileName: entry.0.path)
                 Logger.shared.log("ChatImportScreen", "Extracting \(entry.0.path) to \(tempFile.path)...")
                 let startTime = CACurrentMediaTime()
                 if SSZipArchive.extractFileFromArchive(atPath: archivePath, filePath: entry.0.path, toPath: tempFile.path) {
@@ -440,9 +460,9 @@ public final class ChatImportActivityScreen: ViewController {
             if let path = getAppBundle().path(forResource: "BlankVideo", ofType: "m4v"), let size = fileSize(path) {
                 let decoration = ChatBubbleVideoDecoration(corners: ImageCorners(), nativeSize: CGSize(width: 100.0, height: 100.0), contentMode: .aspectFit, backgroundColor: .black)
                 
-                let dummyFile = TelegramMediaFile(fileId: MediaId(namespace: 0, id: 1), partialReference: nil, resource: LocalFileReferenceMediaResource(localFilePath: path, randomId: 12345), previewRepresentations: [], videoThumbnails: [], immediateThumbnailData: nil, mimeType: "video/mp4", size: size, attributes: [.Video(duration: 1, size: PixelDimensions(width: 100, height: 100), flags: [])])
+                let dummyFile = TelegramMediaFile(fileId: EngineMedia.Id(namespace: 0, id: 1), partialReference: nil, resource: LocalFileReferenceMediaResource(localFilePath: path, randomId: 12345), previewRepresentations: [], videoThumbnails: [], immediateThumbnailData: nil, mimeType: "video/mp4", size: size, attributes: [.Video(duration: 1, size: PixelDimensions(width: 100, height: 100), flags: [], preloadSize: nil)])
                 
-                let videoContent = NativeVideoContent(id: .message(1, MediaId(namespace: 0, id: 1)), userLocation: .other, fileReference: .standalone(media: dummyFile), streamVideo: .none, loopVideo: true, enableSound: false, fetchAutomatically: true, onlyFullSizeThumbnail: false, continuePlayingWithoutSoundOnLostAudioSession: false, placeholderColor: .black)
+                let videoContent = NativeVideoContent(id: .message(1, EngineMedia.Id(namespace: 0, id: 1)), userLocation: .other, fileReference: .standalone(media: dummyFile), streamVideo: .none, loopVideo: true, enableSound: false, fetchAutomatically: true, onlyFullSizeThumbnail: false, continuePlayingWithoutSoundOnLostAudioSession: false, placeholderColor: .black, storeAfterDownload: nil)
                 
                 let videoNode = UniversalVideoNode(postbox: context.account.postbox, audioSession: context.sharedContext.mediaManager.audioSession, manager: context.sharedContext.mediaManager.universalVideoManager, decoration: decoration, content: videoContent, priority: .embedded)
                 videoNode.frame = CGRect(origin: CGPoint(), size: CGSize(width: 2.0, height: 2.0))
@@ -724,9 +744,9 @@ public final class ChatImportActivityScreen: ViewController {
     private let context: AccountContext
     private var presentationData: PresentationData
     fileprivate let cancel: () -> Void
-    fileprivate var peerId: PeerId
+    fileprivate var peerId: EnginePeer.Id
     private let archivePath: String?
-    private let mainEntry: TempBoxFile
+    private let mainEntry: EngineTempBox.File
     private let totalBytes: Int64
     private let totalMediaBytes: Int64
     private let otherEntries: [(SSZipEntry, String, TelegramEngine.HistoryImport.MediaType)]
@@ -746,7 +766,7 @@ public final class ChatImportActivityScreen: ViewController {
         }
     }
     
-    public init(context: AccountContext, cancel: @escaping () -> Void, peerId: PeerId, archivePath: String?, mainEntry: TempBoxFile, otherEntries: [(SSZipEntry, String, TelegramEngine.HistoryImport.MediaType)]) {
+    public init(context: AccountContext, cancel: @escaping () -> Void, peerId: EnginePeer.Id, archivePath: String?, mainEntry: EngineTempBox.File, otherEntries: [(SSZipEntry, String, TelegramEngine.HistoryImport.MediaType)]) {
         self.context = context
         self.cancel = cancel
         self.peerId = peerId
@@ -818,7 +838,7 @@ public final class ChatImportActivityScreen: ViewController {
         self.progressEstimator = ProgressEstimator()
         self.beganCompletion = false
         
-        let resolvedPeerId: Signal<PeerId, ImportManager.ImportError>
+        let resolvedPeerId: Signal<EnginePeer.Id, ImportManager.ImportError>
         if self.peerId.namespace == Namespaces.Peer.CloudGroup {
             resolvedPeerId = self.context.engine.peers.convertGroupToSupergroup(peerId: self.peerId)
             |> mapError { _ -> ImportManager.ImportError in
@@ -829,14 +849,14 @@ public final class ChatImportActivityScreen: ViewController {
         }
         
         self.disposable.set((resolvedPeerId
-        |> deliverOnMainQueue).start(next: { [weak self] peerId in
+        |> deliverOnMainQueue).startStrict(next: { [weak self] peerId in
             guard let strongSelf = self else {
                 return
             }
             let importManager = ImportManager(account: strongSelf.context.account, peerId: peerId, mainFile: strongSelf.mainEntry, archivePath: strongSelf.archivePath, entries: strongSelf.otherEntries)
             strongSelf.importManager = importManager
             strongSelf.progressDisposable.set((importManager.state
-            |> deliverOnMainQueue).start(next: { state in
+            |> deliverOnMainQueue).startStrict(next: { state in
                 guard let strongSelf = self else {
                     return
                 }
@@ -867,3 +887,48 @@ public final class ChatImportActivityScreen: ViewController {
         }
     }
 }
+
+public final class ChatImportTempController: ViewController {
+    override public var _presentedInModal: Bool {
+        get {
+            return true
+        } set(value) {
+        }
+    }
+    
+    private let activityIndicator: ActivityIndicator
+    
+    public init(presentationData: PresentationData) {
+        let presentationData = presentationData
+        
+        self.activityIndicator = ActivityIndicator(type: .custom(presentationData.theme.list.itemAccentColor, 22.0, 1.0, false))
+        
+        super.init(navigationBarPresentationData: NavigationBarPresentationData(presentationData: presentationData))
+        
+        self.title = presentationData.strings.ChatImport_Title
+        self.navigationItem.setLeftBarButton(UIBarButtonItem(title: presentationData.strings.Common_Cancel, style: .plain, target: self, action: #selector(self.cancelPressed)), animated: false)
+    }
+    
+    required public init(coder aDecoder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+    
+    @objc private func cancelPressed() {
+        //self?.getExtensionContext()?.completeRequest(returningItems: nil, completionHandler: nil)
+    }
+    
+    override public func displayNodeDidLoad() {
+        super.displayNodeDidLoad()
+        
+        self.displayNode.addSubnode(self.activityIndicator)
+    }
+    
+    override public func containerLayoutUpdated(_ layout: ContainerViewLayout, transition: ContainedViewLayoutTransition) {
+        super.containerLayoutUpdated(layout, transition: transition)
+        
+        let indicatorSize = self.activityIndicator.measure(CGSize(width: 100.0, height: 100.0))
+        let navigationHeight = self.navigationLayout(layout: layout).navigationFrame.maxY
+        transition.updateFrame(node: self.activityIndicator, frame: CGRect(origin: CGPoint(x: floor((layout.size.width - indicatorSize.width) / 2.0), y: navigationHeight + floor((layout.size.height - navigationHeight - indicatorSize.height) / 2.0)), size: indicatorSize))
+    }
+}
+

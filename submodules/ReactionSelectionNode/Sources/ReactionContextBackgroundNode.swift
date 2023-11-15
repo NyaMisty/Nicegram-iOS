@@ -114,11 +114,14 @@ final class ReactionContextBackgroundNode: ASDisplayNode {
 
     func update(
         theme: PresentationTheme,
+        forceDark: Bool,
         size: CGSize,
         cloudSourcePoint: CGFloat,
         isLeftAligned: Bool,
         isMinimized: Bool,
         isCoveredByInput: Bool,
+        displayTail: Bool,
+        forceTailToRight: Bool,
         transition: ContainedViewLayoutTransition
     ) {
         let shadowInset: CGFloat = 15.0
@@ -126,7 +129,7 @@ final class ReactionContextBackgroundNode: ASDisplayNode {
         if self.theme !== theme {
             self.theme = theme
             
-            if theme.overallDarkAppearance {
+            if theme.overallDarkAppearance && !forceDark {
                 if let vibrancyEffectView = self.vibrancyEffectView {
                     self.vibrancyEffectView = nil
                     vibrancyEffectView.removeFromSuperview()
@@ -134,7 +137,11 @@ final class ReactionContextBackgroundNode: ASDisplayNode {
             } else {
                 if self.vibrancyEffectView == nil {
                     let style: UIBlurEffect.Style
-                    style = .extraLight
+                    if forceDark {
+                        style = .dark
+                    } else {
+                        style = .extraLight
+                    }
                     let blurEffect = UIBlurEffect(style: style)
                     let vibrancyEffect = UIVibrancyEffect(blurEffect: blurEffect)
                     let vibrancyEffectView = UIVisualEffectView(effect: vibrancyEffect)
@@ -144,6 +151,7 @@ final class ReactionContextBackgroundNode: ASDisplayNode {
             }
             
             self.backgroundView.updateColor(color: theme.contextMenu.backgroundColor, transition: .immediate)
+            //self.backgroundView.updateColor(color: UIColor(white: 1.0, alpha: 0.0), forceKeepBlur: true, transition: .immediate)
             
             let shadowColor = UIColor(white: 0.0, alpha: 0.4)
             
@@ -166,11 +174,14 @@ final class ReactionContextBackgroundNode: ASDisplayNode {
             backgroundMaskNodeFrame = backgroundMaskNodeFrame.offsetBy(dx: 0.0, dy: (updatedHeight - backgroundMaskNodeFrame.height) * 0.5)
         }
         
-        transition.updateCornerRadius(layer: self.backgroundClippingLayer, cornerRadius: 46.0 / 2.0)
+        transition.updateCornerRadius(layer: self.backgroundClippingLayer, cornerRadius: min(46.0 / 2.0, backgroundFrame.height / 2.0))
         
         let largeCircleFrame: CGRect
         let smallCircleFrame: CGRect
-        if isLeftAligned {
+        if forceTailToRight {
+            largeCircleFrame = CGRect(origin: CGPoint(x: cloudSourcePoint - floor(largeCircleSize / 2.0), y: size.height - largeCircleSize / 2.0), size: CGSize(width: largeCircleSize, height: largeCircleSize))
+            smallCircleFrame = CGRect(origin: CGPoint(x: largeCircleFrame.maxX - 3.0, y: largeCircleFrame.maxY + 2.0), size: CGSize(width: smallCircleSize, height: smallCircleSize))
+        } else if isLeftAligned {
             largeCircleFrame = CGRect(origin: CGPoint(x: cloudSourcePoint - floor(largeCircleSize / 2.0), y: size.height - largeCircleSize / 2.0), size: CGSize(width: largeCircleSize, height: largeCircleSize))
             smallCircleFrame = CGRect(origin: CGPoint(x: largeCircleFrame.maxX - 3.0, y: largeCircleFrame.maxY + 2.0), size: CGSize(width: smallCircleSize, height: smallCircleSize))
         } else {
@@ -188,10 +199,10 @@ final class ReactionContextBackgroundNode: ASDisplayNode {
         transition.updateFrame(layer: self.backgroundShadowLayer, frame: backgroundFrame.insetBy(dx: -shadowInset, dy: -shadowInset), beginWithCurrentState: true)
         transition.updateFrame(layer: self.largeCircleShadowLayer, frame: largeCircleFrame.insetBy(dx: -shadowInset, dy: -shadowInset), beginWithCurrentState: true)
         
-        transition.updateAlpha(layer: self.largeCircleLayer, alpha: isCoveredByInput ? 0.0 : 1.0)
-        transition.updateAlpha(layer: self.largeCircleShadowLayer, alpha: isCoveredByInput ? 0.0 : 1.0)
-        transition.updateAlpha(layer: self.smallCircleLayer, alpha: isCoveredByInput ? 0.0 : 1.0)
-        transition.updateAlpha(layer: self.smallCircleShadowLayer, alpha: isCoveredByInput ? 0.0 : 1.0)
+        transition.updateAlpha(layer: self.largeCircleLayer, alpha: (isCoveredByInput || !displayTail) ? 0.0 : 1.0)
+        transition.updateAlpha(layer: self.largeCircleShadowLayer, alpha: (isCoveredByInput || !displayTail) ? 0.0 : 1.0)
+        transition.updateAlpha(layer: self.smallCircleLayer, alpha: (isCoveredByInput || !displayTail) ? 0.0 : 1.0)
+        transition.updateAlpha(layer: self.smallCircleShadowLayer, alpha: (isCoveredByInput || !displayTail) ? 0.0 : 1.0)
         
         transition.updateFrame(layer: self.smallCircleShadowLayer, frame: smallCircleFrame.insetBy(dx: -shadowInset, dy: -shadowInset), beginWithCurrentState: true)
         
@@ -199,7 +210,7 @@ final class ReactionContextBackgroundNode: ASDisplayNode {
         self.backgroundView.update(size: contentBounds.size, transition: transition)
         
         if let vibrancyEffectView = self.vibrancyEffectView {
-            transition.updateFrame(view: vibrancyEffectView, frame: CGRect(origin: CGPoint(x: 10.0, y: 10.0), size: contentBounds.size))
+            transition.updateFrame(view: vibrancyEffectView, frame: CGRect(origin: CGPoint(x: 10.0, y: 10.0), size: contentBounds.size), beginWithCurrentState: true)
         }
     }
     

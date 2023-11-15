@@ -167,6 +167,7 @@
 "NicegramSettings.ShareChannelsInfoToggle.Note" = "저희 데이터 베이스에 자동으로 채널 정보와 링크를 제출함으로써 텔레그램(Telegram) 채널 및 그룹의 가장 포괄적인 위키피디아에 기여하세요. 저희는 귀하의 텔레그램 프로필과 채널을 연결하지 않으며 귀하의 개인 정보도 공유하지 않습니다.";
 "Premium.OnetapTranslate.UseIgnoreLanguages.Note" = "앱은 기기에서 각 메시지의 언어를 감지합니다. 배터리 수명에 영향을 줄 수 있는 고성능 작업입니다.";
 "Premium.rememberFolderOnExit" = "종료시 현재 폴더 기억하기";
+"NicegramSettings.HideStories" = "스토리 숨기기";
 
 /*Registration Date*/
 "NiceFeatures.RegDate.OlderThan" = "이전의";
@@ -196,20 +197,6 @@
 "DoubleBottom.Enabled.OK" = "확인";
 "DoubleBottom.Passcode.Error" = "비밀번호 잠금에 사용하는 비밀번호와 다른 비밀번호를 설정하세요.";
 
-/*Nicegram Premium*/
-"NicePremium.Title" = "Nicegram\n**프리미엄 기능**";
-
-"NicePremium.Translator" = "내장된 번역기능";
-"NicePremium.Translator.Desc" = "타사 번역기로 전환할 필요 없이 앱의 모든 메시지를 즉시 번역";
-
-"NicePremium.SpeechToText.Desc" = "몇 초 만에 음성 메시지를 전사하고 많은 자유 시간을 절약하세요. ";
-
-"NicePremium.MentionAll" = "@모두멘션";
-"NicePremium.MentionAll.Desc" = "모든 그룹 구성원에게 신속하게 알리고 모든 사람이 메시지를 읽을 수 있도록 합니다.";
-
-"NicePremium.Renews" = "구독 자동 갱신";
-"NicePremium.PricePerMonth" = "매월 %@에 구독";
-
 /*Onboarding*/
 "NicegramOnboarding.Continue" = "다음";
 "NicegramOnboarding.1.Title" = "텔레그램 메신저용 №1 클라이언트";
@@ -222,3 +209,5 @@
 "NicegramOnboarding.4.Desc" = "Nicegram 팀의 혁신적인 기능을 활용하고, 133개 국가에서 인터넷 사용이 가능한 eSIM을 구매하세요. eSIM 데이터 요금제 전화번호에 새로운 텔레그램 계정을 등록할 수 있습니다.";
 "NicegramOnboarding.5.Title" = "가장 안전한 메신저";
 "NicegramOnboarding.5.Desc" = "강력한 암호화, 단체 오디오 및 비디오 통화, 공용 채널, 그룹 및 봇, 채팅과 미디어 및 문서 공유를 위한 무제한 클라우드 스토리지 기능을 갖춘 안전한 메신저입니다.";
+"NicegramOnboarding.6.Title" = "릴리를 만나보세요";
+"NicegramOnboarding.6.Desc" = "생활을 간소화하는 개인 AI 챗봇 비서!";

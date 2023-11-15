@@ -8,7 +8,7 @@
 @class MTNetworkUsageCalculationInfo;
 @class MTApiEnvironment;
 @class MTDatacenterAuthKey;
-
+@class MTTransport;
 @class MTProto;
 
 @interface MTProtoConnectionState : NSObject
@@ -38,6 +38,8 @@
 @property (nonatomic, strong, readonly) MTApiEnvironment *apiEnvironment;
 @property (nonatomic) NSInteger datacenterId;
 @property (nonatomic, strong) MTDatacenterAuthKey *useExplicitAuthKey;
+
+@property (nonatomic, strong) MTTransport *tempConnectionForReuse;
 
 @property (nonatomic, copy) void (^tempAuthKeyBindingResultUpdated)(bool);
 
@@ -69,11 +71,15 @@
 - (MTQueue *)messageServiceQueue;
 - (void)requestTransportTransaction;
 - (void)requestSecureTransportReset;
-- (void)resetSessionInfo;
+- (void)resetSessionInfo:(bool)ifActive;
 - (void)requestTimeResync;
 
 - (void)_messageResendRequestFailed:(int64_t)messageId;
 
 + (NSData *)_manuallyEncryptedMessage:(NSData *)preparedData messageId:(int64_t)messageId authKey:(MTDatacenterAuthKey *)authKey;
+
+- (void)simulateDisconnection;
+
+- (MTTransport *)takeConnectionForReusing;
 
 @end

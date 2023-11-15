@@ -332,7 +332,7 @@ final class NavigationModalContainer: ASDisplayNode, UIScrollViewDelegate, UIGes
         
         transition.updateFrame(node: self.dim, frame: CGRect(origin: CGPoint(), size: layout.size))
         self.ignoreScrolling = true
-        self.scrollNode.view.isScrollEnabled = (layout.inputHeight == nil || layout.inputHeight == 0.0) && self.isInteractiveDimissEnabled
+        self.scrollNode.view.isScrollEnabled = (layout.inputHeight == nil || layout.inputHeight == 0.0) && self.isInteractiveDimissEnabled && !self.isFlat
         let previousBounds = self.scrollNode.bounds
         let scrollNodeFrame = CGRect(origin: CGPoint(x: self.horizontalDismissOffset ?? 0.0, y: 0.0), size: layout.size)
         self.scrollNode.frame = scrollNodeFrame
@@ -348,7 +348,7 @@ final class NavigationModalContainer: ASDisplayNode, UIScrollViewDelegate, UIGes
         }
         self.ignoreScrolling = false
         
-        self.scrollNode.view.isScrollEnabled = !isStandaloneModal
+        self.scrollNode.view.isScrollEnabled = !isStandaloneModal && !self.isFlat
         
         let isLandscape = layout.orientation == .landscape
         let containerLayout: ContainerViewLayout
@@ -429,7 +429,10 @@ final class NavigationModalContainer: ASDisplayNode, UIScrollViewDelegate, UIGes
             
             let maxSide = max(layout.size.width, layout.size.height)
             let minSide = min(layout.size.width, layout.size.height)
-            let containerSize = CGSize(width: min(layout.size.width - 20.0, floor(maxSide / 2.0)), height: min(layout.size.height, minSide) - verticalInset * 2.0)
+            var containerSize = CGSize(width: min(layout.size.width - 20.0, floor(maxSide / 2.0)), height: min(layout.size.height, minSide) - verticalInset * 2.0)
+            if let preferredSize = controllers.last?.preferredContentSizeForLayout(layout) {
+                containerSize = preferredSize
+            }
             containerFrame = CGRect(origin: CGPoint(x: floor((layout.size.width - containerSize.width) / 2.0), y: floor((layout.size.height - containerSize.height) / 2.0)), size: containerSize)
             containerScale = 1.0
             
@@ -512,6 +515,9 @@ final class NavigationModalContainer: ASDisplayNode, UIScrollViewDelegate, UIGes
         if !self.container.bounds.contains(self.view.convert(point, to: self.container.view)) {
             return self.dim.view
         }
+        if self.isFlat {
+            return result
+        }
         var currentParent: UIView? = result
         var enableScrolling = true
         while true {
@@ -542,6 +548,9 @@ final class NavigationModalContainer: ASDisplayNode, UIScrollViewDelegate, UIGes
                 } else if listNode.scroller.isDecelerating && listNode.scroller.contentOffset.y < listNode.scroller.contentInset.top {
                     return self.scrollNode.view
                 }
+            } else if let currentParent, currentParent.disablesInteractiveModalDismiss {
+                enableScrolling = false
+                break
             }
             currentParent = currentParent?.superview
         }
@@ -556,7 +565,7 @@ final class NavigationModalContainer: ASDisplayNode, UIScrollViewDelegate, UIGes
                 enableScrolling = false
             }
         }
-        self.scrollNode.view.isScrollEnabled = enableScrolling
+        self.scrollNode.view.isScrollEnabled = enableScrolling && !self.isFlat
         return result
     }
 }

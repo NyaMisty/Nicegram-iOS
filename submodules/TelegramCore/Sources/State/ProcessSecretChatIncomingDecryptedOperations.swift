@@ -307,7 +307,7 @@ func processSecretChatIncomingDecryptedOperations(encryptionProvider: Encryption
                                         }
                                     }
                                     for messageId in messageIds {
-                                        markMessageContentAsConsumedRemotely(transaction: transaction, messageId: messageId)
+                                        markMessageContentAsConsumedRemotely(transaction: transaction, messageId: messageId, consumeDate: nil)
                                     }
                                 default:
                                     break
@@ -384,7 +384,7 @@ func processSecretChatIncomingDecryptedOperations(encryptionProvider: Encryption
             updatedPeer = updatedPeer.withUpdatedEmbeddedState(updatedState.embeddedState.peerState)
         }
         if !peer.isEqual(updatedPeer) {
-            updatePeers(transaction: transaction, peers: [updatedPeer], update: { _, updated in
+            updatePeersCustom(transaction: transaction, peers: [updatedPeer], update: { _, updated in
                 return updated
             })
         }
@@ -610,7 +610,7 @@ extension TelegramMediaFileAttribute {
                 }
                 self = .Sticker(displayText: alt, packReference: packReference, maskData: nil)
             case let .documentAttributeVideo(duration, w, h):
-                self = .Video(duration: Int(duration), size: PixelDimensions(width: w, height: h), flags: [])
+                self = .Video(duration: Double(duration), size: PixelDimensions(width: w, height: h), flags: [], preloadSize: nil)
         }
     }
 }
@@ -642,7 +642,7 @@ extension TelegramMediaFileAttribute {
                 if (flags & (1 << 0)) != 0 {
                     videoFlags.insert(.instantRoundVideo)
                 }
-                self = .Video(duration: Int(duration), size: PixelDimensions(width: w, height: h), flags: videoFlags)
+                self = .Video(duration: Double(duration), size: PixelDimensions(width: w, height: h), flags: videoFlags, preloadSize: nil)
         }
     }
 }
@@ -674,7 +674,7 @@ extension TelegramMediaFileAttribute {
                 if (flags & (1 << 0)) != 0 {
                     videoFlags.insert(.instantRoundVideo)
                 }
-                self = .Video(duration: Int(duration), size: PixelDimensions(width: w, height: h), flags: videoFlags)
+                self = .Video(duration: Double(duration), size: PixelDimensions(width: w, height: h), flags: videoFlags, preloadSize: nil)
         }
     }
 }
@@ -706,7 +706,7 @@ extension TelegramMediaFileAttribute {
                 if (flags & (1 << 0)) != 0 {
                     videoFlags.insert(.instantRoundVideo)
                 }
-                self = .Video(duration: Int(duration), size: PixelDimensions(width: w, height: h), flags: videoFlags)
+                self = .Video(duration: Double(duration), size: PixelDimensions(width: w, height: h), flags: videoFlags, preloadSize: nil)
         }
     }
 }
@@ -732,8 +732,8 @@ private func parseEntities(_ entities: [SecretApi46.MessageEntity]?) -> TextEnti
                     result.append(MessageTextEntity(range: Int(offset) ..< Int(offset + length), type: .Italic))
                 case let .messageEntityCode(offset, length):
                     result.append(MessageTextEntity(range: Int(offset) ..< Int(offset + length), type: .Code))
-                case let .messageEntityPre(offset, length, _):
-                    result.append(MessageTextEntity(range: Int(offset) ..< Int(offset + length), type: .Pre))
+                case let .messageEntityPre(offset, length, language):
+                    result.append(MessageTextEntity(range: Int(offset) ..< Int(offset + length), type: .Pre(language: language)))
                 case let .messageEntityTextUrl(offset, length, url):
                     result.append(MessageTextEntity(range: Int(offset) ..< Int(offset + length), type: .TextUrl(url: url)))
                 case .messageEntityUnknown:
@@ -749,7 +749,7 @@ private func maximumMediaAutoremoveTimeout(_ media: [Media]) -> Int32 {
     for media in media {
         if let file = media as? TelegramMediaFile {
             if let duration = file.duration {
-                maxDuration = max(maxDuration, duration)
+                maxDuration = max(maxDuration, Int32(duration))
             }
         }
     }
@@ -821,7 +821,7 @@ private func parseMessage(peerId: PeerId, authorId: PeerId, tagLocalIndex: Int32
                             text = caption
                         }
                         if let file = file {
-                            let parsedAttributes: [TelegramMediaFileAttribute] = [.Video(duration: Int(duration), size: PixelDimensions(width: w, height: h), flags: []), .FileName(fileName: "video.mov")]
+                            let parsedAttributes: [TelegramMediaFileAttribute] = [.Video(duration: Double(duration), size: PixelDimensions(width: w, height: h), flags: [], preloadSize: nil), .FileName(fileName: "video.mov")]
                             var previewRepresentations: [TelegramMediaImageRepresentation] = []
                             if thumb.size != 0 {
                                 let resource = LocalFileMediaResource(fileId: Int64.random(in: Int64.min ... Int64.max))
@@ -881,7 +881,7 @@ private func parseMessage(peerId: PeerId, authorId: PeerId, tagLocalIndex: Int32
             }
             
             if let replyToRandomId = replyToRandomId, let replyMessageId = messageIdForGloballyUniqueMessageId(replyToRandomId) {
-                attributes.append(ReplyMessageAttribute(messageId: replyMessageId, threadMessageId: nil))
+                attributes.append(ReplyMessageAttribute(messageId: replyMessageId, threadMessageId: nil, quote: nil, isQuote: false))
             }
 
             var entitiesAttribute: TextEntitiesMessageAttribute?
@@ -945,8 +945,8 @@ private func parseEntities(_ entities: [SecretApi73.MessageEntity]) -> TextEntit
                 result.append(MessageTextEntity(range: Int(offset) ..< Int(offset + length), type: .Italic))
             case let .messageEntityCode(offset, length):
                 result.append(MessageTextEntity(range: Int(offset) ..< Int(offset + length), type: .Code))
-            case let .messageEntityPre(offset, length, _):
-                result.append(MessageTextEntity(range: Int(offset) ..< Int(offset + length), type: .Pre))
+            case let .messageEntityPre(offset, length, language):
+                result.append(MessageTextEntity(range: Int(offset) ..< Int(offset + length), type: .Pre(language: language)))
             case let .messageEntityTextUrl(offset, length, url):
                 result.append(MessageTextEntity(range: Int(offset) ..< Int(offset + length), type: .TextUrl(url: url)))
             case .messageEntityUnknown:
@@ -1021,7 +1021,7 @@ private func parseMessage(peerId: PeerId, authorId: PeerId, tagLocalIndex: Int32
                             
                             loop: for attr in parsedAttributes {
                                 switch attr {
-                                case let .Video(_, _, flags):
+                                case let .Video(_, _, flags, _):
                                     if flags.contains(.instantRoundVideo) {
                                         attributes.append(ConsumableContentMessageAttribute(consumed: false))
                                     }
@@ -1040,7 +1040,7 @@ private func parseMessage(peerId: PeerId, authorId: PeerId, tagLocalIndex: Int32
                             text = caption
                         }
                         if let file = file {
-                            let parsedAttributes: [TelegramMediaFileAttribute] = [.Video(duration: Int(duration), size: PixelDimensions(width: w, height: h), flags: []), .FileName(fileName: "video.mov")]
+                            let parsedAttributes: [TelegramMediaFileAttribute] = [.Video(duration: Double(duration), size: PixelDimensions(width: w, height: h), flags: [], preloadSize: nil), .FileName(fileName: "video.mov")]
                             var previewRepresentations: [TelegramMediaImageRepresentation] = []
                             if thumb.size != 0 {
                                 let resource = LocalFileMediaResource(fileId: Int64.random(in: Int64.min ... Int64.max))
@@ -1113,7 +1113,7 @@ private func parseMessage(peerId: PeerId, authorId: PeerId, tagLocalIndex: Int32
             }
             
             if let replyToRandomId = replyToRandomId, let replyMessageId = messageIdForGloballyUniqueMessageId(replyToRandomId) {
-                attributes.append(ReplyMessageAttribute(messageId: replyMessageId, threadMessageId: nil))
+                attributes.append(ReplyMessageAttribute(messageId: replyMessageId, threadMessageId: nil, quote: nil, isQuote: false))
             }
             
             var entitiesAttribute: TextEntitiesMessageAttribute?
@@ -1177,8 +1177,8 @@ private func parseEntities(_ entities: [SecretApi101.MessageEntity]) -> TextEnti
             result.append(MessageTextEntity(range: Int(offset) ..< Int(offset + length), type: .Italic))
         case let .messageEntityCode(offset, length):
             result.append(MessageTextEntity(range: Int(offset) ..< Int(offset + length), type: .Code))
-        case let .messageEntityPre(offset, length, _):
-            result.append(MessageTextEntity(range: Int(offset) ..< Int(offset + length), type: .Pre))
+        case let .messageEntityPre(offset, length, language):
+            result.append(MessageTextEntity(range: Int(offset) ..< Int(offset + length), type: .Pre(language: language)))
         case let .messageEntityTextUrl(offset, length, url):
             result.append(MessageTextEntity(range: Int(offset) ..< Int(offset + length), type: .TextUrl(url: url)))
         case let .messageEntityStrike(offset, length):
@@ -1214,8 +1214,8 @@ private func parseEntities(_ entities: [SecretApi144.MessageEntity]) -> TextEnti
             result.append(MessageTextEntity(range: Int(offset) ..< Int(offset + length), type: .Italic))
         case let .messageEntityCode(offset, length):
             result.append(MessageTextEntity(range: Int(offset) ..< Int(offset + length), type: .Code))
-        case let .messageEntityPre(offset, length, _):
-            result.append(MessageTextEntity(range: Int(offset) ..< Int(offset + length), type: .Pre))
+        case let .messageEntityPre(offset, length, language):
+            result.append(MessageTextEntity(range: Int(offset) ..< Int(offset + length), type: .Pre(language: language)))
         case let .messageEntityTextUrl(offset, length, url):
             result.append(MessageTextEntity(range: Int(offset) ..< Int(offset + length), type: .TextUrl(url: url)))
         case let .messageEntityStrike(offset, length):
@@ -1300,7 +1300,7 @@ private func parseMessage(peerId: PeerId, authorId: PeerId, tagLocalIndex: Int32
                             
                             loop: for attr in parsedAttributes {
                                 switch attr {
-                                case let .Video(_, _, flags):
+                                case let .Video(_, _, flags, _):
                                     if flags.contains(.instantRoundVideo) {
                                         attributes.append(ConsumableContentMessageAttribute(consumed: false))
                                     }
@@ -1319,7 +1319,7 @@ private func parseMessage(peerId: PeerId, authorId: PeerId, tagLocalIndex: Int32
                             text = caption
                         }
                         if let file = file {
-                            let parsedAttributes: [TelegramMediaFileAttribute] = [.Video(duration: Int(duration), size: PixelDimensions(width: w, height: h), flags: []), .FileName(fileName: "video.mov")]
+                            let parsedAttributes: [TelegramMediaFileAttribute] = [.Video(duration: Double(duration), size: PixelDimensions(width: w, height: h), flags: [], preloadSize: nil), .FileName(fileName: "video.mov")]
                             var previewRepresentations: [TelegramMediaImageRepresentation] = []
                             if thumb.size != 0 {
                                 let resource = LocalFileMediaResource(fileId: Int64.random(in: Int64.min ... Int64.max))
@@ -1392,7 +1392,7 @@ private func parseMessage(peerId: PeerId, authorId: PeerId, tagLocalIndex: Int32
             }
             
             if let replyToRandomId = replyToRandomId, let replyMessageId = messageIdForGloballyUniqueMessageId(replyToRandomId) {
-                attributes.append(ReplyMessageAttribute(messageId: replyMessageId, threadMessageId: nil))
+                attributes.append(ReplyMessageAttribute(messageId: replyMessageId, threadMessageId: nil, quote: nil, isQuote: false))
             }
             
             var entitiesAttribute: TextEntitiesMessageAttribute?
@@ -1501,7 +1501,7 @@ private func parseMessage(peerId: PeerId, authorId: PeerId, tagLocalIndex: Int32
                             
                             loop: for attr in parsedAttributes {
                                 switch attr {
-                                case let .Video(_, _, flags):
+                                case let .Video(_, _, flags, _):
                                     if flags.contains(.instantRoundVideo) {
                                         attributes.append(ConsumableContentMessageAttribute(consumed: false))
                                     }
@@ -1520,7 +1520,7 @@ private func parseMessage(peerId: PeerId, authorId: PeerId, tagLocalIndex: Int32
                             text = caption
                         }
                         if let file = file {
-                            let parsedAttributes: [TelegramMediaFileAttribute] = [.Video(duration: Int(duration), size: PixelDimensions(width: w, height: h), flags: []), .FileName(fileName: "video.mov")]
+                            let parsedAttributes: [TelegramMediaFileAttribute] = [.Video(duration: Double(duration), size: PixelDimensions(width: w, height: h), flags: [], preloadSize: nil), .FileName(fileName: "video.mov")]
                             var previewRepresentations: [TelegramMediaImageRepresentation] = []
                             if thumb.size != 0 {
                                 let resource = LocalFileMediaResource(fileId: Int64.random(in: Int64.min ... Int64.max))
@@ -1593,7 +1593,7 @@ private func parseMessage(peerId: PeerId, authorId: PeerId, tagLocalIndex: Int32
             }
             
             if let replyToRandomId = replyToRandomId, let replyMessageId = messageIdForGloballyUniqueMessageId(replyToRandomId) {
-                attributes.append(ReplyMessageAttribute(messageId: replyMessageId, threadMessageId: nil))
+                attributes.append(ReplyMessageAttribute(messageId: replyMessageId, threadMessageId: nil, quote: nil, isQuote: false))
             }
             
             var entitiesAttribute: TextEntitiesMessageAttribute?

@@ -3,7 +3,6 @@ import UIKit
 import Display
 import AsyncDisplayKit
 import SwiftSignalKit
-import Postbox
 import TelegramCore
 import TelegramPresentationData
 import ItemListUI
@@ -61,11 +60,11 @@ func localizedOldChannelDate(peer: InactiveChannel, strings: PresentationStrings
 
 private final class OldChannelsItemArguments {
     let context: AccountContext
-    let togglePeer: (PeerId, Bool) -> Void
+    let togglePeer: (EnginePeer.Id, Bool) -> Void
     
     init(
         context: AccountContext,
-        togglePeer: @escaping (PeerId, Bool) -> Void
+        togglePeer: @escaping (EnginePeer.Id, Bool) -> Void
     ) {
         self.context = context
         self.togglePeer = togglePeer
@@ -80,7 +79,7 @@ private enum OldChannelsSection: Int32 {
 private enum OldChannelsEntryId: Hashable {
     case info
     case peersHeader
-    case peer(PeerId)
+    case peer(EnginePeer.Id)
 }
 
 private enum OldChannelsEntry: ItemListNodeEntry {
@@ -169,7 +168,11 @@ private enum OldChannelsEntry: ItemListNodeEntry {
         let arguments = arguments as! OldChannelsItemArguments
         switch self {
         case let .info(count, limit, premiumLimit, text, isPremiumDisabled):
-            return IncreaseLimitHeaderItem(theme: presentationData.theme, strings: presentationData.strings, icon: .group, count: count, limit: limit, premiumCount: premiumLimit, text: text, isPremiumDisabled: isPremiumDisabled, sectionId: self.section)
+            // MARK: Nicegram JoinGroupLimit
+            let nicegramNotice = "Logging out from your account and logging in again may fix this error"
+            //
+            // MARK: Nicegram JoinGroupLimit, nicegramNotice added
+            return IncreaseLimitHeaderItem(nicegramNotice: nicegramNotice, theme: presentationData.theme, strings: presentationData.strings, icon: .group, count: count, limit: limit, premiumCount: premiumLimit, text: text, isPremiumDisabled: isPremiumDisabled, sectionId: self.section)
         case let .peersHeader(title):
             return ItemListSectionHeaderItem(presentationData: presentationData, text: title, sectionId: self.section)
         case let .peer(_, peer, selected):
@@ -181,7 +184,7 @@ private enum OldChannelsEntry: ItemListNodeEntry {
 }
 
 private struct OldChannelsState: Equatable {
-    var selectedPeers: Set<PeerId> = Set()
+    var selectedPeers: Set<EnginePeer.Id> = Set()
     var isSearching: Bool = false
 }
 
@@ -255,7 +258,7 @@ public func oldChannelsController(context: AccountContext, updatedPresentationDa
     var pushImpl: ((ViewController) -> Void)?
     var setDisplayNavigationBarImpl: ((Bool) -> Void)?
     
-    var ensurePeerVisibleImpl: ((PeerId) -> Void)?
+    var ensurePeerVisibleImpl: ((EnginePeer.Id) -> Void)?
     
     var leaveActionImpl: (() -> Void)?
     

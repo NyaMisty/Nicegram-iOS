@@ -72,6 +72,12 @@
 {
     if (![(id)item conformsToProtocol:@protocol(TGMediaSelectableItem)])
         return false;
+ 
+    if (_attemptSelectingItem) {
+        if (!_attemptSelectingItem(item)) {
+            return false;
+        }
+    }
     
     NSString *identifier = item.uniqueIdentifier;
     if (selected)
@@ -276,7 +282,7 @@
             return strongSelf.updatedItemsSignal(selectedItems);
         
         return [SSignal fail:nil];
-    }] deliverOn:[SQueue mainQueue]] startWithNext:^(NSArray *next)
+    }] deliverOn:[SQueue mainQueue]] startStrictWithNext:^(NSArray *next)
     {
         __strong TGMediaSelectionContext *strongSelf = weakSelf;
         if (strongSelf == nil)
@@ -298,7 +304,7 @@
         
         for (NSString *identifier in deletedItemsIdentifiers)
             strongSelf->_pipe.sink([TGMediaSelectionChange changeWithItem:previousItemsMap[identifier] selected:false animated:false sender:nil]);
-    }]];
+    } file:__FILE_NAME__ line:__LINE__]];
 }
 
 #pragma mark - 

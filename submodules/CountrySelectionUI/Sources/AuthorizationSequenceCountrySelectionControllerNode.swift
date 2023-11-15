@@ -60,11 +60,11 @@ private func loadCountryCodes() -> [(String, Int)] {
 
 private let countryCodes: [(String, Int)] = loadCountryCodes()
 
-func localizedCountryNamesAndCodes(strings: PresentationStrings) -> [((String, String), String, [Int])] {
+public func localizedCountryNamesAndCodes(strings: PresentationStrings) -> [((String, String), String, [Int])] {
     let locale = localeWithStrings(strings)
     var result: [((String, String), String, [Int])] = []
     for country in AuthorizationSequenceCountrySelectionController.countries() {
-        if country.hidden {
+        if country.hidden || country.id == "FT" {
             continue
         }
         if let englishCountryName = usEnglishLocale.localizedString(forRegionCode: country.id), let countryName = locale.localizedString(forRegionCode: country.id) {
@@ -75,8 +75,6 @@ func localizedCountryNamesAndCodes(strings: PresentationStrings) -> [((String, S
                 }
             }
             result.append(((englishCountryName, countryName), country.id, codes))
-        } else {
-            assertionFailure()
         }
     }
     return result
@@ -161,7 +159,7 @@ private func matchStringTokens(_ tokens: [Data], with other: [Data]) -> Bool {
     return false
 }
 
-private func searchCountries(items: [((String, String), String, [Int])], query: String) -> [((String, String), String, Int)] {
+public func searchCountries(items: [((String, String), String, [Int])], query: String) -> [((String, String), String, Int)] {
     let queryTokens = stringTokens(query.lowercased())
     
     var result: [((String, String), String, Int)] = []
@@ -362,20 +360,24 @@ final class AuthorizationSequenceCountrySelectionControllerNode: ASDisplayNode, 
         }
         
         var countryName: String
+        var cleanCountryName: String
         let originalCountryName: String
         let code: String
         if tableView === self.tableView {
-            countryName = self.sections[indexPath.section].1[indexPath.row].0.1
-            countryName = "\(emojiFlagForISOCountryCode(self.sections[indexPath.section].1[indexPath.row].1)) \(countryName)"
+            cleanCountryName = self.sections[indexPath.section].1[indexPath.row].0.1
+            countryName = "\(emojiFlagForISOCountryCode(self.sections[indexPath.section].1[indexPath.row].1)) \(cleanCountryName)"
             originalCountryName = self.sections[indexPath.section].1[indexPath.row].0.0
             code = "+\(self.sections[indexPath.section].1[indexPath.row].2)"
         } else {
-            countryName = self.searchResults[indexPath.row].0.1
-            countryName = "\(emojiFlagForISOCountryCode(self.searchResults[indexPath.row].1)) \(countryName)"
+            cleanCountryName = self.searchResults[indexPath.row].0.1
+            countryName = "\(emojiFlagForISOCountryCode(self.searchResults[indexPath.row].1)) \(cleanCountryName)"
             originalCountryName = self.searchResults[indexPath.row].0.0
             code = "+\(self.searchResults[indexPath.row].2)"
         }
                 
+        cell.accessibilityLabel = cleanCountryName
+        cell.accessibilityValue = code
+        
         cell.textLabel?.text = countryName
         cell.detailTextLabel?.text = originalCountryName
         if self.displayCodes, let label = cell.accessoryView as? UILabel {

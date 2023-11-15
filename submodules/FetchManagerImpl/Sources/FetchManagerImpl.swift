@@ -2,7 +2,6 @@ import Foundation
 import Postbox
 import TelegramCore
 import SwiftSignalKit
-import Postbox
 import TelegramUIPreferences
 import AccountContext
 import UniversalMediaPlayer
@@ -11,7 +10,8 @@ import RangeSet
 // MARK: Nicegram downloading feature
 import UIKit
 import SaveToCameraRoll
-import NGToast
+import NGCore
+import NGCoreUI
 import NGData
 
 public struct FetchManagerLocationEntryId: Hashable {
@@ -46,7 +46,7 @@ private final class FetchManagerLocationEntry {
     let statsCategory: MediaResourceStatsCategory
     
     var userInitiated: Bool = false
-    var storeToDownloadsPeerType: MediaAutoDownloadPeerType?
+    var storeToDownloadsPeerId: EnginePeer.Id?
     let references = Bag<FetchManagerPriority>()
     let ranges = Bag<RangeSet<Int64>>()
     var elevatedPriorityReferenceCount: Int32 = 0
@@ -169,6 +169,9 @@ private final class FetchManagerCategoryContext {
             previousPriorityKey = nil
             let (mediaReference, resourceReference, statsCategory, episode) = takeNew()
             entry = FetchManagerLocationEntry(id: id, episode: episode, mediaReference: mediaReference, resourceReference: resourceReference, statsCategory: statsCategory)
+            
+            Logger.shared.log("FetchManager", "[\(entry.id.location)] Adding entry \(entry.resourceReference.resource.id.stringRepresentation) (\(self.entries.count) in queue)")
+            
             self.entries[id] = entry
         } else {
             return
@@ -245,7 +248,7 @@ private final class FetchManagerCategoryContext {
                     }
                     activeContext.disposable?.dispose()
                     let postbox = self.postbox
-                    Logger.shared.log("FetchManager", "Begin fetching \(entry.resourceReference.resource.id.stringRepresentation) ranges: \(String(describing: parsedRanges))")
+                    Logger.shared.log("FetchManager", "[\(entry.id.location)] Begin fetching \(entry.resourceReference.resource.id.stringRepresentation) ranges: \(String(describing: parsedRanges))")
                     
                     var userLocation: MediaResourceUserLocation = .other
                     switch entry.id.location {
@@ -272,8 +275,8 @@ private final class FetchManagerCategoryContext {
                             let _ = addRecentDownloadItem(postbox: postbox, item: RecentDownloadItem(messageId: messageId, resourceId: entry.resourceReference.resource.id.stringRepresentation, timestamp: Int32(Date().timeIntervalSince1970), isSeen: false)).start()
                         }
                         
-                        if let storeManager = storeManager, let mediaReference = entry.mediaReference, case .remote = type, let peerType = entry.storeToDownloadsPeerType {
-                            return storeDownloadedMedia(storeManager: storeManager, media: mediaReference, peerType: peerType)
+                        if let storeManager = storeManager, let mediaReference = entry.mediaReference, case .remote = type, let peerId = entry.storeToDownloadsPeerId {
+                            return storeDownloadedMedia(storeManager: storeManager, media: mediaReference, peerId: peerId)
                             |> castError(FetchResourceError.self)
                             |> mapToSignal { _ -> Signal<FetchResourceSourceType, FetchResourceError> in
                             }
@@ -411,7 +414,7 @@ private final class FetchManagerCategoryContext {
                     } else if ranges.isEmpty {
                     } else {
                         let postbox = self.postbox
-                        Logger.shared.log("FetchManager", "Begin fetching \(entry.resourceReference.resource.id.stringRepresentation) ranges: \(String(describing: parsedRanges))")
+                        Logger.shared.log("FetchManager", "[\(entry.id.location)] Begin fetching \(entry.resourceReference.resource.id.stringRepresentation) ranges: \(String(describing: parsedRanges))")
                         
                         var userLocation: MediaResourceUserLocation = .other
                         switch entry.id.location {
@@ -437,8 +440,8 @@ private final class FetchManagerCategoryContext {
                             if filterDownloadStatsEntry(entry: entry), case let .message(message, _) = entry.mediaReference, let messageId = message.id, case .remote = type {
                                 let _ = addRecentDownloadItem(postbox: postbox, item: RecentDownloadItem(messageId: messageId, resourceId: entry.resourceReference.resource.id.stringRepresentation, timestamp: Int32(Date().timeIntervalSince1970), isSeen: false)).start()
                             }
-                            if let storeManager = storeManager, let mediaReference = entry.mediaReference, case .remote = type, let peerType = entry.storeToDownloadsPeerType {
-                                return storeDownloadedMedia(storeManager: storeManager, media: mediaReference, peerType: peerType)
+                            if let storeManager = storeManager, let mediaReference = entry.mediaReference, case .remote = type, let peerId = entry.storeToDownloadsPeerId {
+                                return storeDownloadedMedia(storeManager: storeManager, media: mediaReference, peerId: peerId)
                                 |> castError(FetchResourceError.self)
                                 |> mapToSignal { _ -> Signal<FetchResourceSourceType, FetchResourceError> in
                                 }
@@ -450,8 +453,17 @@ private final class FetchManagerCategoryContext {
                                 shouldSave {
                                 let _ = (saveToCameraRoll(context: context, postbox: postbox, userLocation: userLocation, mediaReference: mediaReference)
                                          |> deliverOnMainQueue).start(completed: {
-                                    Queue.mainQueue().after(0.2) {
-                                        NGToast.showDefaultToast(backgroundColor: UIColor(rgb: 0x474747), image: nil, title: "The video is downloaded to your phone gallery")
+                                    if #available(iOS 13.0, *) {
+                                        Task {
+                                            try? await Task.sleep(seconds: 0.2)
+                                            await Toasts.show(
+                                                ToastState(
+                                                    image: nil,
+                                                    title: "The video is downloaded to your phone gallery",
+                                                    backgroundColor: UIColor(rgb: 0x474747)
+                                                )
+                                            )
+                                        }
                                     }
                                 })
                             }
@@ -796,8 +808,8 @@ public final class FetchManagerImpl: FetchManager {
         }
     }
     
-    // MARK: Nicegram downloading feature
-    public func interactivelyFetched(category: FetchManagerCategory, location: FetchManagerLocation, locationKey: FetchManagerLocationKey, mediaReference: AnyMediaReference?, resourceReference: MediaResourceReference, ranges: RangeSet<Int64>, statsCategory: MediaResourceStatsCategory, elevatedPriority: Bool, userInitiated: Bool, priority: FetchManagerPriority = .userInitiated, storeToDownloadsPeerType: MediaAutoDownloadPeerType?, accountContext: AccountContext?, shouldSave: Bool = false) -> Signal<Void, NoError> {
+    // MARK: Nicegram downloading feature, 'accountContext, shouldSave' params added
+    public func interactivelyFetched(category: FetchManagerCategory, location: FetchManagerLocation, locationKey: FetchManagerLocationKey, mediaReference: AnyMediaReference?, resourceReference: MediaResourceReference, ranges: RangeSet<Int64>, statsCategory: MediaResourceStatsCategory, elevatedPriority: Bool, userInitiated: Bool, priority: FetchManagerPriority = .userInitiated, storeToDownloadsPeerId: EnginePeer.Id?, accountContext: AccountContext?, shouldSave: Bool = false) -> Signal<Void, NoError> {
         let queue = self.queue
         return Signal { [weak self] subscriber in
             if let strongSelf = self {
@@ -817,8 +829,8 @@ public final class FetchManagerImpl: FetchManager {
                         }
                         let wasPaused = entry.isPaused
                         entry.isPaused = false
-                        if let peerType = storeToDownloadsPeerType {
-                            entry.storeToDownloadsPeerType = peerType
+                        if let peerId = storeToDownloadsPeerId {
+                            entry.storeToDownloadsPeerId = peerId
                         }
                         assignedReferenceIndex = entry.references.add(priority)
                         if elevatedPriority {

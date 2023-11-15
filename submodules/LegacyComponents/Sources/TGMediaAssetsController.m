@@ -491,7 +491,7 @@
         };
         
         _selectionChangedDisposable = [[SMetaDisposable alloc] init];
-        [_selectionChangedDisposable setDisposable:[[_selectionContext selectionChangedSignal] startWithNext:^(__unused id next)
+        [_selectionChangedDisposable setDisposable:[[_selectionContext selectionChangedSignal] startStrictWithNext:^(__unused id next)
         {
             __strong TGMediaAssetsController *strongSelf = weakSelf;
             if (strongSelf == nil)
@@ -540,7 +540,7 @@
             }
 
             UIAccessibilityPostNotification(UIAccessibilityAnnouncementNotification, text);
-        }]];
+        } file:__FILE_NAME__ line:__LINE__]];
         
         if (intent == TGMediaAssetsControllerSendMediaIntent || intent == TGMediaAssetsControllerSetProfilePhotoIntent || intent == TGMediaAssetsControllerSetSignupProfilePhotoIntent || intent == TGMediaAssetsControllerPassportIntent || intent == TGMediaAssetsControllerPassportMultipleIntent)
             _editingContext = [[TGMediaEditingContext alloc] init];
@@ -550,28 +550,28 @@
         if (allowGrouping)
         {
             _groupingChangedDisposable = [[SMetaDisposable alloc] init];
-            [_groupingChangedDisposable setDisposable:[_selectionContext.groupingChangedSignal startWithNext:^(NSNumber *next)
+            [_groupingChangedDisposable setDisposable:[_selectionContext.groupingChangedSignal startStrictWithNext:^(NSNumber *next)
             {
                 __strong TGMediaAssetsController *strongSelf = weakSelf;
                 if (strongSelf == nil)
                     return;
                 
                 [strongSelf->_toolbarView setCenterButtonSelected:next.boolValue];
-            }]];
+            } file:__FILE_NAME__ line:__LINE__]];
             
             if (_editingContext != nil)
             {
                 _timersChangedDisposable = [[SMetaDisposable alloc] init];
-                [_timersChangedDisposable setDisposable:[_editingContext.timersUpdatedSignal startWithNext:^(__unused NSNumber *next)
+                [_timersChangedDisposable setDisposable:[_editingContext.timersUpdatedSignal startStrictWithNext:^(__unused NSNumber *next)
                 {
                     updateGroupingButtonVisibility();
-                }]];
+                } file:__FILE_NAME__ line:__LINE__]];
                 
                 _adjustmentsChangedDisposable = [[SMetaDisposable alloc] init];
-                [_adjustmentsChangedDisposable setDisposable:[_editingContext.adjustmentsUpdatedSignal startWithNext:^(__unused NSNumber *next)
+                [_adjustmentsChangedDisposable setDisposable:[_editingContext.adjustmentsUpdatedSignal startStrictWithNext:^(__unused NSNumber *next)
                 {
                     updateGroupingButtonVisibility();
-                }]];
+                } file:__FILE_NAME__ line:__LINE__]];
             }
         }
     }
@@ -594,6 +594,10 @@
         if (@available(iOS 11.0, *)) {
             hasOnScreenNavigation = (self.viewLoaded && self.view.safeAreaInsets.bottom > FLT_EPSILON) || _context.safeAreaInset.bottom > FLT_EPSILON;
         }
+    }
+    
+    if ([[UIDevice currentDevice] userInterfaceIdiom] == UIUserInterfaceIdiomPad && _intent == TGMediaAssetsControllerSendFileIntent) {
+        hasOnScreenNavigation = false;
     }
 
 #pragma clang diagnostic push
@@ -1471,6 +1475,8 @@
             }
         }
         
+        bool spoiler = [editingContext spoilerForItem:asset];
+        
         if ([asset isKindOfClass:[UIImage class]]) {
             if (intent == TGMediaAssetsControllerSendFileIntent)
             {
@@ -1508,6 +1514,10 @@
                     
                     if (groupedId != nil && !hasAnyTimers)
                         dict[@"groupedId"] = groupedId;
+                    
+                    if (spoiler) {
+                        dict[@"spoiler"] = @true;
+                    }
                     
                     id generatedItem = descriptionGenerator(dict, caption, nil, nil);
                     return generatedItem;
@@ -1555,6 +1565,10 @@
                     
                     if (groupedId != nil && !hasAnyTimers)
                         dict[@"groupedId"] = groupedId;
+                    
+                    if (spoiler) {
+                        dict[@"spoiler"] = @true;
+                    }
                     
                     id generatedItem = descriptionGenerator(dict, caption, nil, nil);
                     return generatedItem;
@@ -1632,6 +1646,10 @@
                     else if (groupedId != nil && !hasAnyTimers)
                         dict[@"groupedId"] = groupedId;
                     
+                    if (spoiler) {
+                        dict[@"spoiler"] = @true;
+                    }
+                    
                     id generatedItem = descriptionGenerator(dict, caption, nil, nil);
                     return generatedItem;
                 }];
@@ -1693,9 +1711,9 @@
     }
 }
 
-- (void)send:(bool)silently
+- (void)send:(bool)silently whenOnline:(bool)whenOnlne
 {
-    [self completeWithCurrentItem:nil silentPosting:silently scheduleTime:0];
+    [self completeWithCurrentItem:nil silentPosting:silently scheduleTime:whenOnlne ? 0x7ffffffe : 0];
 }
 
 - (void)schedule:(bool)media {
@@ -1855,11 +1873,11 @@
         _tooltipDismissDisposable = [[SMetaDisposable alloc] init];
     
     __weak TGTooltipContainerView *weakContainerView = _groupingTooltipContainerView;
-    [_tooltipDismissDisposable setDisposable:[[[SSignal complete] delay:duration onQueue:[SQueue mainQueue]] startWithNext:nil completed:^{
+    [_tooltipDismissDisposable setDisposable:[[[SSignal complete] delay:duration onQueue:[SQueue mainQueue]] startStrictWithNext:nil completed:^{
         __strong TGTooltipContainerView *strongContainerView = weakContainerView;
         if (strongContainerView != nil)
             [strongContainerView hideTooltip];
-    }]];
+    } file:__FILE_NAME__ line:__LINE__]];
 }
 
 - (BOOL)prefersStatusBarHidden
@@ -1876,7 +1894,7 @@
 
 @implementation TGMediaAssetsPallete
 
-+ (instancetype)palleteWithDark:(bool)dark backgroundColor:(UIColor *)backgroundColor selectionColor:(UIColor *)selectionColor separatorColor:(UIColor *)separatorColor textColor:(UIColor *)textColor secondaryTextColor:(UIColor *)secondaryTextColor accentColor:(UIColor *)accentColor destructiveColor:(UIColor *)destructiveColor barBackgroundColor:(UIColor *)barBackgroundColor barSeparatorColor:(UIColor *)barSeparatorColor navigationTitleColor:(UIColor *)navigationTitleColor badge:(UIImage *)badge badgeTextColor:(UIColor *)badgeTextColor sendIconImage:(UIImage *)sendIconImage doneIconImage:(UIImage *)doneIconImage maybeAccentColor:(UIColor *)maybeAccentColor
++ (instancetype)palleteWithDark:(bool)dark backgroundColor:(UIColor *)backgroundColor selectionColor:(UIColor *)selectionColor separatorColor:(UIColor *)separatorColor textColor:(UIColor *)textColor secondaryTextColor:(UIColor *)secondaryTextColor accentColor:(UIColor *)accentColor destructiveColor:(UIColor *)destructiveColor barBackgroundColor:(UIColor *)barBackgroundColor barSeparatorColor:(UIColor *)barSeparatorColor navigationTitleColor:(UIColor *)navigationTitleColor badge:(UIImage *)badge badgeTextColor:(UIColor *)badgeTextColor sendIconImage:(UIImage *)sendIconImage doneIconImage:(UIImage *)doneIconImage scheduleIconImage:(UIImage *)scheduleIconImage maybeAccentColor:(UIColor *)maybeAccentColor
 {
     TGMediaAssetsPallete *pallete = [[TGMediaAssetsPallete alloc] init];
     pallete->_isDark = dark;
@@ -1894,6 +1912,7 @@
     pallete->_badgeTextColor = badgeTextColor;
     pallete->_sendIconImage = sendIconImage;
     pallete->_doneIconImage = doneIconImage;
+    pallete->_scheduleIconImage = scheduleIconImage;
     pallete->_maybeAccentColor = maybeAccentColor;
     return pallete;
 }

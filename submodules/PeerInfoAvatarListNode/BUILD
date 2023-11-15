@@ -25,6 +25,10 @@ swift_library(
         "//submodules/GalleryUI:GalleryUI",
         "//submodules/MediaPlayer:UniversalMediaPlayer",
         "//submodules/AccountContext:AccountContext",
+        "//submodules/AvatarVideoNode:AvatarVideoNode",
+        "//submodules/ComponentFlow",
+        "//submodules/Components/ComponentDisplayAdapters",
+        "//submodules/TelegramUI/Components/Stories/StorySetIndicatorComponent",
     ],
     visibility = [
         "//visibility:public",

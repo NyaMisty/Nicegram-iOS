@@ -220,7 +220,63 @@ func locallyRenderedMessage(message: StoreMessage, peers: [PeerId: Peer], associ
     let second = UInt32(hashValue & 0xffffffff)
     let stableId = first &+ second
         
-    return Message(stableId: stableId, stableVersion: 0, id: id, globallyUniqueId: nil, groupingKey: nil, groupInfo: nil, threadId: message.threadId, timestamp: message.timestamp, flags: MessageFlags(message.flags), tags: message.tags, globalTags: message.globalTags, localTags: message.localTags, forwardInfo: forwardInfo, author: author, text: message.text, attributes: message.attributes, media: message.media, peers: messagePeers, associatedMessages: SimpleDictionary(), associatedMessageIds: [], associatedMedia: [:], associatedThreadInfo: associatedThreadInfo)
+    return Message(stableId: stableId, stableVersion: 0, id: id, globallyUniqueId: nil, groupingKey: nil, groupInfo: nil, threadId: message.threadId, timestamp: message.timestamp, flags: MessageFlags(message.flags), tags: message.tags, globalTags: message.globalTags, localTags: message.localTags, forwardInfo: forwardInfo, author: author, text: message.text, attributes: message.attributes, media: message.media, peers: messagePeers, associatedMessages: SimpleDictionary(), associatedMessageIds: [], associatedMedia: [:], associatedThreadInfo: associatedThreadInfo, associatedStories: [:])
+}
+
+func locallyRenderedMessage(message: StoreMessage, peers: AccumulatedPeers, associatedThreadInfo: Message.AssociatedThreadInfo? = nil) -> Message? {
+    guard case let .Id(id) = message.id else {
+        return nil
+    }
+    
+    var messagePeers = SimpleDictionary<PeerId, Peer>()
+    
+    var author: Peer?
+    if let authorId = message.authorId {
+        author = peers.get(authorId)
+        if let author = author {
+            messagePeers[author.id] = author
+        }
+    }
+    
+    if let peer = peers.get(id.peerId) {
+        messagePeers[peer.id] = peer
+        
+        if let group = peer as? TelegramGroup, let migrationReference = group.migrationReference {
+            if let channelPeer = peers.get(migrationReference.peerId) {
+                messagePeers[channelPeer.id] = channelPeer
+            }
+        }
+    }
+    
+    for media in message.media {
+        for peerId in media.peerIds {
+            if let peer = peers.get(peerId) {
+                messagePeers[peer.id] = peer
+            }
+        }
+    }
+    
+    var forwardInfo: MessageForwardInfo?
+    if let info = message.forwardInfo {
+        forwardInfo = MessageForwardInfo(author: info.authorId.flatMap({ peers.get($0) }), source: info.sourceId.flatMap({ peers.get($0) }), sourceMessageId: info.sourceMessageId, date: info.date, authorSignature: info.authorSignature, psaType: info.psaType, flags: info.flags)
+        if let author = forwardInfo?.author {
+            messagePeers[author.id] = author
+        }
+        if let source = forwardInfo?.source {
+            messagePeers[source.id] = source
+        }
+    }
+
+    var hasher = Hasher()
+    hasher.combine(id.id)
+    hasher.combine(id.peerId)
+    
+    let hashValue = Int64(hasher.finalize())
+    let first = UInt32((hashValue >> 32) & 0xffffffff)
+    let second = UInt32(hashValue & 0xffffffff)
+    let stableId = first &+ second
+        
+    return Message(stableId: stableId, stableVersion: 0, id: id, globallyUniqueId: nil, groupingKey: nil, groupInfo: nil, threadId: message.threadId, timestamp: message.timestamp, flags: MessageFlags(message.flags), tags: message.tags, globalTags: message.globalTags, localTags: message.localTags, forwardInfo: forwardInfo, author: author, text: message.text, attributes: message.attributes, media: message.media, peers: messagePeers, associatedMessages: SimpleDictionary(), associatedMessageIds: [], associatedMedia: [:], associatedThreadInfo: associatedThreadInfo, associatedStories: [:])
 }
 
 public extension Message {
@@ -231,6 +287,8 @@ public extension Message {
             } else {
                 return false
             }
+        } else if self.author?.id == accountPeerId {
+            return false
         } else if self.flags.contains(.Incoming) {
             return true
         } else if let channel = self.peers[self.id.peerId] as? TelegramChannel, case .broadcast = channel.info {
@@ -251,11 +309,6 @@ public extension Message {
     }
     
     func isCopyProtected() -> Bool {
-        //  MARK: - Nicegram (allow saving+forwarding content when copy protected)
-        if canCopyProtectedContent() {
-            return false
-        }
-        
         if self.flags.contains(.CopyProtected) {
             return true
         } else if let group = self.peers[self.id.peerId] as? TelegramGroup, group.flags.contains(.copyProtectionEnabled) {
@@ -269,7 +322,7 @@ public extension Message {
 }
 
 public extension Message {
-    var secretMediaDuration: Int32? {
+    var secretMediaDuration: Double? {
         var found = false
         for attribute in self.attributes {
             if let _ = attribute as? AutoremoveTimeoutMessageAttribute {
@@ -352,12 +405,16 @@ public extension Message {
     var hasReactions: Bool {
         for attribute in self.attributes {
             if let attribute = attribute as? ReactionsMessageAttribute {
-                return !attribute.reactions.isEmpty
+                if !attribute.reactions.isEmpty {
+                    return true
+                }
             }
         }
         for attribute in self.attributes {
             if let attribute = attribute as? PendingReactionsMessageAttribute {
-                return !attribute.reactions.isEmpty
+                if !attribute.reactions.isEmpty {
+                    return true
+                }
             }
         }
         return false
@@ -375,6 +432,17 @@ public extension Message {
     var restrictedContentAttribute: RestrictedContentMessageAttribute? {
         for attribute in self.attributes {
             if let attribute = attribute as? RestrictedContentMessageAttribute {
+                return attribute
+            }
+        }
+        return nil
+    }
+}
+
+public extension Message {
+    var webpagePreviewAttribute: WebpagePreviewMessageAttribute? {
+        for attribute in self.attributes {
+            if let attribute = attribute as? WebpagePreviewMessageAttribute {
                 return attribute
             }
         }

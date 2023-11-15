@@ -1,7 +1,6 @@
 import Foundation
 import UIKit
 import AsyncDisplayKit
-import Postbox
 import TelegramCore
 import SwiftSignalKit
 import Display
@@ -65,6 +64,9 @@ private struct SharePeerEntry: Comparable, Identifiable {
         if lhs.threadData != rhs.threadData {
             return false
         }
+        if lhs.theme !== rhs.theme {
+            return false
+        }
         
         return true
     }
@@ -73,8 +75,8 @@ private struct SharePeerEntry: Comparable, Identifiable {
         return lhs.index < rhs.index
     }
     
-    func item(context: AccountContext, interfaceInteraction: ShareControllerInteraction) -> GridItem {
-        return ShareControllerPeerGridItem(context: context, theme: self.theme, strings: self.strings, peer: self.peer, presence: self.presence, topicId: self.threadId, threadData: self.threadData, controllerInteraction: interfaceInteraction, search: false)
+    func item(environment: ShareControllerEnvironment, context: ShareControllerAccountContext, interfaceInteraction: ShareControllerInteraction) -> GridItem {
+        return ShareControllerPeerGridItem(environment: environment, context: context, theme: self.theme, strings: self.strings, peer: self.peer, presence: self.presence, topicId: self.threadId, threadData: self.threadData, controllerInteraction: interfaceInteraction, search: false)
     }
 }
 
@@ -87,20 +89,21 @@ private struct ShareGridTransaction {
 
 private let avatarFont = avatarPlaceholderFont(size: 17.0)
 
-private func preparedGridEntryTransition(context: AccountContext, from fromEntries: [SharePeerEntry], to toEntries: [SharePeerEntry], interfaceInteraction: ShareControllerInteraction) -> ShareGridTransaction {
+private func preparedGridEntryTransition(environment: ShareControllerEnvironment, context: ShareControllerAccountContext, from fromEntries: [SharePeerEntry], to toEntries: [SharePeerEntry], interfaceInteraction: ShareControllerInteraction) -> ShareGridTransaction {
     let (deleteIndices, indicesAndItems, updateIndices) = mergeListsStableWithUpdates(leftList: fromEntries, rightList: toEntries)
     
     let deletions = deleteIndices
-    let insertions = indicesAndItems.map { GridNodeInsertItem(index: $0.0, item: $0.1.item(context: context, interfaceInteraction: interfaceInteraction), previousIndex: $0.2) }
-    let updates = updateIndices.map { GridNodeUpdateItem(index: $0.0, previousIndex: $0.2, item: $0.1.item(context: context, interfaceInteraction: interfaceInteraction)) }
+    let insertions = indicesAndItems.map { GridNodeInsertItem(index: $0.0, item: $0.1.item(environment: environment, context: context, interfaceInteraction: interfaceInteraction), previousIndex: $0.2) }
+    let updates = updateIndices.map { GridNodeUpdateItem(index: $0.0, previousIndex: $0.2, item: $0.1.item(environment: environment, context: context, interfaceInteraction: interfaceInteraction)) }
     
     return ShareGridTransaction(deletions: deletions, insertions: insertions, updates: updates, animated: false)
 }
 
 final class SharePeersContainerNode: ASDisplayNode, ShareContentContainerNode {
-    private let sharedContext: SharedAccountContext
-    private let context: AccountContext
-    private let theme: PresentationTheme
+    private let environment: ShareControllerEnvironment
+    private let context: ShareControllerAccountContext
+    private var theme: PresentationTheme
+    private let themePromise: Promise<PresentationTheme>
     private let strings: PresentationStrings
     private let nameDisplayOrder: PresentationPersonNameOrder
     private let controllerInteraction: ShareControllerInteraction
@@ -136,7 +139,7 @@ final class SharePeersContainerNode: ASDisplayNode, ShareContentContainerNode {
     var openShare: ((ASDisplayNode, ContextGesture?) -> Void)?
     var segmentedSelectedIndexUpdated: ((Int) -> Void)?
     
-    private var ensurePeerVisibleOnLayout: PeerId?
+    private var ensurePeerVisibleOnLayout: EnginePeer.Id?
     private var validLayout: (CGSize, CGFloat)?
     private var overrideGridOffsetTransition: ContainedViewLayoutTransition?
     
@@ -149,10 +152,12 @@ final class SharePeersContainerNode: ASDisplayNode, ShareContentContainerNode {
     }
     private let tick = ValuePromise<Int>(0)
     
-    init(sharedContext: SharedAccountContext, context: AccountContext, switchableAccounts: [AccountWithInfo], theme: PresentationTheme, strings: PresentationStrings, nameDisplayOrder: PresentationPersonNameOrder, peers: [(EngineRenderedPeer, EnginePeer.Presence?)], accountPeer: EnginePeer, controllerInteraction: ShareControllerInteraction, externalShare: Bool, switchToAnotherAccount: @escaping () -> Void, debugAction: @escaping () -> Void, extendedInitialReveal: Bool, segmentedValues: [ShareControllerSegmentedValue]?) {
-        self.sharedContext = sharedContext
+    init(environment: ShareControllerEnvironment, context: ShareControllerAccountContext, switchableAccounts: [ShareControllerSwitchableAccount], theme: PresentationTheme, strings: PresentationStrings, nameDisplayOrder: PresentationPersonNameOrder, peers: [(EngineRenderedPeer, EnginePeer.Presence?)], accountPeer: EnginePeer, controllerInteraction: ShareControllerInteraction, externalShare: Bool, switchToAnotherAccount: @escaping () -> Void, debugAction: @escaping () -> Void, extendedInitialReveal: Bool, segmentedValues: [ShareControllerSegmentedValue]?) {
+        self.environment = environment
         self.context = context
         self.theme = theme
+        self.themePromise = Promise()
+        self.themePromise.set(.single(theme))
         self.strings = strings
         self.nameDisplayOrder = nameDisplayOrder
         self.controllerInteraction = controllerInteraction
@@ -164,12 +169,12 @@ final class SharePeersContainerNode: ASDisplayNode, ShareContentContainerNode {
         
         self.peersValue.set(.single(peers))
         
-        let items: Signal<[SharePeerEntry], NoError> = combineLatest(self.peersValue.get(), self.foundPeers.get(), self.tick.get())
-        |> map { [weak controllerInteraction] initialPeers, foundPeers, _ -> [SharePeerEntry] in
+        let items: Signal<[SharePeerEntry], NoError> = combineLatest(self.peersValue.get(), self.foundPeers.get(), self.tick.get(), self.themePromise.get())
+        |> map { [weak controllerInteraction] initialPeers, foundPeers, _, theme -> [SharePeerEntry] in
             var entries: [SharePeerEntry] = []
             var index: Int32 = 0
             
-            var existingPeerIds: Set<PeerId> = Set()
+            var existingPeerIds: Set<EnginePeer.Id> = Set()
             entries.append(SharePeerEntry(index: index, peer: EngineRenderedPeer(peer: accountPeer), presence: nil, threadId: nil, threadData: nil, theme: theme, strings: strings))
             existingPeerIds.insert(accountPeer.id)
             index += 1
@@ -208,9 +213,18 @@ final class SharePeersContainerNode: ASDisplayNode, ShareContentContainerNode {
         
         self.contentTitleAccountNode = AvatarNode(font: avatarFont)
         var hasOtherAccounts = false
-        if switchableAccounts.count > 1, let info = switchableAccounts.first(where: { $0.account.id == context.account.id }) {
+        if switchableAccounts.count > 1, let info = switchableAccounts.first(where: { $0.account.accountId == context.accountId }) {
             hasOtherAccounts = true
-            self.contentTitleAccountNode.setPeer(context: context, theme: theme, peer: EnginePeer(info.peer), emptyColor: nil, synchronousLoad: false)
+            self.contentTitleAccountNode.setPeer(
+                accountPeerId: context.accountPeerId,
+                postbox: context.stateManager.postbox,
+                network: context.stateManager.network,
+                contentSettings: context.contentSettings,
+                theme: theme,
+                peer: EnginePeer(info.peer),
+                emptyColor: nil,
+                synchronousLoad: false
+            )
         } else {
             self.contentTitleAccountNode.isHidden = true
         }
@@ -279,7 +293,7 @@ final class SharePeersContainerNode: ASDisplayNode, ShareContentContainerNode {
                 strongSelf.entries = entries
                 
                 let firstTime = previousEntries == nil
-                let transition = preparedGridEntryTransition(context: context, from: previousEntries ?? [], to: entries, interfaceInteraction: controllerInteraction)
+                let transition = preparedGridEntryTransition(environment: environment, context: context, from: previousEntries ?? [], to: entries, interfaceInteraction: controllerInteraction)
                 strongSelf.enqueueTransition(transition, firstTime: firstTime)
             }
         }))
@@ -301,6 +315,13 @@ final class SharePeersContainerNode: ASDisplayNode, ShareContentContainerNode {
     
     deinit {
         self.disposable.dispose()
+    }
+    
+    func updateTheme(_ theme: PresentationTheme) {
+        self.theme = theme
+        self.themePromise.set(.single(theme))
+        self.contentTitleNode.attributedText = NSAttributedString(string: self.strings.ShareMenu_ShareTo, font: Font.medium(20.0), textColor: self.theme.actionSheet.primaryTextColor)
+        self.updateSelectedPeers(animated: false)
     }
     
     private func enqueueTransition(_ transition: ShareGridTransaction, firstTime: Bool) {
@@ -325,7 +346,7 @@ final class SharePeersContainerNode: ASDisplayNode, ShareContentContainerNode {
         }
     }
     
-    func setEnsurePeerVisibleOnLayout(_ peerId: PeerId?) {
+    func setEnsurePeerVisibleOnLayout(_ peerId: EnginePeer.Id?) {
         self.ensurePeerVisibleOnLayout = peerId
     }
     
@@ -684,11 +705,11 @@ final class SharePeersContainerNode: ASDisplayNode, ShareContentContainerNode {
             if node.isHidden {
                 continue
             }
-            if let result = node.hitTest(point.offsetBy(dx: -nodeFrame.minX, dy: -nodeFrame.minY), with: event) {
+            if let result = node.hitTest(point.offsetBy(dx: -self.headerNode.frame.minX, dy: -self.headerNode.frame.minY).offsetBy(dx: -nodeFrame.minX, dy: -nodeFrame.minY), with: event) {
                 return result
             }
         }
-        
+
         return super.hitTest(point, with: event)
     }
     

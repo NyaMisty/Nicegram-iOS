@@ -1,0 +1,113 @@
+{
+  "pins" : [
+    {
+      "identity" : "factory",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/hmlongco/Factory",
+      "state" : {
+        "revision" : "8ca11a7bd1ede031e8e6d7a912bb116e2e43961b",
+        "version" : "2.3.1"
+      }
+    },
+    {
+      "identity" : "floatingpanel",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/scenee/FloatingPanel",
+      "state" : {
+        "revision" : "dd238884bf85e96a4c6c2703fc2fc1ff0f5c7494",
+        "version" : "2.8.0"
+      }
+    },
+    {
+      "identity" : "grdb.swift",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/denis15yo/GRDB.swift.git",
+      "state" : {
+        "branch" : "master",
+        "revision" : "58d3673030f8a640d7278f45bf2dc21b078ecae8"
+      }
+    },
+    {
+      "identity" : "lnextensionexecutor",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/LeoNatan/LNExtensionExecutor",
+      "state" : {
+        "revision" : "16b741f659e344f4569c9f9d32ef2298ef0233ff",
+        "version" : "1.2.0"
+      }
+    },
+    {
+      "identity" : "nicegram-assistant-ios",
+      "kind" : "remoteSourceControl",
+      "location" : "git@bitbucket.org:mobyrix/nicegram-assistant-ios.git",
+      "state" : {
+        "branch" : "develop",
+        "revision" : "74a903bbc75af22ef19aa77ab20ba8df1ae0de27"
+      }
+    },
+    {
+      "identity" : "r.swift",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/denis15yo/R.swift.git",
+      "state" : {
+        "branch" : "main",
+        "revision" : "4a0f8c97f1baa27d165dc801982c55bbf51126e5"
+      }
+    },
+    {
+      "identity" : "sdwebimage",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/SDWebImage/SDWebImage.git",
+      "state" : {
+        "revision" : "fd1950de05a5ad77cb252fd88576c1e1809ee50d",
+        "version" : "5.18.4"
+      }
+    },
+    {
+      "identity" : "snapkit",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/SnapKit/SnapKit.git",
+      "state" : {
+        "revision" : "f222cbdf325885926566172f6f5f06af95473158",
+        "version" : "5.6.0"
+      }
+    },
+    {
+      "identity" : "subscriptionanalytics-ios",
+      "kind" : "remoteSourceControl",
+      "location" : "git@bitbucket.org:mobyrix/subscriptionanalytics-ios.git",
+      "state" : {
+        "revision" : "53bfc6c6f26322ec647b87c338a071714ac69420",
+        "version" : "0.4.3"
+      }
+    },
+    {
+      "identity" : "swift-argument-parser",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/apple/swift-argument-parser",
+      "state" : {
+        "revision" : "8f4d2753f0e4778c76d5f05ad16c74f707390531",
+        "version" : "1.2.3"
+      }
+    },
+    {
+      "identity" : "swiftystorekit",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/bizz84/SwiftyStoreKit.git",
+      "state" : {
+        "revision" : "9ce911639680113dac9b554d6243e406a9758ebe",
+        "version" : "0.16.4"
+      }
+    },
+    {
+      "identity" : "xcodeedit",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/tomlokhorst/XcodeEdit",
+      "state" : {
+        "revision" : "b6b67389a0f1a6fdd9c6457a8ab5b02eaab13c5c",
+        "version" : "2.9.2"
+      }
+    }
+  ],
+  "version" : 2
+}

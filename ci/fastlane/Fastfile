@@ -2,6 +2,7 @@ default_platform :ios
 
 require 'base64'
 require 'fileutils'
+require 'json'
 require 'spaceship'
 
 APP_STORE_CONNECT_API_KEY_ID = ENV["APP_STORE_CONNECT_API_KEY_ID"]
@@ -44,12 +45,18 @@ lane :beta_build do |options|
     ) + 1,
     upload_to_tf: true
   )
+  
+  upload_dsyms()
 end
 
 lane :master_build do |options|
+  versions = JSON.parse(File.read("#{SOURCE_PATH}/versions.json"))
+  app_version = versions["app"]
+
   build_number = latest_testflight_build_number(
     api_key: generate_app_store_connect_api_key(),
-    app_identifier: BUNDLE_ID
+    app_identifier: BUNDLE_ID,
+    version: app_version
   )
 
   sh("echo BUILD_NUMBER=#{build_number} >> $GITHUB_ENV")
@@ -92,7 +99,9 @@ lane :build do |options|
     type: "appstore"
   )
 
-  telegram_configuration_path = resolve_telegram_configuration()
+  telegram_configuration_path = resolve_telegram_configuration(
+    is_appstore_build: upload_to_tf
+  )
 
   configuration_end_time = Time.new
   building_start_time = Time.new
@@ -166,6 +175,8 @@ lane :upload_nice_localization do |options|
 end
 
 lane :resolve_telegram_configuration do |options|
+  is_appstore_build = options[:is_appstore_build] || true
+
   telegram_configuration_path = "#{BUILD_WORKING_DIR}/telegram-configuration.json"
 
   env_path = "#{SOURCE_PATH}/ng-env.txt"
@@ -179,8 +190,12 @@ lane :resolve_telegram_configuration do |options|
     raise "Unknown environment in #{env_path}"
   end
 
-  telegram_configuration = Base64.decode64(telegram_configuration_base64)
-  File.write(telegram_configuration_path, telegram_configuration)
+  telegram_configuration_string = Base64.decode64(telegram_configuration_base64)
+  
+  telegram_configuration = JSON.parse(telegram_configuration_string)
+  telegram_configuration["is_appstore_build"] = is_appstore_build
+  
+  File.write(telegram_configuration_path, JSON.pretty_generate(telegram_configuration))
 
   telegram_configuration_path
 end
@@ -190,6 +205,8 @@ lane :build_bazel do |options|
   configuration_path = options[:configuration_path]
   git_codesigning_repository = options[:git_codesigning_repository]
   git_codesigning_type = options[:git_codesigning_type]
+
+  update_spm_pkgs()
 
   artifacts_path = "#{BUILD_WORKING_DIR}/artifacts"
   FileUtils.rm_rf(artifacts_path)
@@ -218,7 +235,7 @@ lane :build_bazel do |options|
   --gitCodesigningRepository=#{git_codesigning_repository} \
   --gitCodesigningType=#{git_codesigning_type} \
   --buildNumber=#{build_number} \
-  --configuration=release_universal \
+  --configuration=release_arm64 \
   --outputBuildArtifactsPath=#{artifacts_path} "
 
   error_callback = lambda do |result|
@@ -243,12 +260,13 @@ lane :generate_project do |options|
 
   configuration_path = resolve_telegram_configuration()
 
+  update_spm_pkgs()
+
   sh "cd #{SOURCE_PATH} && python3 build-system/Make/Make.py \
-  --bazel=#{BAZEL_PATH} \
   --cacheDir=#{BAZEL_LOCAL_CACHE} \
   generateProject \
   --configurationPath=#{configuration_path} \
-  --buildNumber=0 \
+  --buildNumber=555 \
   --gitCodesigningRepository=#{SIGN_URL} \
   --gitCodesigningType=development"
 end
@@ -264,6 +282,11 @@ lane :upload_ipa do |options|
   )
 end
 
+lane :update_spm_pkgs do |options|
+  bazel_path = sh("cd #{SOURCE_PATH} && echo $(python3 #{SOURCE_PATH}/build-system/Make/LocateBazel.py)")
+  sh("#{bazel_path} bazel run //:swift_update_pkgs")
+end
+
 lane :nicegram_match do |options|
   type = options[:type]
 
@@ -277,6 +300,14 @@ lane :nicegram_match do |options|
     keychain_name: KEYCHAIN_NAME,
     keychain_password: KEYCHAIN_PASSWORD,
     skip_provisioning_profiles: true
+  )
+end
+
+lane :upload_dsyms do |options|
+  upload_symbols_to_crashlytics(
+    binary_path: "#{SOURCE_PATH}/ci/upload-symbols",
+    dsym_path: "#{BUILD_WORKING_DIR}/artifacts/Telegram.DSYMs.zip",
+    gsp_path: "#{SOURCE_PATH}/Telegram/Telegram-iOS/GoogleService-Info.plist"
   )
 end
 

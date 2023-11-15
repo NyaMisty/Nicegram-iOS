@@ -7,6 +7,7 @@ import SwiftSignalKit
 import TelegramPresentationData
 import CheckNode
 import PhotoResources
+import RadialStatusNode
 
 final class WebSearchItem: GridItem {
     var section: GridSection?
@@ -44,6 +45,7 @@ final class WebSearchItemNode: GridItemNode {
     private let imageNodeBackground: ASDisplayNode
     private let imageNode: TransformImageNode
     private var checkNode: CheckNode?
+    private var statusNode: RadialStatusNode?
     
     private(set) var item: WebSearchItem?
     private var currentDimensions: CGSize?
@@ -79,6 +81,32 @@ final class WebSearchItemNode: GridItemNode {
             return .waitForSingleTap
         }
         self.imageNode.view.addGestureRecognizer(recognizer)
+    }
+    
+    func updateProgress(_ value: Float?, animated: Bool) {
+        if let value {
+            let statusNode: RadialStatusNode
+            if let current = self.statusNode {
+                statusNode = current
+            } else {
+                statusNode = RadialStatusNode(backgroundNodeColor: UIColor(rgb: 0x000000, alpha: 0.6))
+                statusNode.isUserInteractionEnabled = false
+                self.addSubnode(statusNode)
+                self.statusNode = statusNode
+            }
+            let adjustedProgress = max(0.027, CGFloat(value))
+            let state: RadialStatusNodeState = .progress(color: .white, lineWidth: nil, value: adjustedProgress, cancelEnabled: true, animateRotation: true)
+            statusNode.transitionToState(state)
+        } else if let statusNode = self.statusNode {
+            self.statusNode = nil
+            if animated {
+                statusNode.transitionToState(.none, animated: true, completion: { [weak statusNode] in
+                    statusNode?.removeFromSupernode()
+                })
+            } else {
+                statusNode.removeFromSupernode()
+            }
+        }
     }
     
     func setup(item: WebSearchItem, synchronousLoad: Bool) {
@@ -213,8 +241,13 @@ final class WebSearchItemNode: GridItemNode {
     func updateSelectionState(animated: Bool) {
         if self.checkNode == nil, let item = self.item, let _ = item.controllerInteraction.selectionState {
             let checkNode = InteractiveCheckNode(theme: CheckNodeTheme(theme: item.theme, style: .overlay))
-            checkNode.valueChanged = { value in
-                item.controllerInteraction.toggleSelection(item.result, value)
+            checkNode.valueChanged = { [weak self] value in
+                guard let self else {
+                    return
+                }
+                if !item.controllerInteraction.toggleSelection(item.result, value) {
+                    self.checkNode?.setSelected(false, animated: false)
+                }
             }
             self.addSubnode(checkNode)
             self.checkNode = checkNode

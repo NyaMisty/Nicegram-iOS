@@ -25,9 +25,6 @@ public var supportedTranslationLanguages = [
     "ca",
     "ceb",
     "zh",
-//    "zh-Hant",
-//    "zh-CN", "zh"
-//    "zh-TW"
     "co",
     "hr",
     "cs",
@@ -127,7 +124,6 @@ public var popularTranslationLanguages = [
     "en",
     "ar",
     "zh",
-//    "zh-Hant",
     "fr",
     "de",
     "it",
@@ -135,11 +131,31 @@ public var popularTranslationLanguages = [
     "ko",
     "pt",
     "ru",
-    "es"
+    "es",
+    "uk"
 ]
 
 @available(iOS 12.0, *)
 private let languageRecognizer = NLLanguageRecognizer()
+
+public func effectiveIgnoredTranslationLanguages(context: AccountContext, ignoredLanguages: [String]?) -> Set<String> {
+    var baseLang = context.sharedContext.currentPresentationData.with { $0 }.strings.baseLanguageCode
+    let rawSuffix = "-raw"
+    if baseLang.hasSuffix(rawSuffix) {
+        baseLang = String(baseLang.dropLast(rawSuffix.count))
+    }
+    
+    var dontTranslateLanguages = Set<String>()
+    if let ignoredLanguages = ignoredLanguages {
+        dontTranslateLanguages = Set(ignoredLanguages)
+    } else {
+        dontTranslateLanguages.insert(baseLang)
+        for language in systemLanguageCodes() {
+            dontTranslateLanguages.insert(language)
+        }
+    }
+    return dontTranslateLanguages
+}
 
 public func canTranslateText(context: AccountContext, text: String, showTranslate: Bool, showTranslateIfTopical: Bool = false, ignoredLanguages: [String]?) -> (canTranslate: Bool, language: String?) {
     guard showTranslate || showTranslateIfTopical, text.count > 0 else {
@@ -147,12 +163,11 @@ public func canTranslateText(context: AccountContext, text: String, showTranslat
     }
 
     if #available(iOS 12.0, *) {
-        var dontTranslateLanguages: [String] = []
-        if let ignoredLanguages = ignoredLanguages {
-            dontTranslateLanguages = ignoredLanguages
-        } else {
-            dontTranslateLanguages = [context.sharedContext.currentPresentationData.with { $0 }.strings.baseLanguageCode]
+        if context.sharedContext.immediateExperimentalUISettings.disableLanguageRecognition {
+            return (true, nil)
         }
+                
+        let dontTranslateLanguages = effectiveIgnoredTranslationLanguages(context: context, ignoredLanguages: ignoredLanguages)
         
         let text = String(text.prefix(64))
         languageRecognizer.processString(text)
@@ -164,13 +179,36 @@ public func canTranslateText(context: AccountContext, text: String, showTranslat
             supportedTranslationLanguages = ["uk", "ru"]
         }
         
-        let filteredLanguages = hypotheses.filter { supportedTranslationLanguages.contains($0.key.rawValue) }.sorted(by: { $0.value > $1.value })
-        if let language = filteredLanguages.first(where: { supportedTranslationLanguages.contains($0.key.rawValue) }) {
-            return (!dontTranslateLanguages.contains(language.key.rawValue), language.key.rawValue)
+        func normalize(_ code: String) -> String {
+            if code.contains("-") {
+                return code.components(separatedBy: "-").first ?? code
+            } else if code == "nb" {
+                return "no"
+            } else {
+                return code
+            }
+        }
+        
+        let filteredLanguages = hypotheses.filter { supportedTranslationLanguages.contains(normalize($0.key.rawValue)) }.sorted(by: { $0.value > $1.value })
+        if let language = filteredLanguages.first {
+            let languageCode = normalize(language.key.rawValue)
+            return (!dontTranslateLanguages.contains(languageCode), languageCode)
         } else {
             return (false, nil)
         }
     } else {
         return (false, nil)
     }
+}
+
+public func systemLanguageCodes() -> [String] {
+    var languages: [String] = []
+    for language in Locale.preferredLanguages.prefix(2) {
+        let language = language.components(separatedBy: "-").first ?? language
+        languages.append(language)
+    }
+    if languages.count == 2 && languages != ["en", "ru"] {
+        languages = Array(languages.prefix(1))
+    }
+    return languages
 }

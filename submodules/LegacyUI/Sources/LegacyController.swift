@@ -4,7 +4,6 @@ import Display
 import SwiftSignalKit
 import LegacyComponents
 import TelegramPresentationData
-import AttachmentUI
 
 public enum LegacyControllerPresentation {
     case custom
@@ -34,6 +33,7 @@ private final class LegacyComponentsOverlayWindowManagerImpl: NSObject, LegacyCo
     init(parentController: ViewController?, theme: PresentationTheme?) {
         self.parentController = parentController
         self.controller = LegacyController(presentation: .custom, theme: theme)
+        self.controller?.hasSparseContainerView = (parentController as? LegacyController)?.hasSparseContainerView ?? false
         
         super.init()
         
@@ -386,7 +386,7 @@ public final class LegacyControllerContext: NSObject, LegacyComponentsContext {
         let navigationBar = presentationTheme.rootController.navigationBar
         let tabBar = presentationTheme.rootController.tabBar
         
-        return TGMediaAssetsPallete(dark: presentationTheme.overallDarkAppearance, backgroundColor: theme.plainBackgroundColor, selectionColor: theme.itemHighlightedBackgroundColor, separatorColor: theme.itemPlainSeparatorColor, textColor: theme.itemPrimaryTextColor, secondaryTextColor: theme.controlSecondaryColor, accentColor: theme.itemAccentColor, destructiveColor: theme.itemDestructiveColor, barBackgroundColor: navigationBar.opaqueBackgroundColor, barSeparatorColor: tabBar.separatorColor, navigationTitleColor: navigationBar.primaryTextColor, badge: generateStretchableFilledCircleImage(diameter: 22.0, color: navigationBar.accentTextColor), badgeTextColor: navigationBar.opaqueBackgroundColor, sendIconImage: PresentationResourcesChat.chatInputPanelSendButtonImage(presentationTheme), doneIconImage: PresentationResourcesChat.chatInputPanelApplyButtonImage(presentationTheme), maybeAccentColor: navigationBar.accentTextColor)
+        return TGMediaAssetsPallete(dark: presentationTheme.overallDarkAppearance, backgroundColor: theme.plainBackgroundColor, selectionColor: theme.itemHighlightedBackgroundColor, separatorColor: theme.itemPlainSeparatorColor, textColor: theme.itemPrimaryTextColor, secondaryTextColor: theme.controlSecondaryColor, accentColor: theme.itemAccentColor, destructiveColor: theme.itemDestructiveColor, barBackgroundColor: navigationBar.opaqueBackgroundColor, barSeparatorColor: tabBar.separatorColor, navigationTitleColor: navigationBar.primaryTextColor, badge: generateStretchableFilledCircleImage(diameter: 22.0, color: navigationBar.accentTextColor), badgeTextColor: navigationBar.opaqueBackgroundColor, sendIconImage: PresentationResourcesChat.chatInputPanelSendButtonImage(presentationTheme), doneIconImage: PresentationResourcesChat.chatInputPanelApplyButtonImage(presentationTheme), scheduleIconImage: PresentationResourcesChat.chatInputPanelScheduleButtonImage(presentationTheme), maybeAccentColor: navigationBar.accentTextColor)
     }
     
     public func checkButtonPallete() -> TGCheckButtonPallete! {
@@ -402,7 +402,7 @@ public final class LegacyControllerContext: NSObject, LegacyComponentsContext {
     }
 }
 
-open class LegacyController: ViewController, PresentableController, AttachmentContainable {
+open class LegacyController: ViewController, PresentableController {
     public private(set) var legacyController: UIViewController!
     private let presentation: LegacyControllerPresentation
     
@@ -429,15 +429,16 @@ open class LegacyController: ViewController, PresentableController, AttachmentCo
     }
     private var enableContainerLayoutUpdates = false
     
+    public var hasSparseContainerView = false {
+        didSet {
+            if self.isNodeLoaded {
+                self.controllerNode.hasSparseContainerView = self.hasSparseContainerView
+            }
+        }
+    }
+    
     public var disposables = DisposableSet()
-    
-    open var requestAttachmentMenuExpansion: () -> Void = {}
-    open var updateNavigationStack: (@escaping ([AttachmentContainable]) -> ([AttachmentContainable], AttachmentMediaPickerContext?)) -> Void = { _ in }
-    open var updateTabBarAlpha: (CGFloat, ContainedViewLayoutTransition) -> Void = { _, _ in }
-    open var cancelPanGesture: () -> Void = { }
-    open var isContainerPanning: () -> Bool = { return false }
-    open var isContainerExpanded: () -> Bool = { return false }
-    
+            
     public init(presentation: LegacyControllerPresentation, theme: PresentationTheme? = nil, strings: PresentationStrings? = nil, initialLayout: ContainerViewLayout? = nil) {
         self.sizeClass.set(SSignal.single(UIUserInterfaceSizeClass.compact.rawValue as NSNumber))
         self.presentation = presentation
@@ -479,6 +480,8 @@ open class LegacyController: ViewController, PresentableController, AttachmentCo
     override open func loadDisplayNode() {
         self.displayNode = LegacyControllerNode()
         self.displayNodeDidLoad()
+        
+        self.controllerNode.hasSparseContainerView = self.hasSparseContainerView
     }
     
     override open func viewWillAppear(_ animated: Bool) {

@@ -1,6 +1,9 @@
 load("@build_bazel_rules_swift//swift:swift.bzl", "swift_library")
 
-NGDEPS = ["//Nicegram/NGData:NGData"]
+NGDEPS = [
+    "//Nicegram/NGData:NGData",
+    "//Nicegram/NGInstantLock:NGInstantLock",
+]
 
 swift_library(
     name = "SettingsUI",
@@ -90,7 +93,6 @@ swift_library(
         "//submodules/PhoneNumberFormat:PhoneNumberFormat",
         "//submodules/OpenInExternalAppUI:OpenInExternalAppUI",
         "//submodules/AccountUtils:AccountUtils",
-        "//submodules/AuthTransferUI:AuthTransferUI",
         "//submodules/UIKitRuntimeUtils:UIKitRuntimeUtils",
         "//submodules/DebugSettingsUI:DebugSettingsUI",
         "//submodules/WallpaperBackgroundNode:WallpaperBackgroundNode",
@@ -112,6 +114,12 @@ swift_library(
         "//submodules/TelegramUI/Components/ChatTimerScreen",
         "//submodules/AnimatedAvatarSetNode",
         "//submodules/TelegramUI/Components/StorageUsageScreen",
+        "//submodules/FeaturedStickersScreen:FeaturedStickersScreen",
+        "//submodules/MediaPickerUI:MediaPickerUI",
+        "//submodules/ImageBlur:ImageBlur",
+        "//submodules/AttachmentUI:AttachmentUI",
+        "//submodules/TelegramUI/Components/PeerInfo/PeerInfoStoryGridScreen",
+        "//submodules/TelegramUI/Components/Settings/PeerNameColorScreen",
     ],
     visibility = [
         "//visibility:public",

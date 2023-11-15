@@ -469,6 +469,12 @@ final class ThemeGridSearchContentNode: SearchDisplayControllerContentNode {
                         return .single(nil)
                     }
                     return context.engine.peers.resolvePeerByName(name: name)
+                    |> mapToSignal { result -> Signal<EnginePeer?, NoError> in
+                        guard case let .result(result) = result else {
+                            return .complete()
+                        }
+                        return .single(result)
+                    }
                     |> mapToSignal { peer -> Signal<Peer?, NoError> in
                         if let peer = peer {
                             return .single(peer._asPeer())
@@ -513,7 +519,7 @@ final class ThemeGridSearchContentNode: SearchDisplayControllerContentNode {
                                                 nextOffset = newNextOffset
                                             }
                                         }
-                                        let merged = ChatContextResultCollection(botId: collection.botId, peerId: collection.peerId, query: collection.query, geoPoint: collection.geoPoint, queryId: nextResults?.queryId ?? collection.queryId, nextOffset: nextOffset ?? "", presentation: collection.presentation, switchPeer: collection.switchPeer, results: results, cacheTimeout: collection.cacheTimeout)
+                                        let merged = ChatContextResultCollection(botId: collection.botId, peerId: collection.peerId, query: collection.query, geoPoint: collection.geoPoint, queryId: nextResults?.queryId ?? collection.queryId, nextOffset: nextOffset ?? "", presentation: collection.presentation, switchPeer: collection.switchPeer, webView: collection.webView, results: results, cacheTimeout: collection.cacheTimeout)
                                         return (merged, nextOffset)
                                     }
                                     |> mapToSignal { newCollection, nextOffset -> Signal<([ThemeGridSearchEntry], Bool)?, NoError> in

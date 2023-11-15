@@ -5,7 +5,7 @@ import PackageDescription
 
 let package = Package(
     name: "Postbox",
-    platforms: [.macOS(.v10_12)],
+    platforms: [.macOS(.v10_13)],
     products: [
         // Products define the executables and libraries a package produces, and make them visible to other packages.
         .library(
@@ -21,6 +21,7 @@ let package = Package(
         .package(name: "StringTransliteration", path: "../StringTransliteration"),
         .package(name: "ManagedFile", path: "../ManagedFile"),
         .package(name: "RangeSet", path: "../Utils/RangeSet"),
+        .package(name: "DarwinDirStat", path: "../Utils/DarwinDirStat"),
         .package(name: "SSignalKit", path: "../SSignalKit"),
         .package(name: "CryptoUtils", path: "../CryptoUtils")
     ],
@@ -35,6 +36,7 @@ let package = Package(
                            .product(name: "RangeSet", package: "RangeSet", condition: nil),
                            .product(name: "sqlcipher", package: "sqlcipher", condition: nil),
                            .product(name: "StringTransliteration", package: "StringTransliteration", condition: nil),
+                           .product(name: "DarwinDirStat", package: "DarwinDirStat", condition: nil),
                            .product(name: "CryptoUtils", package: "CryptoUtils", condition: nil),
                            .product(name: "Crc32", package: "Crc32", condition: nil)],
             path: "Sources"),

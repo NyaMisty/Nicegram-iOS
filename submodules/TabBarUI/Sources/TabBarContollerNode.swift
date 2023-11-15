@@ -10,6 +10,7 @@ private extension ToolbarTheme {
 }
 
 final class TabBarControllerNode: ASDisplayNode {
+    private var navigationBarPresentationData: NavigationBarPresentationData
     private var theme: TabBarControllerTheme
     let tabBarNode: TabBarNode
     private let disabledOverlayNode: ASDisplayNode
@@ -28,8 +29,9 @@ final class TabBarControllerNode: ASDisplayNode {
     }
     
     // MARK: Nicegram (showTabNames)
-    init(theme: TabBarControllerTheme, showTabNames: Bool, itemSelected: @escaping (Int, Bool, [ASDisplayNode]) -> Void, contextAction: @escaping (Int, ContextExtractedContentContainingNode, ContextGesture) -> Void, swipeAction: @escaping (Int, TabBarItemSwipeDirection) -> Void, toolbarActionSelected: @escaping (ToolbarActionOption) -> Void, disabledPressed: @escaping () -> Void) {
+    init(theme: TabBarControllerTheme, showTabNames: Bool, navigationBarPresentationData: NavigationBarPresentationData, itemSelected: @escaping (Int, Bool, [ASDisplayNode]) -> Void, contextAction: @escaping (Int, ContextExtractedContentContainingNode, ContextGesture) -> Void, swipeAction: @escaping (Int, TabBarItemSwipeDirection) -> Void, toolbarActionSelected: @escaping (ToolbarActionOption) -> Void, disabledPressed: @escaping () -> Void) {
         self.theme = theme
+        self.navigationBarPresentationData = navigationBarPresentationData
         // MARK: Nicegram (showTabNames)
         self.tabBarNode = TabBarNode(theme: theme, itemSelected: itemSelected, contextAction: contextAction, swipeAction: swipeAction, showTabNames: showTabNames)
         self.disabledOverlayNode = ASDisplayNode()
@@ -62,8 +64,9 @@ final class TabBarControllerNode: ASDisplayNode {
         }
     }
     
-    func updateTheme(_ theme: TabBarControllerTheme) {
+    func updateTheme(_ theme: TabBarControllerTheme, navigationBarPresentationData: NavigationBarPresentationData) {
         self.theme = theme
+        self.navigationBarPresentationData = navigationBarPresentationData
         self.backgroundColor = theme.backgroundColor
         
         self.tabBarNode.updateTheme(theme)
@@ -102,7 +105,7 @@ final class TabBarControllerNode: ASDisplayNode {
                 transition.updateFrame(node: toolbarNode, frame: tabBarFrame)
                 toolbarNode.updateLayout(size: tabBarFrame.size, leftInset: layout.safeInsets.left, rightInset: layout.safeInsets.right, additionalSideInsets: layout.additionalInsets, bottomInset: bottomInset, toolbar: toolbar, transition: transition)
             } else {
-                let toolbarNode = ToolbarNode(theme: ToolbarTheme(tabBarTheme: self.theme), left: { [weak self] in
+                let toolbarNode = ToolbarNode(theme: ToolbarTheme(tabBarTheme: self.theme), displaySeparator: true, left: { [weak self] in
                     self?.toolbarActionSelected(.left)
                 }, right: { [weak self] in
                     self?.toolbarActionSelected(.right)

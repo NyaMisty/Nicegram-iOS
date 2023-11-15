@@ -11,6 +11,8 @@ import MergeLists
 import AccountContext
 import ChatPresentationInterfaceState
 import ChatControllerInteraction
+import ChatContextQuery
+import ChatInputContextPanelNode
 
 private struct CommandMenuChatInputContextPanelEntryStableId: Hashable {
     let command: PeerCommand
@@ -72,6 +74,7 @@ final class CommandMenuChatInputContextPanelNode: ChatInputContextPanelNode {
         self.listView.clipsToBounds = false
         self.listView.isOpaque = false
         self.listView.stackFromBottom = true
+        self.listView.keepBottomItemOverscrollBackground = theme.list.plainBackgroundColor
         self.listView.limitHitTestToNodes = true
         self.listView.view.disablesInteractiveTransitionGestureRecognizer = true
         self.listView.accessibilityPageScrolledString = { row, count in
@@ -86,7 +89,7 @@ final class CommandMenuChatInputContextPanelNode: ChatInputContextPanelNode {
         self.addSubnode(self.listView)
         
         self.disposable.set((context.engine.peers.peerCommands(id: peerId)
-        |> deliverOnMainQueue).start(next: { [weak self] results in
+        |> deliverOnMainQueue).startStrict(next: { [weak self] results in
             if let strongSelf = self {
                 strongSelf.updateResults(results.commands)
             }
@@ -234,7 +237,7 @@ final class CommandMenuChatInputContextPanelNode: ChatInputContextPanelNode {
             self.listView.keepBottomItemOverscrollBackground = self.theme.list.plainBackgroundColor
             
             let new = self.currentEntries?.map({$0.withUpdatedTheme(interfaceState.theme)}) ?? []
-            prepareTransition(from: self.currentEntries, to: new)
+            self.prepareTransition(from: self.currentEntries, to: new)
         }
     }
     

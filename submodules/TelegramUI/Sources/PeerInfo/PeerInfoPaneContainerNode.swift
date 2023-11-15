@@ -9,27 +9,7 @@ import TelegramCore
 import AccountContext
 import ContextUI
 import ChatControllerInteraction
-
-protocol PeerInfoPaneNode: ASDisplayNode {
-    var isReady: Signal<Bool, NoError> { get }
-    
-    var parentController: ViewController? { get set }
-
-    var status: Signal<PeerInfoStatusData?, NoError> { get }
-    var tabBarOffsetUpdated: ((ContainedViewLayoutTransition) -> Void)? { get set }
-    var tabBarOffset: CGFloat { get }
-    
-    func update(size: CGSize, topInset: CGFloat, sideInset: CGFloat, bottomInset: CGFloat, visibleHeight: CGFloat, isScrollingLockedAtTop: Bool, expandProgress: CGFloat, presentationData: PresentationData, synchronous: Bool, transition: ContainedViewLayoutTransition)
-    func scrollToTop() -> Bool
-    func transferVelocity(_ velocity: CGFloat)
-    func cancelPreviewGestures()
-    func findLoadedMessage(id: MessageId) -> Message?
-    func transitionNodeForGallery(messageId: MessageId, media: Media) -> (ASDisplayNode, CGRect, () -> (UIView?, UIView?))?
-    func addToTransitionSurface(view: UIView)
-    func updateHiddenMedia()
-    func updateSelectedMessages(animated: Bool)
-    func ensureMessageIsVisible(id: MessageId)
-}
+import PeerInfoVisualMediaPaneNode
 
 final class PeerInfoPaneWrapper {
     let key: PeerInfoPaneKey
@@ -51,17 +31,6 @@ final class PeerInfoPaneWrapper {
         self.appliedParams = (size, topInset, sideInset, bottomInset, visibleHeight, isScrollingLockedAtTop, expandProgress, presentationData)
         self.node.update(size: size, topInset: topInset, sideInset: sideInset, bottomInset: bottomInset, visibleHeight: visibleHeight, isScrollingLockedAtTop: isScrollingLockedAtTop, expandProgress: expandProgress, presentationData: presentationData, synchronous: synchronous, transition: transition)
     }
-}
-
-enum PeerInfoPaneKey: Int32 {
-    case members
-    case media
-    case files
-    case music
-    case voice
-    case links
-    case gifs
-    case groupsInCommon
 }
 
 final class PeerInfoPaneTabsContainerPaneNode: ASDisplayNode {
@@ -393,11 +362,24 @@ private final class PeerInfoPendingPane {
         hasBecomeReady: @escaping (PeerInfoPaneKey) -> Void,
         parentController: ViewController?,
         openMediaCalendar: @escaping () -> Void,
-        paneDidScroll: @escaping () -> Void
+        paneDidScroll: @escaping () -> Void,
+        ensureRectVisible: @escaping (UIView, CGRect) -> Void
     ) {
         let captureProtected = data.peer?.isCopyProtectionEnabled ?? false
         let paneNode: PeerInfoPaneNode
         switch key {
+        case .stories:
+            let visualPaneNode = PeerInfoStoryPaneNode(context: context, peerId: peerId, chatLocation: chatLocation, contentType: .photoOrVideo, captureProtected: captureProtected, isSaved: false, isArchive: false, navigationController: chatControllerInteraction.navigationController, listContext: data.storyListContext)
+            paneNode = visualPaneNode
+            visualPaneNode.openCurrentDate = {
+                openMediaCalendar()
+            }
+            visualPaneNode.paneDidScroll = {
+                paneDidScroll()
+            }
+            visualPaneNode.ensureRectVisible = { sourceView, rect in
+                ensureRectVisible(sourceView, rect)
+            }
         case .media:
             let visualPaneNode = PeerInfoVisualMediaPaneNode(context: context, chatControllerInteraction: chatControllerInteraction, peerId: peerId, chatLocation: chatLocation, chatLocationContextHolder: chatLocationContextHolder, contentType: .photoOrVideo, captureProtected: captureProtected)
             paneNode = visualPaneNode
@@ -439,7 +421,7 @@ private final class PeerInfoPendingPane {
         self.pane = PeerInfoPaneWrapper(key: key, node: paneNode)
         self.disposable = (paneNode.isReady
         |> take(1)
-        |> deliverOnMainQueue).start(next: { [weak self] _ in
+        |> deliverOnMainQueue).startStrict(next: { [weak self] _ in
             self?.isReady = true
             hasBecomeReady(key)
         })
@@ -508,6 +490,8 @@ final class PeerInfoPaneContainerNode: ASDisplayNode, UIGestureRecognizerDelegat
 
     var openMediaCalendar: (() -> Void)?
     var paneDidScroll: (() -> Void)?
+    
+    var ensurePaneRectVisible: ((UIView, CGRect) -> Void)?
     
     private var currentAvailablePanes: [PeerInfoPaneKey]?
     private let updatedPresentationData: (initial: PresentationData, signal: Signal<PresentationData, NoError>)?
@@ -720,6 +704,10 @@ final class PeerInfoPaneContainerNode: ASDisplayNode, UIGestureRecognizerDelegat
         let previousCurrentPaneKey = self.currentPaneKey
         var updateCurrentPaneStatus = false
         
+        if let previousAvailablePanes, !previousAvailablePanes.contains(.stories), availablePanes.contains(.stories) {
+            self.pendingSwitchToPaneKey = .stories
+        }
+        
         if let currentPaneKey = self.currentPaneKey, !availablePanes.contains(currentPaneKey) {
             var nextCandidatePaneKey: PeerInfoPaneKey?
             if let previousAvailablePanes = previousAvailablePanes, let index = previousAvailablePanes.firstIndex(of: currentPaneKey), index != 0 {
@@ -838,6 +826,12 @@ final class PeerInfoPaneContainerNode: ASDisplayNode, UIGestureRecognizerDelegat
                     },
                     paneDidScroll: { [weak self] in
                         self?.paneDidScroll?()
+                    },
+                    ensureRectVisible: { [weak self] sourceView, rect in
+                        guard let self else {
+                            return
+                        }
+                        self.ensurePaneRectVisible?(self.view, sourceView.convert(rect, to: self.view))
                     }
                 )
                 self.pendingPanes[key] = pane
@@ -977,6 +971,8 @@ final class PeerInfoPaneContainerNode: ASDisplayNode, UIGestureRecognizerDelegat
         self.tabsContainerNode.update(size: CGSize(width: size.width, height: tabsHeight), presentationData: presentationData, paneList: availablePanes.map { key in
             let title: String
             switch key {
+            case .stories:
+                title = presentationData.strings.PeerInfo_PaneStories
             case .media:
                 title = presentationData.strings.PeerInfo_PaneMedia
             case .files:
@@ -1002,6 +998,29 @@ final class PeerInfoPaneContainerNode: ASDisplayNode, UIGestureRecognizerDelegat
             paneTransition.updateFrame(node: pane.pane.node, frame: paneFrame)
             pane.pane.update(size: paneFrame.size, topInset: tabsHeight, sideInset: sideInset, bottomInset: bottomInset, visibleHeight: visibleHeight, isScrollingLockedAtTop: isScrollingLockedAtTop, expandProgress: expansionFraction, presentationData: presentationData, synchronous: true, transition: paneTransition)
         }
+        
+        var removeKeys: [PeerInfoPaneKey] = []
+        for (key, paneNode) in self.pendingPanes {
+            if !availablePanes.contains(key) {
+                removeKeys.append(key)
+                paneNode.pane.node.removeFromSupernode()
+            }
+        }
+        for key in removeKeys {
+            self.pendingPanes.removeValue(forKey: key)
+        }
+        removeKeys.removeAll()
+        
+        for (key, paneNode) in self.currentPanes {
+            if !availablePanes.contains(key) {
+                removeKeys.append(key)
+                paneNode.node.removeFromSupernode()
+            }
+        }
+        for key in removeKeys {
+            self.currentPanes.removeValue(forKey: key)
+        }
+        
         if !self.didSetIsReady && data != nil {
             if let currentPaneKey = self.currentPaneKey, let currentPane = self.currentPanes[currentPaneKey] {
                 self.didSetIsReady = true

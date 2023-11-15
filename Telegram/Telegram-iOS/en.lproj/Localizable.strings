@@ -253,13 +253,21 @@
 "PUSH_CHAT_REACT_INVOICE" = "%2$@|%1$@ %3$@ to your invoice";
 "PUSH_CHAT_REACT_GIF" = "%2$@|%1$@ %3$@ to your GIF";
 
-"PUSH_MESSAGE_SUGGEST_USERPIC" = "%1$@ suggested you new profile photo";
+"PUSH_MESSAGE_SUGGEST_USERPIC" = "%1$@|suggested you new profile photo";
 
+"PUSH_MESSAGE_WALLPAPER" = "%1$@ set a new wallpaper for the chat with you";
+"PUSH_MESSAGE_SAME_WALLPAPER" = "%1$@ set the same wallpaper for the chat with you";
 
 "PUSH_REMINDER_TITLE" = "🗓 Reminder";
 "PUSH_SENDER_YOU" = "📅 You";
 
 "PUSH_CHAT_REQ_JOINED" = "%2$@|%1$@ was accepted into the group";
+
+"PUSH_STORY_NOTEXT" = "%1$@|posted a story";
+"PUSH_MESSAGE_STORY" = "%1$@|shared a story with you";
+"PUSH_MESSAGE_STORY_MENTION" = "%1$@|mentioned you in a story";
+"PUSH_CHANNEL_MESSAGE_STORY" = "%1$@|shared a story";
+"PUSH_CHAT_MESSAGE_STORY" = "%2$@|%1$@ shared a story to the group";
 
 "LOCAL_MESSAGE_FWDS" = "%1$@ forwarded you %2$d messages";
 "LOCAL_CHANNEL_MESSAGE_FWDS" = "%1$@ posted %2$d forwarded messages";
@@ -384,7 +392,7 @@
 "Tour.Text2" = "**Nicegram**'s optimized code\ndelivers messages even **faster**.";
 
 "Tour.Title3" = "Powerful";
-"Tour.Text3" = "**Nicegram** has no limits on\nthe size of your chats and media.";
+"Tour.Text3" = "**Nicegram** has no limits on\nthe size of your media and chats.";
 
 "Tour.Title4" = "Secure";
 "Tour.Text4" = "**Nicegram** is safe to use.\nSource code is **open** for everyone.";
@@ -398,25 +406,25 @@
 "Tour.StartButton" = "Start Messaging";
 
 // Login
-"Login.PhoneAndCountryHelp" = "Please confirm your country code and enter your phone number.";
+"Login.PhoneAndCountryHelp" = "Please confirm your country code\nand enter your phone number.";
 "Login.CodeSentInternal" = "We've sent the code to the **Telegram** app on your other device";
-"Login.HaveNotReceivedCodeInternal" = "Haven't received the code?";
-"Login.CodeSentSms" = "We have sent you an SMS with the code";
+"Login.HaveNotReceivedCodeInternal" = "Didn't get the code?";
+"Login.CodeSentSms" = "We've sent you an SMS with the code";
 "Login.Code" = "Code";
-"Login.WillCallYou" = "You can request a voice call in %@";
-"Login.CallRequestState2" = "Requesting a call from Nicegram...";
+"Login.WillCallYou" = "Nicegram will call you in %@";
+"Login.CallRequestState2" = "Requesting a call from Nicegram…";
 "Login.CallRequestState3" = "Nicegram dialed your number\n[Didn't get the code?]";
-"Login.EmailNotConfiguredError" = "Please set up an email account.";
+"Login.EmailNotConfiguredError" = "An email account is required so that you can send us details about the error.\n\nPlease go to your device‘s settings > Passwords & Accounts > Add account and set up an email account.";
 "Login.EmailCodeSubject" = "%@, no code";
 "Login.EmailCodeBody" = "My phone number is:\n%@\nI can't get an activation code for Nicegram.";
-"Login.UnknownError" = "An error occurred. Please try again later";
-"Login.InvalidCodeError" = "You have entered an invalid code. Please try again.";
+"Login.UnknownError" = "An error occurred, please try again later.";
+"Login.InvalidCodeError" = "Invalid code, please try again.";
 "Login.NetworkError" = "Please check your internet connection and try again.";
-"Login.CodeExpiredError" = "Code expired. Please try again.";
-"Login.CodeFloodError" = "Limit exceeded. Please try again later.";
-"Login.InvalidPhoneError" = "Invalid phone number. Please try again.";
-"Login.InvalidFirstNameError" = "Invalid first name. Please try again.";
-"Login.InvalidLastNameError" = "Invalid last name. Please try again.";
+"Login.CodeExpiredError" = "Code expired, please start over.";
+"Login.CodeFloodError" = "Too many attempts, please try again later.";
+"Login.InvalidPhoneError" = "Invalid phone number, please try again.";
+"Login.InvalidFirstNameError" = "This first name is not allowed, please try another.";
+"Login.InvalidLastNameError" = "Sorry, this last name can't be used.";
 
 "Login.InvalidPhoneEmailSubject" = "Invalid phone number: %@";
 "Login.InvalidPhoneEmailBody" = "I'm trying to use my mobile phone number: %1$@\nBut Nicegram says it's invalid. Please help.\n\nApp version: %2$@\nOS version: %3$@\nLocale: %4$@\nMNC: %5$@";
@@ -438,8 +446,8 @@
 "Login.InfoAvatarPhoto" = "photo";
 "Login.InfoFirstNamePlaceholder" = "First Name";
 "Login.InfoLastNamePlaceholder" = "Last Name";
-"Login.InfoDeletePhoto" = "Delete Photo";
-"Login.InfoHelp" = "Enter your name and add a profile picture.";
+"Login.InfoDeletePhoto" = "Remove Photo";
+"Login.InfoHelp" = "Enter your name and add a profile photo.";
 
 // Login.SelectCountry
 "Login.SelectCountry.Title" = "Country";
@@ -928,6 +936,7 @@
 "Username.InvalidStartsWithNumber" = "Sorry, a username can't start with a number.";
 "Username.InvalidCharacters" = "Sorry, this username is invalid.";
 "Username.InvalidTaken" = "Sorry, this username is already taken.";
+"Username.InvalidValue" = "Sorry, this username is invalid.";
 
 "Username.CheckingUsername" = "Checking username...";
 "Username.UsernameIsAvailable" = "%@ is available.";
@@ -960,6 +969,8 @@
 "PrivacySettings.LastSeenContactsMinus" = "My Contacts (-%@)";
 "PrivacySettings.LastSeenContactsMinusPlus" = "My Contacts (-%@, +%@)";
 "PrivacySettings.LastSeenNobodyPlus" = "Nobody (+%@)";
+"PrivacySettings.LastSeenCloseFriendsPlus" = "Close Friends (+%@)";
+"PrivacySettings.LastSeenCloseFriends" = "Close Friends";
 
 "PrivacySettings.SecurityTitle" = "SECURITY";
 
@@ -2051,6 +2062,7 @@
 
 "StickerPack.Share" = "Share";
 "StickerPack.Send" = "Send Sticker";
+"StickerPack.AddSticker" = "Add Sticker";
 
 "StickerPack.RemoveStickerCount_1" = "Remove 1 Sticker";
 "StickerPack.RemoveStickerCount_2" = "Remove 2 Stickers";
@@ -5820,6 +5832,8 @@ Sorry for the inconvenience.";
 "VoiceChat.Audio" = "audio";
 "VoiceChat.Leave" = "leave";
 
+"LiveStream.Expand" = "expand";
+
 "VoiceChat.SpeakPermissionEveryone" = "New participants can speak";
 "VoiceChat.SpeakPermissionAdmin" = "New paricipants are muted";
 "VoiceChat.Share" = "Share Invite Link";
@@ -5956,7 +5970,9 @@ Sorry for the inconvenience.";
 "LiveStream.RecordingInProgress" = "Live stream is being recorded";
 
 "VoiceChat.StopRecordingTitle" = "Stop Recording?";
-"VoiceChat.StopRecordingStop" = "Stop";
+"VoiceChat.StopRecordingStop" = "Stop Recording";
+
+"LiveStream.StopLiveStream" = "Stop Live Stream";
 
 "VoiceChat.RecordingSaved" = "Audio saved to **Saved Messages**.";
 
@@ -6371,6 +6387,7 @@ Sorry for the inconvenience.";
 
 "StickerPacks.ActionDelete" = "Delete";
 "StickerPacks.ActionArchive" = "Archive";
+"StickerPacks.ActionUnarchive" = "Unarchive";
 "StickerPacks.ActionShare" = "Share";
 
 "StickerPacks.DeleteStickerPacksConfirmation_0" = "Delete %@ Sticker Sets";
@@ -6758,6 +6775,7 @@ Sorry for the inconvenience.";
 
 "Conversation.ForwardOptions.Text" = "What whould you like to do with %1$@ from %2$@?";
 "Conversation.ForwardOptions.TextPersonal" = "What whould you like to do with %1$@ from your chat with %2$@?";
+"Conversation.ForwardOptions.TextSaved" = "What whould you like to do with %1$@ from your Saved Messages?";
 "Conversation.ForwardOptions.ShowOptions" = "Show Forwarding Options";
 "Conversation.ForwardOptions.CancelForwarding" = "Cancel Forwarding";
 
@@ -6894,7 +6912,7 @@ Sorry for the inconvenience.";
 
 "SponsoredMessageMenu.Info" = "What are sponsored\nmessages?";
 "SponsoredMessageInfoScreen.Title" = "What are sponsored messages?";
-"SponsoredMessageInfoScreen.Text" = "Unlike other apps, Telegram never uses your private data to target ads. You are seeing this message only because someone chose this public one-to many channel as a space to promote their messages. This means that no user data is mined or analyzed to display ads, and every user viewing a channel on Telegram sees the same sponsored message.\n\nUnline other apps, Telegram doesn't track whether you tapped on a sponsored message and doesn't profile you based on your activity. We also prevent external links in sponsored messages to ensure that third parties can't spy on our users. We believe that everyone has the right to privacy, and technological platforms should respect that.\n\nTelegram offers free and unlimited service to hundreds of millions of users, which involves significant server and traffic costs. In order to remain independent and stay true to its values, Telegram developed a paid tool to promote messages with user privacy in mind. We welcome responsible adverticers at:\n[url]\nAds should no longer be synonymous with abuse of user privacy. Let us redefine how a tech compony should operate — together.";
+"SponsoredMessageInfoScreen.MarkdownText" = "Unlike other apps, Telegram never uses your private data to target ads. [Learn more in the Privacy Policy](https://telegram.org/privacy#5-6-no-ads-based-on-user-data)\nYou are seeing this message only because someone chose this public one-to many channel as a space to promote their messages. This means that no user data is mined or analyzed to display ads, and every user viewing a channel on Telegram sees the same sponsored message.\n\nUnline other apps, Telegram doesn't track whether you tapped on a sponsored message and doesn't profile you based on your activity. We also prevent external links in sponsored messages to ensure that third parties can't spy on our users. We believe that everyone has the right to privacy, and technological platforms should respect that.\n\nTelegram offers free and unlimited service to hundreds of millions of users, which involves significant server and traffic costs. In order to remain independent and stay true to its values, Telegram developed a paid tool to promote messages with user privacy in mind. We welcome responsible adverticers at:\n[url]\nAds should no longer be synonymous with abuse of user privacy. Let us redefine how a tech compony should operate — together.";
 "SponsoredMessageInfo.Action" = "Learn More";
 "SponsoredMessageInfo.Url" = "https://telegram.org/ads";
 
@@ -7073,6 +7091,7 @@ Sorry for the inconvenience.";
 "Time.HoursAgo_many" = "%@ hours ago";
 "Time.HoursAgo_0" = "%@ hours ago";
 "Time.AtDate" = "%@";
+"Time.AtPreciseDate" = "%@ at %@";
 
 "Stickers.ShowMore" = "Show More";
 
@@ -7371,6 +7390,7 @@ Sorry for the inconvenience.";
 
 "Attachment.MediaAccessTitle" = "Access Your Photos and Videos";
 "Attachment.MediaAccessText" = "Share an unlimited number of photos and videos of up to 2 GB each.";
+"Attachment.MediaAccessStoryText" = "Share an unlimited number of photos and videos of up to 2 GB each.";
 
 "Attachment.LimitedMediaAccessText" = "You have limited Nicegram from accessing all of your photos.";
 "Attachment.CameraAccessText" = "Nicegram needs camera access so that you can take photos and videos.";
@@ -7415,6 +7435,7 @@ Sorry for the inconvenience.";
 "LiveStream.NoViewers" = "No viewers";
 "LiveStream.ViewerCount_1" = "1 viewer";
 "LiveStream.ViewerCount_any" = "%@ viewers";
+"LiveStream.Watching" = "watching";
 
 "LiveStream.NoSignalAdminText" = "Oops! Nicegram doesn't see any stream\ncoming from your streaming app.\n\nPlease make sure you entered the right Server\nURL and Stream Key in your app.";
 "LiveStream.NoSignalUserText" = "%@ is currently not broadcasting live\nstream data to Nicegram.";
@@ -7531,6 +7552,7 @@ Sorry for the inconvenience.";
 "PeerInfo.AutoDeleteSettingOther" = "Other...";
 "PeerInfo.AutoDeleteDisable" = "Disable";
 "PeerInfo.AutoDeleteInfo" = "Automatically delete messages sent in this chat after a certain period of time.";
+"PeerInfo.ChannelAutoDeleteInfo" = "Automatically delete messages sent in this channel after a certain period of time.";
 
 "PeerInfo.ClearMessages" = "Clear Messages";
 "PeerInfo.ClearConfirmationUser" = "Are you sure you want to delete all messages with %@?";
@@ -7756,6 +7778,7 @@ Sorry for the inconvenience.";
 "WebApp.Settings" = "Settings";
 
 "Bot.AccepRecurrentInfo" = "I accept the [Terms of Service]() of **%1$@**";
+"Bot.AcceptTermsInfo" = "I accept the [Terms of Service]() of **%1$@**";
 
 "Chat.AudioTranscriptionRateAction" = "Rate Transcription";
 "Chat.AudioTranscriptionFeedbackTip" = "Thank you for your feedback.";
@@ -8032,7 +8055,7 @@ Sorry for the inconvenience.";
 "Login.Continue" = "Continue";
 
 "Login.EnterCodeSMSTitle" = "Enter Code";
-"Login.EnterCodeSMSText" = "We've sent and SMS with an activation code to your phone **%@**.";
+"Login.EnterCodeSMSText" = "We've sent an SMS with an activation code to your phone **%@**.";
 "Login.SendCodeAsSMS" = "Send the code as an SMS";
 "Login.EnterCodeTelegramTitle" = "Enter Code";
 "Login.EnterCodeTelegramText" = "We've sent the code to the **Telegram app** for %@ on your other device.";
@@ -8464,15 +8487,15 @@ Sorry for the inconvenience.";
 "UserInfo.SuggestPhotoTitle" = "Do you want to suggest a profile picture for %@?";
 "UserInfo.SetCustomPhotoTitle" = "Do you want to set a custom profile picture for %@?";
 
-"UserInfo.SuggestPhoto.AlertPhotoText" = "Do you want to suggest %@ to set this photo for his/her profile?";
-"UserInfo.SuggestPhoto.AlertVideoText" = "Do you want to suggest %@ to set this video for his/her profile?";
+"UserInfo.SuggestPhoto.AlertPhotoText" = "Do you want to suggest %@ to set this photo for their profile?";
+"UserInfo.SuggestPhoto.AlertVideoText" = "Do you want to suggest %@ to set this video for their profile?";
 "UserInfo.SuggestPhoto.AlertSuggest" = "Suggest";
 
-"UserInfo.SetCustomPhoto.AlertPhotoText" = "Do you want to set this photo for %@? Only you will see this photo and it will replace any photo %@ sets for themselves.";
-"UserInfo.SetCustomPhoto.AlertVideoText" = "Do you want to set this video for %@? Only you will see this video and it will replace any photo %@ sets for themselves.";
+"UserInfo.SetCustomPhoto.AlertPhotoText" = "Do you want to set this photo for %@? It will replace any photo %@ sets, but only you will see it.";
+"UserInfo.SetCustomPhoto.AlertVideoText" = "Do you want to set this video for %@? It will replace any photo %@ sets, but only you will see it.";
 "UserInfo.SetCustomPhoto.AlertSet" = "Set";
-"UserInfo.SetCustomPhoto.SuccessPhotoText" = "You will now always see this photo for **%@** account.";
-"UserInfo.SetCustomPhoto.SuccessVideoText" = "You will now always see this video for **%@** account.";
+"UserInfo.SetCustomPhoto.SuccessPhotoText" = "You will now always see this photo for **%@**.";
+"UserInfo.SetCustomPhoto.SuccessVideoText" = "You will now always see this video for **%@**.";
 
 "UserInfo.CustomPhoto" = "photo set by you";
 "UserInfo.CustomVideo" = "video set by you";
@@ -8480,7 +8503,7 @@ Sorry for the inconvenience.";
 "UserInfo.PublicPhoto" = "public photo";
 "UserInfo.PublicVideo" = "public video";
 
-"UserInfo.ResetToOriginalAlertText" = "Are you sure you want to reset to %@ original photo?";
+"UserInfo.ResetToOriginalAlertText" = "Are you sure you want to reset to the original photo from %@?";
 "UserInfo.ResetToOriginalAlertReset" = "Reset";
 
 "Conversation.SuggestedPhotoTitle" = "Suggested Photo";
@@ -8511,18 +8534,18 @@ Sorry for the inconvenience.";
 "PhotoEditor.SetAsMyPhoto" = "Set as My Photo";
 "PhotoEditor.SetAsMyVideo" = "Set as My Video";
 
-"Notification.BotWriteAllowed" = "You allowed this bot to message you when you added it in the attachment menu.";
+"Notification.BotWriteAllowed" = "You allowed this bot to message you when you added to your attachment menu.";
 
 "Privacy.ProfilePhoto.SetPublicPhoto" = "Set Public Photo";
 "Privacy.ProfilePhoto.UpdatePublicPhoto" = "Update Public Photo";
 "Privacy.ProfilePhoto.RemovePublicPhoto" = "Remove Public Photo";
 "Privacy.ProfilePhoto.RemovePublicVideo" = "Remove Public Video";
 "Privacy.ProfilePhoto.PublicPhotoInfo" = "You can upload a public photo for those who are restricted from viewing your real profile photo.";
-"Privacy.ProfilePhoto.PublicPhotoSuccess" = "This photo is now set for those who are restricted from viewing your main photo.";
-"Privacy.ProfilePhoto.PublicVideoSuccess" = "This video is now set for those who are restricted from viewing your main photo.";
+"Privacy.ProfilePhoto.PublicPhotoSuccess" = "This photo will be shown to those who are restricted from viewing your main photo.";
+"Privacy.ProfilePhoto.PublicVideoSuccess" = "This video will be shown to those who are restricted from viewing your main photo.";
 
-"Privacy.ProfilePhoto.CustomOverrideInfo" = "You can add users or entire groups which will not see your profile photo.";
-"Privacy.ProfilePhoto.CustomOverrideAddInfo" = "Add users or entire groups which will still see your profile photo.";
+"Privacy.ProfilePhoto.CustomOverrideInfo" = "You can add users or entire groups that will not see your profile photo.";
+"Privacy.ProfilePhoto.CustomOverrideAddInfo" = "Add users or entire groups that will still see your profile photo.";
 "Privacy.ProfilePhoto.CustomOverrideBothInfo" = "You can add users or entire groups as exceptions that will override the settings above.";
 
 "WebApp.AddToAttachmentAllowMessages" = "Allow **%@** to send me messages";
@@ -8534,9 +8557,9 @@ Sorry for the inconvenience.";
 "GroupInfo.TitleMembers_1" = "%@ Member";
 "GroupInfo.TitleMembers_any" = "%@ Members";
 
-"PeerInfo.HideMembersLimitedParticipantCountText_1" = "Only groups with more than **%d member** can have their member list hidden.";
-"PeerInfo.HideMembersLimitedParticipantCountText_any" = "Only groups with more than **%d members** can have their member list hidden.";
-"PeerInfo.HideMembersLimitedRights" = "You don't have permission to change this setting.";
+"PeerInfo.HideMembersLimitedParticipantCountText_1" = "Hiding members is available only for groups with more than **%d member**.";
+"PeerInfo.HideMembersLimitedParticipantCountText_any" = "Hiding members is available only for groups with more than **%d members**.";
+"PeerInfo.HideMembersLimitedRights" = "You don't have the permission to change this setting.";
 
 "Privacy.Exceptions" = "EXCEPTIONS";
 "Privacy.ExceptionsCount_1" = "%@ EXCEPTION";
@@ -8565,6 +8588,12 @@ Sorry for the inconvenience.";
 
 "Paint.MoveForward" = "Move Forward";
 
+"Paint.ColorTitle" = "Colors";
+"Paint.ColorGrid" = "Grid";
+"Paint.ColorSpectrum" = "Spectrum";
+"Paint.ColorSliders" = "Sliders";
+"Paint.ColorOpacity" = "OPACITY";
+
 "StorageManagement.Title" = "Storage Usage";
 "StorageManagement.TitleCleared" = "Storage Cleared";
 
@@ -8572,7 +8601,7 @@ Sorry for the inconvenience.";
 "StorageManagement.DescriptionChatUsage" = "This chat uses %1$@% of your Telegram cache.";
 "StorageManagement.DescriptionAppUsage" = "Telegram uses %1$@% of your free disk space.";
 
-"StorageManagement.ClearAll" = "Clear All Cache";
+"StorageManagement.ClearAll" = "Clear Entire Cache";
 "StorageManagement.ClearSelected" = "Clear Selected";
 
 "StorageManagement.SectionPhotos" = "Photos";
@@ -8582,7 +8611,7 @@ Sorry for the inconvenience.";
 "StorageManagement.SectionOther" = "Other";
 "StorageManagement.SectionStickers" = "Stickers";
 "StorageManagement.SectionAvatars" = "Avatars";
-"StorageManagement.SectionMiscellaneous" = "Miscellaneous";
+"StorageManagement.SectionMiscellaneous" = "Misc";
 
 "StorageManagement.SectionsDescription" = "All media will stay in the Telegram cloud and can be re-downloaded if you need it again.";
 
@@ -8590,6 +8619,8 @@ Sorry for the inconvenience.";
 "StorageManagement.AutoremoveDescription" = "Photos, videos and other files from cloud chats that you have **not accessed** during this period will be removed from this device to save disk space.";
 
 "StorageManagement.AutoremoveSpaceDescription" = "If your cache size exceeds this limit, the oldest media will be deleted.";
+
+"StorageManagement.ClearConfirmationText" = "Media and documents will stay in the cloud and can be re-downloaded if you need them again.";
 
 "StorageManagement.TabChats" = "Chats";
 "StorageManagement.TabMedia" = "Media";
@@ -8601,3 +8632,1794 @@ Sorry for the inconvenience.";
 "GroupMembers.HideMembers" = "Hide Members";
 "GroupMembers.MembersHiddenOn" = "Switch this off to show the list of members in this group.";
 "GroupMembers.MembersHiddenOff" = "Switch this on to hide the list of members in this group. Admins will remain visible.";
+
+"StorageManagement.ClearCache" = "Clear Cache";
+
+"ChatList.StorageHintTitle" = "Free up to %@";
+"ChatList.StorageHintText" = "Clear storage space on your iPhone";
+
+"StorageManagement.PeerShowDetails" = "Show Details";
+"StorageManagement.PeerOpenProfile" = "Open Profile";
+"StorageManagement.ContextSelect" = "Select";
+"StorageManagement.ContextDeselect" = "Deselect";
+"StorageManagement.OpenPhoto" = "Open Photo";
+"StorageManagement.OpenVideo" = "Open Video";
+"StorageManagement.OpenFile" = "Open File";
+
+"ChatListFilter.AddChatsSearchPlaceholder" = "Search Chats";
+
+"RequestPeer.ChooseUserTitle" = "Choose User";
+"RequestPeer.ChooseBotTitle" = "Choose Bot";
+"RequestPeer.ChooseGroupTitle" = "Choose Group";
+"RequestPeer.ChooseChannelTitle" = "Choose Channel";
+"RequestPeer.Requirements" = "Requirements:";
+
+"RequestPeer.CreateNewGroup" = "Create a New Group for This";
+"RequestPeer.CreateNewChannel" = "Create a New Channel for This";
+
+"RequestPeer.UsersEmpty" = "You don't have users that meet the following requirements:";
+"RequestPeer.UsersAllEmpty" = "You don't have any users.";
+"RequestPeer.BotsAllEmpty" = "You don't have any bots.";
+"RequestPeer.GroupsEmpty" = "You don't have groups that meet the following requirements:";
+"RequestPeer.GroupsAllEmpty" = "You don't have any groups.";
+"RequestPeer.ChannelsEmpty" = "You don't have channels that meet the following requirements:";
+"RequestPeer.ChannelsAllEmpty" = "You don't have any channels.";
+
+"RequestPeer.Requirement.UserPremiumOff" = "User should not have a Premium subscription.";
+"RequestPeer.Requirement.UserPremiumOn" = "User should have a Premium subscription.";
+
+"RequestPeer.Requirement.Group.HasUsernameOff" = "The group should be private.";
+"RequestPeer.Requirement.Group.HasUsernameOn" = "The group should be public.";
+
+"RequestPeer.Requirement.Group.ForumOff" = "The group should have topics turned off.";
+"RequestPeer.Requirement.Group.ForumOn" = "The group should have topics turned on.";
+
+"RequestPeer.Requirement.Group.ParticipantOn" = "Bot should be in the group.";
+"RequestPeer.Requirement.Group.CreatorOn" = "You should be the owner of the group.";
+
+"RequestPeer.Requirement.Group.Rights" = "You have the admin rights to %@.";
+"RequestPeer.Requirement.Group.Rights.Info" = "change group info";
+"RequestPeer.Requirement.Group.Rights.Send" = "post messages";
+"RequestPeer.Requirement.Group.Rights.Delete" = "delete messages";
+"RequestPeer.Requirement.Group.Rights.Edit" = "edit messages";
+"RequestPeer.Requirement.Group.Rights.Ban" = "ban users";
+"RequestPeer.Requirement.Group.Rights.Invite" = "add members";
+"RequestPeer.Requirement.Group.Rights.Pin" = "pin messages";
+"RequestPeer.Requirement.Group.Rights.Topics" = "manage topics";
+"RequestPeer.Requirement.Group.Rights.VideoChats" = "manage video chats";
+"RequestPeer.Requirement.Group.Rights.Anonymous" = "remain anonymous";
+"RequestPeer.Requirement.Group.Rights.AddAdmins" = "add new admins";
+
+"RequestPeer.Requirement.Channel.HasUsernameOff" = "The channel should be private.";
+"RequestPeer.Requirement.Channel.HasUsernameOn" = "The channel should be public.";
+
+"RequestPeer.Requirement.Channel.CreatorOn" = "You should be the owner of the channel.";
+
+"RequestPeer.Requirement.Channel.Rights" = "You have the admin rights to %@.";
+"RequestPeer.Requirement.Channel.Rights.Info" = "change channel info";
+"RequestPeer.Requirement.Channel.Rights.Send" = "post messages";
+"RequestPeer.Requirement.Channel.Rights.Delete" = "delete messages";
+"RequestPeer.Requirement.Channel.Rights.Edit" = "edit messages";
+"RequestPeer.Requirement.Channel.Rights.Invite" = "invite users via link";
+"RequestPeer.Requirement.Channel.Rights.Pin" = "pin messages";
+"RequestPeer.Requirement.Channel.Rights.Topics" = "manage topics";
+"RequestPeer.Requirement.Channel.Rights.VideoChats" = "manage live streams";
+"RequestPeer.Requirement.Channel.Rights.Anonymous" = "remain anonymous";
+"RequestPeer.Requirement.Channel.Rights.AddAdmins" = "add new admins";
+
+"RequestPeer.SelectionConfirmationTitle" = "Are you sure you want to send %1$@ to %2$@?";
+"RequestPeer.SelectionConfirmationInviteText" = "This will also add %1$@ to %2$@.";
+"RequestPeer.SelectionConfirmationInviteAdminText" = "This will also add %1$@ to %2$@ as an admin.";
+"RequestPeer.SelectionConfirmationInviteWithRightsText" = "This will also add %1$@ to %2$@ with the following rights:\n\n%3$@";
+"RequestPeer.SelectionConfirmationSend" = "Send";
+
+"CreateGroup.PublicLinkTitle" = "SET A PUBLIC LINK";
+"CreateGroup.PublicLinkInfo" = "You can use **a-z**, **0-9** and underscores. Minimum length is **5** characters.";
+
+"Notification.RequestedPeer" = "You shared %1$@ with %2$@.";
+
+"Conversation.ViewInChannel" = "View in Channel";
+
+"Conversation.HoldForAudioOnly" = "Hold to record audio.";
+"Conversation.HoldForVideoOnly" = "Hold to record video.";
+"Conversation.Translation.TranslateTo" = "Translate to %@";
+"Conversation.Translation.TranslateToOther" = "Translate to %@";
+"Conversation.Translation.ShowOriginal" = "Show Original";
+"Conversation.Translation.ChooseLanguage" = "Choose Another Language";
+"Conversation.Translation.DoNotTranslate" = "Do Not Translate %@";
+"Conversation.Translation.DoNotTranslateOther" = "Do Not Translate %@";
+"Conversation.Translation.Hide" = "Hide";
+"Conversation.Translation.AddedToDoNotTranslateText" = "**%@** is added to the Do Not Translate list.";
+"Conversation.Translation.TranslationBarHiddenChatText" = "Translation bar is now hidden for this chat.";
+"Conversation.Translation.TranslationBarHiddenGroupText" = "Translation bar is now hidden for this group.";
+"Conversation.Translation.TranslationBarHiddenChannelText" = "Translation bar is now hidden for this channel.";
+
+"ProfilePhoto.SetEmoji" = "Set Emoji";
+
+"AvatarEditor.Background" = "BACKGROUND";
+"AvatarEditor.EmojiOrSticker" = "EMOJI OR STICKER";
+"AvatarEditor.Emoji" = "Emoji";
+"AvatarEditor.Stickers" = "Stickers";
+"AvatarEditor.SwitchToEmoji" = "SWITCH TO EMOJI";
+"AvatarEditor.SwitchToStickers" = "SWITCH TO STICKERS";
+"AvatarEditor.SetProfilePhoto" = "Set as Profile Photo";
+"AvatarEditor.SuggestProfilePhoto" = "Suggest as Profile Photo";
+"AvatarEditor.SetGroupPhoto" = "Set as Group Photo";
+"AvatarEditor.SetChannelPhoto" = "Set as Channel Photo";
+"AvatarEditor.Set" = "Set";
+"AvatarEditor.Suggest" = "Suggest";
+
+"Premium.UpgradeDescription" = "Your current **Telegram Premium** plan can be upgraded at a **discount**.";
+"Premium.CurrentPlan" = "your current plan";
+"Premium.UpgradeFor" = "Upgrade for %@ / month";
+"Premium.UpgradeForAnnual" = "Upgrade for %@ / year";
+
+"ChatList.PremiumAnnualDiscountTitle" = "Telegram Premium with a discount of %@";
+"ChatList.PremiumAnnualDiscountText" = "Sign up for the annual payment plan for Telegram Premium now to get the discount.";
+"ChatList.PremiumAnnualUpgradeTitle" = "Save on your subscription up to %@";
+"ChatList.PremiumAnnualUpgradeText" = "Upgrade to the annual payment plan for Telegram Premium to enjoy the discount.";
+
+"Premium.Emoji.Description" = "Unlock this emoji and many more by subscribing to Telegram Premium.";
+"Premium.Emoji.Proceed" = "Unlock Premium Emoji";
+
+"Localization.TranslateEntireChat" = "Translate Entire Chat";
+
+"Premium.Translation" = "Real-Time Translation";
+"Premium.TranslationInfo" = "Real-time translation of channels and chats into other languages.";
+"Premium.TranslationStandaloneInfo" = "Subscribe to **Telegram Premium** to be able to translate all messages in a chat at once.";
+"Premium.Translation.Proceed" = "About Telegram Premium";
+
+"Settings.PauseMusicOnRecording" = "Pause Music While Recoding";
+
+"Settings.SuggestSetupPasswordTitle" = "Protect Your Account";
+"Settings.SuggestSetupPasswordText" = "Set a password that will be required each time you log in with this phone number.";
+"Settings.SuggestSetupPasswordAction" = "Set Additional Password";
+
+"Chat.SendNotAllowedText" = "Sending messages is not allowed in this group";
+"Chat.SendNotAllowedPeerText" = "Sending messages is not allowed in %@";
+"Chat.SendNotAllowedPhoto" = "Sending photos is not allowed in this group";
+"Chat.SendNotAllowedVideo" = "Sending videos is not allowed in this group";
+"Chat.SendNotAllowedFile" = "Sending files is not allowed in this group";
+"Chat.SendNotAllowedAudioMessage" = "Sending audio messages is not allowed in this group";
+"Chat.SendNotAllowedVideoMessage" = "Sending video messages is not allowed in this group";
+"Chat.SendNotAllowedMusic" = "Sending music is not allowed in this group";
+
+"Chat.SendAllowedContentText" = "The admins of this group only allow to send %1$@.";
+"Chat.SendAllowedContentPeerText" = "The admins of %1$@ only allow to send %2$@.";
+
+"Chat.SendAllowedContentTypeText" = "text messages";
+"Chat.SendAllowedContentTypePhoto" = "photos";
+"Chat.SendAllowedContentTypeVideo" = "videos";
+"Chat.SendAllowedContentTypeVoiceMessage" = "voice messages";
+"Chat.SendAllowedContentTypeVideoMessage" = "video messages";
+"Chat.SendAllowedContentTypeFile" = "files";
+"Chat.SendAllowedContentTypeMusic" = "music";
+"Chat.SendAllowedContentTypeSticker" = "stickers & GIFs";
+
+"Channel.BanUser.PermissionSendPhoto" = "Send Photos";
+"Channel.BanUser.PermissionSendVideo" = "Send Videos";
+"Channel.BanUser.PermissionSendMusic" = "Send Music";
+"Channel.BanUser.PermissionSendVoiceMessage" = "Send Audio Messages";
+"Channel.BanUser.PermissionSendVideoMessage" = "Send Video Messages";
+"Channel.BanUser.PermissionSendFile" = "Send Files";
+
+"GroupPermission.NoSendPhoto" = "no photos";
+"GroupPermission.NoSendVideo" = "no videos";
+"GroupPermission.NoSendMusic" = "no music";
+"GroupPermission.NoSendVoiceMessage" = "no audio messages";
+"GroupPermission.NoSendVideoMessage" = "no video messages";
+"GroupPermission.NoSendFile" = "no files";
+
+"Settings.AutosaveMediaOn" = "On";
+"Settings.AutosaveMediaOff" = "Off";
+"Settings.AutosaveMediaOn" = "On";
+"Settings.AutosaveMediaAllMedia" = "All Media (%@)";
+"Settings.AutosaveMediaPhoto" = "Photos";
+"Settings.AutosaveMediaNoPhoto" = "No Photos";
+"Settings.AutosaveMediaVideo" = "Videos up to %@";
+"Settings.AutosaveMediaNoVideo" = "No Videos";
+
+"Settings.SaveToCameraRollSection" = "SAVE TO CAMERA ROLL";
+"Settings.SaveToCameraRollInfo" = "Automatically save all new photos and videos from these chats to your Cameral Roll.";
+
+"Autosave.TypesSection" = "SAVE TO CAMERA ROLL";
+"Autosave.TypePhoto" = "Photos";
+"Autosave.TypeVideo" = "Videos";
+"Autosave.TypesInfo" = "Automatically save all new media from private chats to your Cameral Roll.";
+"Autosave.VideoSizeSection" = "MAXIMUM VIDEO SIZE";
+"Autosave.VideoInfo" = "All downloaded videos in private chats less than %@ will be saved to Cameral Roll.";
+"Autosave.ExceptionsSection" = "EXCEPTIONS";
+"Autosave.AddException" = "Add Exception";
+"Autosave.Exception" = "Exception";
+"Autosave.DeleteAllExceptions" = "Delete All Exceptions";
+
+"Chat.ErrorInvoiceNotFound" = "Invoice not found.";
+
+"EmojiStatus.AppliedText" = "Your emoji status has been updated.";
+"EmojiPreview.SendEmoji" = "Send Emoji";
+"EmojiPreview.SetAsStatus" = "Set as Status";
+"EmojiPreview.CopyEmoji" = "Copy Emoji";
+
+"EmojiSearch.SearchStickersEmptyResult" = "No emoji found";
+
+"DataUsage.MediaDirectionIncoming" = "Incoming";
+"DataUsage.MediaDirectionOutgoing" = "Outgoing";
+"DataUsage.InfoTotalUsageSinceTime" = "Your data usage since %@";
+"DataUsage.InfoMobileUsageSinceTime" = "Your mobile data usage since %@";
+"DataUsage.InfoWifiUsageSinceTime" = "Your Wi-Fi data usage since %@";
+"DataUsage.SectionsInfo" = "Tap on each section for detailed view.";
+"DataUsage.SectionUsageTotal" = "TOTAL NETWORK USAGE";
+"DataUsage.SectionUsageMobile" = "MOBILE NETWORK USAGE";
+"DataUsage.SectionUsageWifi" = "WI-FI NETWORK USAGE";
+"DataUsage.AutoDownloadSettings" = "Auto-Download Settings";
+
+"StorageManagement.SectionMessages" = "Messages";
+"StorageManagement.SectionVoiceMessages" = "Voice Messages";
+"StorageManagement.SectionCalls" = "Calls";
+
+"DataUsage.SectionTotalIncoming" = "Data Received";
+"DataUsage.SectionTotalOutgoing" = "Data Sent";
+
+"EmojiInput.TabMasks" = "Masks";
+"EmojiInput.TabGifs" = "GIFs";
+"EmojiInput.TabStickers" = "Stickers";
+"EmojiInput.TabEmoji" = "Emoji";
+
+"EmojiInput.TrendingEmoji" = "TRENDING EMOJI";
+
+"Chat.PlaceholderTextNotAllowed" = "Text not allowed";
+
+"CallList.DeleteAll" = "Delete All";
+
+"DataUsage.TopSectionAll" = "All";
+"DataUsage.TopSectionMobile" = "Mobile";
+"DataUsage.TopSectionWifi" = "Wifi";
+
+"Translation.Language.en" = "English";
+"Translation.Language.ar" = "Arabic";
+"Translation.Language.zh" = "Chinese";
+"Translation.Language.fr" = "French";
+"Translation.Language.de" = "German";
+"Translation.Language.it" = "Italian";
+"Translation.Language.ja" = "Japanese";
+"Translation.Language.ko" = "Korean";
+"Translation.Language.pt" = "Portuguese";
+"Translation.Language.ru" = "Russian";
+"Translation.Language.es" = "Spanish";
+"Translation.Language.uk" = "Ukrainian";
+"Translation.Language.be" = "Belarusian";
+"Translation.Language.ca" = "Catalan";
+"Translation.Language.hr" = "Croatian";
+"Translation.Language.cs" = "Czech";
+"Translation.Language.nl" = "Dutch";
+"Translation.Language.eo" = "Esperanto";
+"Translation.Language.fi" = "Finnish";
+"Translation.Language.he" = "Hebrew";
+"Translation.Language.hu" = "Hungarian";
+"Translation.Language.id" = "Indonesian";
+"Translation.Language.ms" = "Malay";
+"Translation.Language.ml" = "Malayalam";
+"Translation.Language.no" = "Norwegian";
+"Translation.Language.fa" = "Persian";
+"Translation.Language.po" = "Polish";
+"Translation.Language.ro" = "Romanian";
+"Translation.Language.sr" = "Serbian";
+"Translation.Language.sk" = "Slovak";
+"Translation.Language.sv" = "Swedish";
+"Translation.Language.ta" = "Tamil";
+"Translation.Language.tr" = "Turkish";
+"Translation.Language.uz" = "Uzbek";
+
+"Settings.RaiseToListen" = "Raise to Listen";
+"Settings.RaiseToListenInfo" = "Raise to Listen allows you to quickly listen and reply to incoming audio messages by raising the phone to your ear.";
+
+"Login.CodeSentCallText" = "Calling **%@** to dictate the code.";
+
+"Premium.Purchase.OnlyOneSubscriptionAllowed" = "You have already purchased Telegram Premium for another account. You can only have one Telegram Premium subscription on one Apple ID.";
+
+"Call.VoiceOver.Minimize" = "Minimize Call";
+
+"Login.VoiceOver.PhoneCountryCode" = "Phone country code";
+"Login.VoiceOver.PhoneNumber" = "Phone number";
+"Login.VoiceOver.Password" = "Password";
+
+"Gallery.VoiceOver.Delete" = "Delete";
+"Gallery.VoiceOver.Fullscreen" = "Fullscreen";
+"Gallery.VoiceOver.Share" = "Share";
+"Gallery.VoiceOver.Edit" = "Edit";
+"Gallery.VoiceOver.Stickers" = "Stickers";
+"Gallery.VoiceOver.PictureInPicture" = "Picture-in-Picture";
+
+"Appearance.VoiceOver.Theme" = "%@ Theme";
+
+"ChatList.EmptyChatListWithArchive" = "All of your chats are archived.";
+
+"Conversation.AudioRateTooltip15X" = "Audio will play at 1.5x speed.";
+"Conversation.AudioRateOptionsTooltip" = "Long tap for more speed values.";
+"Conversation.AudioRateTooltipCustom" = "Audio will play at %@x speed.";
+
+"ImportStickerPack.EmojiCount_1" = "%@ Emoji";
+"ImportStickerPack.EmojiCount_any" = "%@ Emojis";
+
+"ImportStickerPack.ImportingEmojis" = "Importing Emojis";
+"ImportStickerPack.CreateNewEmojiPack" = "Create a New Emoji Pack";
+
+"VoiceOver.Chat.Sending" = "Sending";
+"VoiceOver.Chat.Failed" = "Failed to send";
+
+"VoiceOver.Chat.PlayedByRecipient" = "Played by recipient";
+"VoiceOver.Chat.PlayedByRecipients" = "Played by recipients";
+
+"VoiceOver.Chat.NotPlayedByRecipient" = "Not played by recipient";
+"VoiceOver.Chat.NotPlayedByRecipients" = "Not played by recipients";
+
+"VoiceOver.Chat.ReplyingToMessage" = "In reply to message: %@";
+
+"MediaPicker.VoiceOver.Camera" = "Camera";
+
+"ChatList.ReadAll" = "Read All";
+
+"ChatList.ClearSavedMessagesConfirmation" = "Are you sure you want to delete all your saved messages?";
+
+"Conversation.Translation.Settings" = "Settings";
+
+"StickerPacksSettings.TrendingStickers" = "Trending Stickers";
+"StickerPacksSettings.MyStickers" = "MY STICKERS";
+
+"StickerPacksSettings.DynamicOrder" = "Dynamic Pack Order";
+"StickerPacksSettings.DynamicOrderInfo" = "Recently used sticker packs will be displayed above the older ones.";
+"StickerPacksSettings.Emoji" = "Emoji";
+
+"StickerPacksSettings.DynamicOrderOff" = "Dynamic Order Off";
+"StickerPacksSettings.DynamicOrderOffInfo" = "Sticker packs will no longer be automatically rearranged every time you use a sticker.";
+
+"GroupPermission.NotAvailableInDiscussionGroups" = "This permission is not available in discussion groups.";
+"GroupPermission.NotAvailableInGeoGroups" = "This permission is not available in location-based groups.";
+
+"Conversation.ShareLinkTooltip.Chat.One" = "Link shared with **%@**";
+"Conversation.ShareLinkTooltip.TwoChats.One" = "Link shared with **%@** and **%@**";
+"Conversation.ShareLinkTooltip.ManyChats.One" = "Link shared with **%@** and %@ others";
+
+"StickerPacks.UnarchiveStickerPacksConfirmation_1" = "Unarchive %@ Pack";
+"StickerPacks.UnarchiveStickerPacksConfirmation_any" = "Unarchive %@ Packs";
+
+"PowerSaving.AlertEnabledTitle" = "Power Saving mode enabled";
+"PowerSaving.AlertEnabledText" = "%@% battery remaining.";
+"PowerSaving.AlertEnabledAction" = "Disable";
+
+"Chat.MessageSeenTimestamp.Date" = "%@";
+"Chat.MessageSeenTimestamp.TodayAt" = "today at %@";
+"Chat.MessageSeenTimestamp.YesterdayAt" = "yesterday at %@";
+
+"PowerSavingScreen.OptionAutoplayVideoTitle" = "Autoplay Videos";
+"PowerSavingScreen.OptionAutoplayVideoText" = "Autoplay and loop videos and video messages in chats.";
+
+"PowerSavingScreen.OptionAutoplayGifTitle" = "Autoplay GIFs";
+"PowerSavingScreen.OptionAutoplayGifText" = "Autoplay and loop GIFs in chats and in the keyboard.";
+
+"PowerSavingScreen.OptionAutoplayStickersTitle" = "Sticker Animations";
+"PowerSavingScreen.OptionAutoplayStickersText" = "Loop animated stickers, play full-screen premium effects.";
+
+"PowerSavingScreen.OptionAutoplayEmojiTitle" = "Emoji Animations";
+"PowerSavingScreen.OptionAutoplayEmojiText" = "Loop animated emoji in messages, reactions, statuses.";
+
+"PowerSavingScreen.OptionAutoplayEffectsTitle" = "Interface Effects";
+"PowerSavingScreen.OptionAutoplayEffectsText" = "Various effects and animations that make Telegram look amazing.";
+
+"PowerSavingScreen.OptionBackgroundTitle" = "Extended Background Time";
+"PowerSavingScreen.OptionBackgroundText" = "Update chats faster when switching between apps.";
+
+"PowerSavingScreen.OptionPreloadTitle" = "Preload Media";
+"PowerSavingScreen.OptionPreloadText" = "Start loading media while in the chat list for faster access.";
+
+"PowerSavingScreen.ToggleHeaderEmpty" = "POWER SAVING MODE";
+"PowerSavingScreen.ToggleHeaderOn" = "POWER SAVING MODE (ON)";
+"PowerSavingScreen.ToggleHeaderOff" = "POWER SAVING MODE (OFF)";
+
+"PowerSavingScreen.OptionsHeader" = "RESOURCE-INTENSIVE PROCESSES";
+
+"PowerSavingScreen.OptionChangeAlertAlways" = "Turn off Power Saving Mode to change these settings.";
+"PowerSavingScreen.OptionChangeAlertConditional" = "Turn off Power Saving Mode or charge your phone to change these settings.";
+
+"PowerSavingScreen.Title" = "Power Saving";
+
+"PowerSaving.BatteryLevelLimit.Off" = "Off";
+"PowerSaving.BatteryLevelLimit.On" = "On";
+"PowerSaving.BatteryLevelLimit.AlwaysOn" = "Always On";
+"PowerSaving.BatteryLevelLimit.AlwaysOff" = "Always Off";
+"PowerSaving.BatteryLevelLimit.WhenBelow" = "When Below %@%";
+
+"PowerSaving.AllDescriptionNever" = "Don’t disable all resource-intensive processes even when the battery is low.";
+"PowerSaving.AllDescriptionAlways" = "Always disable all resource-intensive processes, regardless of the battery charge level.";
+"PowerSaving.AllDescriptionLimit" = "Automatically disable all resource-intensive processes when your battery is below %@%.";
+
+"AppearanceSettings.Animations" = "Animations";
+
+"SendInviteLink.SkipAction" = "Skip";
+"SendInviteLink.InviteTitle" = "Invite via Link";
+"SendInviteLink.LinkUnavailableTitle" = "You can't create a link";
+
+"SendInviteLink.TextAvailableSingleUser" = "**%@** restricts adding them to groups.\nYou can send them an invite link as message instead.";
+"SendInviteLink.TextAvailableMultipleUsers_1" = "**%d user** restrict adding them to groups.\nYou can send them an invite link as message instead.";
+"SendInviteLink.TextAvailableMultipleUsers_any" = "**%d users** restrict adding them to groups.\nYou can send them an invite link as message instead.";
+
+"SendInviteLink.TextUnavailableSingleUser" = "**%@** can only be invited via an invite link.\nHowever the admin of this group restricts you from sharing invite links.";
+"SendInviteLink.TextUnavailableMultipleUsers_1" = "**%d user** can only be invited via an invite link.\nHowever the admin of this group restricts you from sharing invite links.";
+"SendInviteLink.TextUnavailableMultipleUsers_any" = "**%d users** can only be invited via an invite link.\nHowever the admin of this group restricts you from sharing invite links.";
+
+"SendInviteLink.ActionSkip" = "Skip";
+"SendInviteLink.ActionInvite" = "Send Invite Link";
+"SendInviteLink.ActionClose" = "Close";
+
+"Chat.ContextMenu.AdSponsorInfo" = "Sponsor Info";
+"Chat.ContextMenu.AdSponsorInfoCopied" = "Text copied.";
+
+"Settings.PowerSaving" = "Power Saving";
+"Settings.PowerSavingOn" = "On";
+"Settings.PowerSavingOff" = "Off";
+
+"Conversation.BotApp" = "Bot Application";
+"Conversation.OpenBotApp" = "OPEN APP";
+
+"Attachment.Gift" = "Gift";
+
+"Premium.Gift.TitleShort" = "Telegram Premium";
+
+"VoiceOver.GiftPremium" = "Gift Telegram Premium";
+
+"Login.Email.CantAccess" = "Can't access this email?";
+"Login.Email.ResetTitle" = "Reset Email";
+"Login.Email.ResetText" = "You can change your login email if you are logged into Telegram from another device. Otherwise, if you don't have access to email %1$@, you can reset this email with an **SMS** code **%2$@**.";
+"Login.Email.Reset" = "Reset";
+"Login.Email.ResetNowViaSMS" = "Reset now via SMS";
+"Login.Email.WillBeResetIn" = "Email will be reset %@";
+"Login.Email.PremiumRequiredTitle" = "Telegram Premium Required";
+"Login.Email.PremiumRequiredText" = "Due to high cost of SMS in your country, you need to have a **Telegram Premium** account to reset this email via an SMS code.\n\nYou can ask a friend to gift a Premium subscription for your account\n**%@**";
+"Login.Email.ElapsedTime" = "in %@";
+"Login.Email.ResetingNow" = "Please wait...";
+
+"ChatList.StartMessaging" = "Select a chat to start messaging";
+
+"Conversation.ForwardOptions.RecipientsMessageForwardVisible" = "Recipients will see that it was forwarded";
+"Conversation.ForwardOptions.RecipientsMessageForwardHidden" = "Recipients won't see that it was forwarded";
+"Conversation.ForwardOptions.RecipientsMessagesForwardVisible" = "Recipients will see they were forwarded";
+"Conversation.ForwardOptions.RecipientsMessagesForwardHidden" = "Recipients won't see they were forwarded";
+
+"Conversation.SendMessage.SendWhenOnline" = "Send When Online";
+
+"DataUsage.HeaderNoDataUsed" = "No data used";
+"DataUsage.Header" = "Data Usage";
+
+"DataUsage.SettingsHelpCellular" = "You can change your auto-download settings for media to reduce data usage when cellular.";
+"DataUsage.SettingsHelpWifi" = "You can change your auto-download settings for media to reduce data usage when on wifi.";
+
+"DataUsage.Reset" = "Reset Statistics";
+
+"Conversation.SendWhenOnlineTooltip" = "Long tap to send the message later.";
+
+"Bot.Active" = "bot is active now";
+"Bot.Inactive" = "bot is not active";
+"Bot.Slow" = "bot replies slowly";
+"Bot.TapToUse" = "Tap here to use this bot";
+
+"CreateGroup.PeersTitleDelimeter" = ", ";
+"CreateGroup.PeersTitleLastDelimeter" = " and ";
+
+"Conversation.SendMessageErrorTooFastTitle" = "Not so fast";
+"Conversation.SendMessageErrorTooFast" = "You are sending messages too fast. Please wait a bit.";
+
+"PeerInfo.CancelSelectionAlertText" = "Cancel selection?";
+"PeerInfo.CancelSelectionAlertYes" = "Yes";
+"PeerInfo.CancelSelectionAlertNo" = "No";
+
+"StickerPacksSettings.SuggestAnimatedEmojiInfo" = "Each time you enter an emoji you can replace it with an animated emoji.";
+
+"DialogList.DeleteBotClearHistory" = "Clear Chat History";
+
+"TextFormat.EditLinkTitle" = "Edit Link";
+
+"PeerInfo.BotLinks" = "Public Links";
+"Username.BotLinksOrderInfo" = "Drag and drop links to change the order in which they will be displayed on the bot info page.";
+
+"Wallpaper.ApplyForAll" = "Apply For All Chats";
+"Wallpaper.ApplyForChat" = "Apply For This Chat";
+
+"Premium.MaxSharedFolderMembershipText" = "You can only add **%1$@** shareable folders. Upgrade to **Telegram Premium** to increase this limit up to **%2$@**.";
+"Premium.MaxSharedFolderMembershipNoPremiumText" = "You can only add **%1$@** shareable folders. We are working to let you increase this limit in the future.";
+"Premium.MaxSharedFolderMembershipFinalText" = "Sorry, you can only add **%1$@** shareable folders.";
+
+"Premium.MaxSharedFolderLinksText" = "You can only create **%1$@** invite links. Upgrade to **Telegram Premium** to increase the links limit to **%2$@**.";
+"Premium.MaxSharedFolderLinksNoPremiumText" = "You can only create **%1$@** invite links. We are working to let you increase this limit in the future.";
+"Premium.MaxSharedFolderLinksFinalText" = "Sorry, you can only create **%1$@** invite links";
+
+"Premium.GiftedTitle.Someone" = "Someone";
+
+"Notification.ChangedWallpaper" = "%1$@ set a new wallpaper for this chat";
+"Notification.YouChangedWallpaper" = "You set a new wallpaper for this chat";
+"Notification.YouChangingWallpaper" = "Setting new wallpaper";
+"Notification.Wallpaper.View" = "View Wallpaper";
+
+"Notification.ChangedToSameWallpaper" = "%1$@ set the same wallpaper for this chat";
+"Notification.YouChangedToSameWallpaper" = "You set the same wallpaper for this chat";
+
+"Channel.AdminLog.JoinedViaFolderInviteLink" = "%1$@ joined via invite link %2$@ (community)";
+
+"Conversation.OpenChatFolder" = "VIEW CHAT LIST";
+
+"Premium.MaxChannelsText" = "You can only join **%1$@** groups and channels. Upgrade to **Telegram Premium** to increase the links limit to **%2$@**.";
+"Premium.MaxChannelsNoPremiumText" = "You can only join **%1$@** groups and channels. We are working to let you increase this limit in the future.";
+"Premium.MaxChannelsFinalText" = "Sorry, you can only join **%1$@** groups and channels";
+
+"Username.BotLinkHint" = "This username cannot be edited.";
+"Username.BotLinkHintExtended" = "This username cannot be edited. You can acquire additional usernames on [Fragment]().";
+
+"Username.BotActivateAlertText" = "Do you want to show this link on the bot's info page?";
+"Username.BotDeactivateAlertText" = "Do you want to hide this link from the bot's info page?";
+"Username.BotActiveLimitReachedError" = "Sorry, you have too many active public links already. Please hide one of the bot's active public links first.";
+
+"PeerInfo.Bot.EditIntro" = "Edit Intro";
+"PeerInfo.Bot.EditCommands" = "Edit Commands";
+"PeerInfo.Bot.ChangeSettings" = "Change Bot Settings";
+"PeerInfo.Bot.BotFatherInfo" = "Use [@BotFather]() to manage this bot.";
+
+"WallpaperPreview.NotAppliedInfo" = "**%@** will be able to apply this wallpaper";
+"WallpaperPreview.ChatTopText" = "Apply the wallpaper in this chat.";
+"WallpaperPreview.ChatBottomText" = "Enjoy the view.";
+
+"Conversation.Theme.SetPhotoWallpaper" = "Choose Wallpaper from Photos";
+"Conversation.Theme.SetNewPhotoWallpaper" = "Choose a New Wallpaper";
+"Conversation.Theme.SetColorWallpaper" = "Set a Color as Wallpaper";
+
+"Conversation.Theme.ChooseWallpaperTitle" = "Choose Wallpaper";
+"Conversation.Theme.ResetWallpaper" = "Remove Wallpaper";
+"Conversation.Theme.ChooseColorTitle" = "Set a Color";
+"Conversation.Theme.SetCustomColor" = "Set Custom";
+
+"Appearance.ShowNextMediaOnTap" = "Show Next Media on Tap";
+"Appearance.ShowNextMediaOnTapInfo" = "Tap near the edge of the screen while viewing media to navigate between photos.";
+
+"WebApp.LaunchMoreInfo" = "More about this bot";
+"WebApp.LaunchConfirmation" = "To launch this web app, you will connect to its website.";
+"WebApp.LaunchOpenApp" = "Open App";
+
+"WallpaperPreview.PreviewInNightMode" = "Preview this wallpaper in night mode.";
+"WallpaperPreview.PreviewInDayMode" = "Preview this wallpaper in day mode.";
+
+"PeerInfo.BotBlockedTitle" = "Bot Blocked";
+"PeerInfo.BotBlockedText" = "This bot will not be able to message you.";
+
+"ChatList.ContextMuteAll" = "Mute All";
+"ChatList.ContextUnmuteAll" = "Unmute All";
+"ChatList.ToastFolderMuted" = "All chats in **%@** are now muted";
+"ChatList.ToastFolderUnmuted" = "All chats in **%@** are now unmuted";
+"ChatList.ContextMenuShare" = "Share";
+"ChatList.ContextMenuBadgeNew" = "NEW";
+"ChatList.AlertDeleteFolderTitle" = "Delete Folder";
+"ChatList.AlertDeleteFolderText" = "Are you sure you want to delete this folder? This will also deactivate all the invite links used to share this folder.";
+"ChatList.PanelNewChatsAvailable_1" = "1 New Chat Available";
+"ChatList.PanelNewChatsAvailable_any" = "%d New Chats Available";
+
+"ChatListFilter.SectionShare" = "SHARE FOLDER";
+"ChatListFilter.CreateLink" = "Create a new Link";
+"ChatListFilter.CreateLinkNew" = "Create an Invite Link";
+"ChatListFilter.ExcludeChatsAction" = "Add Chats to Exclude";
+"ChatListFilter.LinkListInfo" = "Create more links to set up different access levels for different people.";
+"ChatListFilter.LinkListInfoNew" = "Share access to some of this folder's groups and channels with others.";
+"ChatListFilter.ToastChatsAddedTitle_1" = "Сhat added to folder";
+"ChatListFilter.ToastChatsAddedTitle_any" = "%d chats added to folder";
+"ChatListFilter.ToastChatsAddedText" = "It will not affect chatlist of the links of this folder";
+"ChatListFilter.ToastChatsRemovedTitle_1" = "Сhat removed from folder";
+"ChatListFilter.ToastChatsRemovedTitle_any" = "%d chats added to folder";
+"ChatListFilter.ToastChatsRemovedText" = "It will not affect chatlist of the links of this folder";
+"ChatListFilter.AlertCreateFolderBeforeSharingText" = "Please finish creating this folder to share it.";
+"ChatListFilter.ErrorShareInvalidFolder" = "You can’t share folders which have chat types or excluded chats.";
+"ChatListFilter.SaveAlertActionSave" = "Save";
+"ChatListFilter.CreateLinkUnknownError" = "Error creating a share link";
+"ChatListFilter.CreateLinkErrorSomeoneHasChannelLimit" = "One of the groups in this folder can’t be added because one of its admins has too many groups and channels.";
+
+"ChatListFilterList.CreateFolder" = "Create a Folder";
+
+"FolderLinkScreen.LabelCanInvite" = "you can invite others here";
+
+"FolderLinkScreen.LabelUnavailableBot" = "you can't share chats with bots";
+"FolderLinkScreen.AlertTextUnavailableBot" = "You can't share chats with bots";
+
+"FolderLinkScreen.LabelUnavailableUser" = "you can't share private chats";
+"FolderLinkScreen.AlertTextUnavailableUser" = "You can't share private chats";
+
+"FolderLinkScreen.LabelUnavailableGeneric" = "you can't invite others here";
+"FolderLinkScreen.AlertTextUnavailablePrivateGroup" = "You don't have the admin rights to share invite links to this private group.";
+"FolderLinkScreen.AlertTextUnavailablePublicGroup" = "You don't have the admin rights to share invite links to this group chat.";
+"FolderLinkScreen.AlertTextUnavailablePrivateChannel" = "You don't have the admin rights to share invite links to this private channel.";
+"FolderLinkScreen.AlertTextUnavailablePublicChannel" = "You don't have the admin rights to share invite links to this channel.";
+
+"FolderLinkScreen.TitleDescriptionUnavailable" = "You can only share groups and channels in which you are allowed to create invite links.";
+"FolderLinkScreen.ChatCountHeaderUnavailable" = "There are no chats in this folder that you can share with others.";
+"FolderLinkScreen.ChatsSectionHeaderUnavailable" = "THESE CHATS CANNOT BE SHARED";
+
+"FolderLinkScreen.TitleDescriptionDeselected" = "Anyone with this link can add **%@** folder and the chats selected below.";
+"FolderLinkScreen.ChatsSectionHeader" = "CHATS";
+"FolderLinkScreen.ChatsSectionHeaderActionSelectAll" = "SELECT ALL";
+"FolderLinkScreen.ChatsSectionHeaderActionDeselectAll" = "DESELECT ALL";
+
+"FolderLinkScreen.TitleDescriptionSelectedCount_1" = "the 1 chat";
+"FolderLinkScreen.TitleDescriptionSelectedCount_any" = "the %d chats";
+"FolderLinkScreen.TitleDescriptionSelected" = "Anyone with this link can add **%1$@** folder and %2$@ selected below.";
+
+"FolderLinkScreen.ChatsSectionHeaderSelected_1" = "1 CHAT SELECTED";
+"FolderLinkScreen.ChatsSectionHeaderSelected_any" = "%d CHATS SELECTED";
+
+"FolderLinkScreen.LinkSectionHeader" = "INVITE LINK";
+
+"FolderLinkScreen.ContextActionNameLink" = "Name Link";
+"FolderLinkScreen.NameLink.Title" = "Name This Link";
+
+"FolderLinkScreen.ToastNewChatAdded" = "People who already used the invite link will be able to join newly added chats.";
+"FolderLinkScreen.SaveUnknownError" = "An error occurred while updating the link";
+"FolderLinkScreen.ToastLinkUpdated" = "Link updated";
+
+"FolderLinkScreen.Title" = "Share Folder";
+
+"FolderLinkScreen.SaveAlertTitle" = "Unsaved Changes";
+"FolderLinkScreen.SaveAlertText" = "You have changed the settings of this folder. Apply changes?";
+"FolderLinkScreen.SaveAlertActionDiscard" = "Discard";
+"FolderLinkScreen.SaveAlertActionApply" = "Apply";
+"FolderLinkScreen.SaveAlertActionContinue" = "Cancel";
+
+"FolderLinkScreen.LinkActionCopy" = "Copy";
+"FolderLinkScreen.LinkActionShare" = "Share";
+
+"InviteLink.LabelJoinedViaFolder" = "joined via a folder invite link";
+
+"ChatListFilter.LinkLabelChatCount_1" = "includes 1 chat";
+"ChatListFilter.LinkLabelChatCount_any" = "includes %d chats";
+"ChatListFilter.LinkActionDelete" = "Delete";
+
+"InviteLink.QRCodeFolder.Title" = "Invite by QR Code";
+"InviteLink.QRCodeFolder.Text" = "Everyone on Telegram can scan this code to add this folder and join the chats included in this invite link.";
+
+"FolderLinkPreview.IconTabLeft" = "All Chats";
+"FolderLinkPreview.IconTabRight" = "Personal";
+"FolderLinkPreview.TitleShare" = "Share Folder";
+"FolderLinkPreview.TitleRemove" = "Remove Folder";
+"FolderLinkPreview.TitleAddFolder" = "Add Folder";
+"FolderLinkPreview.TitleAddChats_1" = "Add %d Chat";
+"FolderLinkPreview.TitleAddChats_any" = "Add %d Chats";
+"FolderLinkPreview.LinkSectionHeader" = "INVITE LINKS";
+"FolderLinkPreview.RemoveSectionSelectedHeader_1" = "%d CHAT TO QUIT";
+"FolderLinkPreview.RemoveSectionSelectedHeader_any" = "%d CHATS TO QUIT";
+"FolderLinkPreview.ChatSectionHeader_1" = "1 CHAT IN THIS FOLDER";
+"FolderLinkPreview.ChatSectionHeader_any" = "%d CHATS IN THIS FOLDER";
+"FolderLinkPreview.ChatSectionJoinHeader_1" = "1 CHAT IN THIS FOLDER TO JOIN";
+"FolderLinkPreview.ChatSectionJoinHeader_any" = "%d CHATS IN THIS FOLDER TO JOIN";
+
+"FolderLinkPreview.ToastChatsAddedTitle" = "Folder %@ Updated";
+"FolderLinkPreview.ToastChatsAddedText_1" = "You have joined %d new chat";
+"FolderLinkPreview.ToastChatsAddedText_any" = "You have joined %d new chats";
+
+"FolderLinkPreview.ToastFolderAddedTitle" = "Folder %@ Added";
+"FolderLinkPreview.ToastFolderAddedText_1" = "You also joined %d chat";
+"FolderLinkPreview.ToastFolderAddedText_any" = "You also joined %d chats";
+
+"FolderLinkPreview.TextLinkList" = "Create more links to set up different access\nlevels for different people.";
+"FolderLinkPreview.TextRemoveFolder" = "Do you also want to quit the chats included in this folder?";
+"FolderLinkPreview.TextAllAdded" = "You have already added this\nfolder and its chats.";
+"FolderLinkPreview.TextAddFolder" = "Do you want to add a new chat folder\nand join its groups and channels?";
+
+"FolderLinkPreview.TextAddChatsCount_1" = "%d chat";
+"FolderLinkPreview.TextAddChatsCount_any" = "%d chats";
+"FolderLinkPreview.TextAddChats" = "Do you want to add **%1$@** to the\nfolder **%2$@**?";
+
+"FolderLinkPreview.LabelPeerSubscriber" = "You are already a subscriber";
+"FolderLinkPreview.LabelPeerSubscribers_1" = "%d subscriber";
+"FolderLinkPreview.LabelPeerSubscribers_any" = "%d subscribers";
+
+"FolderLinkPreview.LabelPeerMember" = "You are already a member";
+"FolderLinkPreview.LabelPeerMembers_1" = "%d member";
+"FolderLinkPreview.LabelPeerMembers_any" = "%d members";
+
+"FolderLinkPreview.ToastAlreadyMemberChannel" = "You are already subscribed to this channel.";
+"FolderLinkPreview.ToastAlreadyMemberGroup" = "You are already a member of this group.";
+
+"FolderLinkPreview.ButtonRemoveFolder" = "Remove Folder";
+"FolderLinkPreview.ButtonRemoveFolderAndChats" = "Remove Folder and Chats";
+
+"FolderLinkPreview.ButtonDoNotJoinChats" = "Do Not Join Any Chats";
+"FolderLinkPreview.ButtonJoinChats" = "Join Chats";
+"FolderLinkPreview.ButtonAddFolder" = "Add Folder";
+
+"FolderLinkPreview.ToastLeftTitle" = "Folder %@ deleted";
+"FolderLinkPreview.ToastLeftChatsText_1" = "You also left **%d** chat";
+"FolderLinkPreview.ToastLeftChatsText_any" = "You also left **%d** chats";
+
+"FolderLinkPreview.ListSelectionSelectAllDynamicPartSelect" = "SELECT";
+"FolderLinkPreview.ListSelectionSelectAllDynamicPartDeselect" = "DESELECT";
+"FolderLinkPreview.ListSelectionSelectAllStaticPartSelect" = "ALL";
+"FolderLinkPreview.ListSelectionSelectAllStaticPartDeselect" = "ALL";
+"FolderLinkPreview.ListSelectionSelectAllFormat" = "{dynamic}{static}";
+
+"UserInfo.ChangeWallpaper" = "Change Wallpaper";
+
+"Conversation.Theme.PreviewDarkShort" = "Tap to view this theme in the night mode.";
+"Conversation.Theme.PreviewLightShort" = "Tap to view this theme in the day mode.";
+
+"ChatList.EmptyListContactsHeader" = "YOUR CONTACTS ON TELEGRAM";
+"ChatList.EmptyListContactsHeaderHide" = "hide";
+"ChatList.EmptyListTooltip" = "Send a message or\nstart a group here.";
+
+"Username.BotTitle" = "Public Links";
+
+"Notification.LockScreenReactionPlaceholder" = "Reaction";
+
+"UserInfo.BotNamePlaceholder" = "Bot Name";
+
+"ChatList.PremiumRestoreDiscountTitle" = "Get Premium back with up to %@ off";
+"ChatList.PremiumRestoreDiscountText" = "Your Telegram Premium has recently expired. Tap here to extend it.";
+
+"Notification.LockScreenReactionPlaceholder" = "Reaction";
+
+"UserInfo.BotNamePlaceholder" = "Bot Name";
+
+"ChatList.PremiumRestoreDiscountTitle" = "Get Premium back with up to %@ off";
+"ChatList.PremiumRestoreDiscountText" = "Your Telegram Premium has recently expired. Tap here to extend it.";
+
+"Login.ErrorAppOutdated" = "Please update Telegram to the latest version to log in.";
+
+"Login.GetCodeViaFragment" = "Get a code via Fragment";
+
+"Privacy.Bio" = "Bio";
+"Privacy.Bio.WhoCanSeeMyBio" = "WHO CAN SEE MY BIO";
+"Privacy.Bio.CustomHelp" = "You can restrict who can see your profile bio with granular precision.";
+"Privacy.Bio.AlwaysShareWith.Title" = "Always Share With";
+"Privacy.Bio.NeverShareWith.Title" = "Never Share With";
+
+"Conversation.OpenLink" = "OPEN LINK";
+
+"Paint.Flip" = "Flip";
+
+"Message.ForwardedStoryShort" = "Forwarded Story\nFrom: %@";
+"Message.ForwardedExpiredStoryShort" = "Expired Story\nFrom: %@";
+
+"Conversation.StoryForwardTooltip.Chat.One" = "Story forwarded to **%@**";
+"Conversation.StoryForwardTooltip.TwoChats.One" = "Story forwarded to to **%@** and **%@**";
+"Conversation.StoryForwardTooltip.ManyChats.One" = "Story forwarded to to **%@** and %@ others";
+"Conversation.StoryForwardTooltip.SavedMessages.One" = "Story forwarded to to **Saved Messages**";
+
+"Conversation.StoryMentionTextOutgoing" = "You mentioned %@\nin a story";
+"Conversation.StoryMentionTextIncoming" = "%@ mentioned you\nin a story";
+"Conversation.StoryExpiredMentionTextOutgoing" = "The story where you mentioned %@\n is no longer available";
+"Conversation.StoryExpiredMentionTextIncoming" = "The story you were mentioned in\nis no longer available";
+
+"ChatList.ArchiveStoryCount_1" = "1 story";
+"ChatList.ArchiveStoryCount_any" = "%d stories";
+
+"Notification.Story" = "Story";
+
+"StoryFeed.ContextAddStory" = "Add Story";
+"StoryFeed.ContextSavedStories" = "Saved Stories";
+"StoryFeed.ContextArchivedStories" = "Archived Stories";
+"StoryFeed.ContextOpenChat" = "Send Message";
+"StoryFeed.ContextOpenProfile" = "Open Profile";
+"StoryFeed.ContextNotifyOn" = "Notify About Stories";
+"StoryFeed.ContextNotifyOff" = "Do Not Notify About Stories";
+"StoryFeed.ContextArchive" = "Hide Stories";
+"StoryFeed.ContextUnarchive" = "Unhide Stories";
+
+"StoryFeed.TooltipNotifyOn" = "You will now get a notification whenever **%@** posts a story.";
+"StoryFeed.TooltipNotifyOff" = "You will no longer receive a notification when **%@** posts a story.";
+"StoryFeed.TooltipArchive" = "Stories from **%@** will now be shown in Archived Chats.";
+"StoryFeed.TooltipUnarchive" = "Stories from **%@** will now be shown in Chats.";
+
+"ChatList.Archive.ContextSettings" = "Archive Settings";
+"ChatList.Archive.ContextInfo" = "How Does It Work?";
+"ChatList.ContextSelectChats" = "Select Chats";
+
+"StoryFeed.TooltipPremiumPosting" = "Posting stories is currently available only\nto subscribers of [Telegram Premium]().";
+"StoryFeed.TooltipPremiumPostingLimited" = "This month, posting stories is only available to subscribers of [Telegram Premium]().";
+"StoryFeed.TooltipStoryLimitValue_1" = "1 story";
+"StoryFeed.TooltipStoryLimitValue_any" = "%d stories";
+"StoryFeed.TooltipStoryLimit" = "You can't post more than **%@** stories in **24 hours**.";
+
+"StoryFeed.TooltipPostingDuringCall" = "You can't post stories during a call.";
+"StoryFeed.TooltipPostingDuringGroupCall" = "You can't post stories during a video chat.";
+
+"StoryFeed.MyStory" = "My Story";
+"StoryFeed.MyUploading" = "Uploading...";
+
+"MediaPicker.AddImage" = "Add Image";
+
+"AutoDownloadSettings.OnForContacts" = "On for contacts";
+
+"AutoDownloadSettings.StoriesSectionHeader" = "AUTO-DOWNLOAD STORIES";
+"AutoDownloadSettings.StoriesArchivedContacts" = "Archived Contacts";
+
+"AutoDownloadSettings.StoriesTitle" = "Stories";
+
+"Notifications.TopChats" = "Top 5";
+"Notifications.Stories" = "Stories";
+
+"Settings.MyStories" = "My Stories";
+"Settings.StoriesArchive" = "Stories Archive";
+
+"ArchiveSettings.Title" = "Archive Settings";
+
+"ArchiveSettings.UnmutedChatsHeader" = "UNMUTED CHATS";
+"ArchiveSettings.UnmutedChatsFooter" = "Keep archived chats in the Archive even if they are unmuted and get a new message.";
+"ArchiveSettings.FolderChatsHeader" = "CHATS FROM FOLDERS";
+"ArchiveSettings.FolderChatsFooter" = "Keep archived chats from folders in the Archive even if they are unmuted and get a new message.";
+
+"ArchiveSettings.UnknownChatsHeader" = "NEW CHATS FROM UNKNOWN USERS";
+"ArchiveSettings.UnknownChatsFooter" = "Automatically archive and mute new private chats, groups and channels from non-contacts.";
+
+"ArchiveSettings.KeepArchived" = "Always Keep Archived";
+"ArchiveSettings.AutomaticallyArchive" = "Automatically Archive";
+"ArchiveSettings.TooltipPremiumRequired" = "This setting is available only to the subscribers of [Telegram Premium]().";
+
+"NotificationSettings.Stories.ShowAll" = "Show All Notifications";
+"NotificationSettings.Stories.ShowImportant" = "Show Important Notifications";
+"NotificationSettings.Stories.ShowImportantFooter" = "Always on for top 5 contacts.";
+"NotificationSettings.Stories.DisplayAuthorName" = "Display Author Name";
+
+"NotificationSettings.Stories.AutomaticValue" = "%@ (automatic)";
+"NotificationSettings.Stories.CompactShowName" = "Show name";
+"NotificationSettings.Stories.CompactHideName" = "Hide name";
+
+"Notifications.StoriesTitle" = "Stories";
+
+"Message.Story" = "Story";
+
+"Notification.Exceptions.StoriesHeader" = "STORY NOTIFICATIONS";
+"Notification.Exceptions.StoriesDisplayAuthorName" = "DISPLAY AUTHOR NAME";
+
+"StorageManagement.SectionStories" = "Stories";
+
+"PeerInfo.PaneStories" = "Stories";
+
+"Story.TooltipExpired" = "This story is no longer available";
+
+"Chat.ReplyExpiredStory" = "Expired story";
+"Chat.ReplyStory" = "Story";
+
+"Chat.StoryMentionAction" = "View Story";
+
+"StoryList.ContextSaveToGallery" = "Save to Gallery";
+"StoryList.ContextShowArchive" = "Show Archive";
+
+"StoryList.TooltipStoriesDeleted_1" = "1 story deleted.";
+"StoryList.TooltipStoriesDeleted_any" = "%d stories deleted.";
+
+"Story.TooltipSaving" = "Saving";
+"Story.TooltipSaved" = "Saved";
+
+"StoryList.SaveToProfile" = "Save to Profile";
+"StoryList.TooltipStoriesSavedToProfile_1" = "Story saved to your profile";
+"StoryList.TooltipStoriesSavedToProfile_any" = "%d stories saved to your profile.";
+"StoryList.TooltipStoriesSavedToProfileText" = "Saved stories can be viewed by others on your profile until you remove them.";
+
+"StoryList.TitleSaved" = "My Stories";
+"StoryList.TitleArchive" = "Stories Archive";
+"StoryList.SubtitleSelected_1" = "1 story selected";
+"StoryList.SubtitleSelected_any" = "%d stories selected";
+
+"StoryList.SubtitleSaved_1" = "1 saved story";
+"StoryList.SubtitleSaved_any" = "%d saved stories";
+
+"StoryList.SubtitleCount_1" = "1 story";
+"StoryList.SubtitleCount_any" = "%d stories";
+
+"StoryList.ArchiveDescription" = "Only you can see archived stories unless you choose to save them to your profile.";
+
+"StoryList.SavedEmptyState.Title" = "No saved stories";
+"StoryList.SavedEmptyState.Text" = "Open the Archive to select stories you\nwant to be displayed in your profile.";
+"StoryList.ArchivedEmptyState.Title" = "No Archived Stories";
+"StoryList.ArchivedEmptyState.Text" = "Upload a new story to view it here";
+"StoryList.SavedEmptyAction" = "Open Archive";
+
+"ArchiveInfo.Title" = "This is Your Archive";
+
+"ArchiveInfo.TextKeepArchivedUnmuted" = "Archived chats will remain in the Archive when you receive a new message. [Tap to change >]()";
+"ArchiveInfo.TextKeepArchivedDefault" = "When you receive a new message, muted chats will remain in the Archive, while unmuted chats will be moved to Chats. [Tap to change >]()";
+
+"ArchiveInfo.ChatsTitle" = "Archived Chats";
+"ArchiveInfo.ChatsText" = "Move any chat into your Archive and back by swiping on it.";
+"ArchiveInfo.HideTitle" = "Hiding Archive";
+"ArchiveInfo.HideText" = "Hide the Archive from your Main screen by swiping on it.";
+"ArchiveInfo.StoriesTitle" = "Stories";
+"ArchiveInfo.StoriesText" = "Archive Stories from your contacts separately from chats with them.";
+"ArchiveInfo.CloseAction" = "Got it";
+
+"Story.HeaderYourStory" = "Your story";
+"Story.HeaderEdited" = "edited";
+"Story.CaptionShowMore" = "Show more";
+
+"Story.UnsupportedText" = "This story is not supported by\nyour version of Telegram.";
+"Story.UnsupportedAction" = "Update Telegram";
+
+"Story.ScreenshotBlockedTitle" = "Screenshot Blocked";
+"Story.ScreenshotBlockedText" = "The story you tried to take a\nscreenshot of is protected from\ncopying by its creator.";
+
+"Story.Footer.NoViews" = "No views";
+"Story.Footer.Views_1" = "1 view";
+"Story.Footer.Views_any" = "%d views";
+
+"Story.Footer.Uploading" = "Uploading...";
+
+"Story.FooterReplyUnavailable" = "You can't reply to this story";
+"Story.InputPlaceholderReplyPrivately" = "Reply Privately...";
+
+"Story.ContextDeleteStory" = "Delete Story";
+
+"Story.TooltipPrivacyContacts" = "Only **%@'s** contacts can view this story.";
+"Story.TooltipPrivacySelectedContacts" = "Only some contacts **%@** selected can view this story.";
+"Story.ToastViewInChat" = "View in Chat";
+"Story.ToastReactionSent" = "Reaction Sent.";
+
+"Story.PrivacyTooltipContacts" = "This story is shown to all your contacts.";
+"Story.PrivacyTooltipCloseFriends" = "This story is shown to your close friends.";
+"Story.PrivacyTooltipSelectedContacts" = "This story is shown to selected contacts.";
+"Story.PrivacyTooltipSelectedContactsCount" = "This story is now shown to %@.";
+"Story.PrivacyTooltipNobody" = "This story is shown only to you.";
+"Story.PrivacyTooltipEveryone" = "This story is shown to everyone.";
+
+"Story.ContextPrivacy.LabelCloseFriends" = "Close Friends";
+"Story.ContextPrivacy.LabelContactsExcept" = "Contacts (-%@)";
+"Story.ContextPrivacy.LabelContacts" = "Contacts";
+"Story.ContextPrivacy.LabelOnlySelected_1" = "1 Person";
+"Story.ContextPrivacy.LabelOnlySelected_any" = "%d People";
+"Story.ContextPrivacy.LabelOnlyMe" = "Only Me";
+"Story.ContextPrivacy.LabelEveryone" = "Everyone";
+"Story.Context.Privacy" = "Who Can See";
+"Story.Context.Edit" = "Edit Story";
+"Story.Context.SaveToProfile" = "Save to Profile";
+"Story.Context.RemoveFromProfile" = "Remove from Profile";
+"Story.ToastRemovedFromProfileText" = "Story removed from your profile";
+"Story.ToastSavedToProfileTitle" = "Story saved to your profile";
+"Story.ToastSavedToProfileText" = "Saved stories can be viewed by others on your profile until you remove them.";
+"Story.Context.SaveToGallery" = "Save to Gallery";
+"Story.Context.CopyLink" = "Copy Link";
+"Story.ToastLinkCopied" = "Link copied.";
+"Story.Context.Share" = "Share";
+"Story.Context.Report" = "Report";
+
+"Story.Context.EmbeddedStickersValue_1" = "1 pack";
+"Story.Context.EmbeddedStickersValue_any" = "%d packs";
+"Story.Context.EmbeddedStickers" = "This story contains stickers from [%@]().";
+"Story.Context.EmbeddedEmojiPack" = "This story contains\n#[%@]() emoji.";
+"Story.Context.EmbeddedStickerPack" = "This story contains\n#[%@]() stickers.";
+
+"Story.TooltipVideoHasNoSound" = "This video has no sound";
+
+"Story.TooltipMessageScheduled" = "Message Scheduled";
+"Story.TooltipMessageSent" = "Message Sent";
+
+"Profile.AvatarStoryCount_1" = "1 Story";
+"Profile.AvatarStoryCount_any" = "%d Stories";
+
+"Story.Camera.Photo" = "Photo";
+"Story.Camera.Video" = "Video";
+
+"Story.Camera.TooltipTakePhotos" = "Take photos or videos to share with all\nyour contacts or close friends at once.";
+"Story.Camera.TooltipDisableDual" = "Tap here to disable\nthe selfie camera";
+"Story.Camera.TooltipDraftSaved" = "Draft Saved";
+
+"Story.Camera.SwipeUpToZoom" = "Swipe up to zoom";
+"Story.Camera.SwipeLeftToLock" = "Swipe left to lock";
+"Story.Camera.SwipeLeftRelease" = "Release to lock";
+"Story.Camera.SwipeRightToFlip" = "Swipe right to flip";
+
+"Story.Camera.AccessPlaceholderTitle" = "Allow Telegram to access your camera and microphone";
+"Story.Camera.AccessPlaceholderText" = "This lets you share photos and record videos.";
+"Story.Camera.AccessOpenSettings" = "Open Settings";
+
+"Story.Editor.Next" = "Next";
+"Story.Editor.Done" = "Done";
+
+"Story.Editor.DraftDiscardMedia" = "Discard Media?";
+"Story.Editor.DraftDiscardDraft" = "Discard Draft?";
+"Story.Editor.DraftKeepMedia" = "Save Draft";
+"Story.Editor.DraftKeepDraft" = "Keep Draft";
+"Story.Editor.DraftDiscaedText" = "If you go back now, you will lose any changes you made.";
+"Story.Editor.DraftDiscard" = "Discard";
+
+"Story.Editor.ExpirationText" = "Choose how long the story will be visible.";
+"Story.Editor.ExpirationValue_1" = "1 Hour";
+"Story.Editor.ExpirationValue_any" = "%d Hours";
+
+"Story.Editor.TooltipPremiumExpiration" = "Subscribe to [Telegram Premium]() to make your stories disappear after 6, 12 or 48 hours.";
+
+"Story.Editor.InputPlaceholderAddCaption" = "Add a caption...";
+
+"Story.Editor.TooltipMuted" = "The story will have no sound";
+"Story.Editor.TooltipUnmuted" = "The story will have sound";
+
+"Story.Editor.PreparingVideo" = "Preparing Video...";
+"Story.Editor.TooltipImageSavedToPhotos" = "Image saved to Photos.";
+"Story.Editor.TooltipVideoSavedToPhotos" = "Video saved to Photos.";
+
+"Story.Editor.Uploading" = "Uploading...";
+
+"Story.Editor.Tool.Enhance" = "Enhance";
+"Story.Editor.Tool.Brightness" = "Brightness";
+"Story.Editor.Tool.Contrast" = "Contrast";
+"Story.Editor.Tool.Saturation" = "Saturation";
+"Story.Editor.Tool.Warmth" = "Warmth";
+"Story.Editor.Tool.Fade" = "Fade";
+"Story.Editor.Tool.Highlights" = "Highlights";
+"Story.Editor.Tool.Shadows" = "Shadows";
+"Story.Editor.Tool.Vignette" = "Vignette";
+"Story.Editor.Tool.Grain" = "Grain";
+
+"Story.Editor.Tint.Shadows" = "Shadows";
+"Story.Editor.Tint.Highlights" = "Highlights";
+
+"Story.Editor.Blur.Title" = "Blur";
+"Story.Editor.Blur.Off" = "Off";
+"Story.Editor.Blur.Radial" = "Radial";
+"Story.Editor.Blur.Linear" = "Linear";
+"Story.Editor.Blur.Portrait" = "Portrait";
+
+"Story.Editor.Curves.All" = "All";
+"Story.Editor.Curves.Red" = "Red";
+"Story.Editor.Curves.Green" = "Green";
+"Story.Editor.Curves.Blue" = "Blue";
+
+"Story.Privacy.AllowScreenshots" = "Allow Screenshots";
+"Story.Privacy.KeepOnMyPage" = "Keep on My Page";
+"Story.Privacy.KeepOnMyPageInfo" = "Keep this story on your page even after it expires in %@. Privacy settings will apply.";
+
+"Story.Privacy.KeepOnMyPageHours_1" = "1 hour";
+"Story.Privacy.KeepOnMyPageHours_any" = "%@ hours";
+
+"Story.Privacy.TooltipSharingEnabledPublic" = "Downloading, sharing and taking screenshots will be enabled for this story.";
+"Story.Privacy.TooltipSharingEnabled" = "Downloading and taking screenshots will be enabled for this story.";
+
+"Story.Privacy.TooltipSharingDisabledPublic" = "Downloading, sharing and taking screenshots will be disabled for this story.";
+"Story.Privacy.TooltipSharingDisabled" = "Downloading and taking screenshots will be disabled for this story.";
+
+"Story.Privacy.TooltipStoryArchived" = "Users allowed to view your story will see it on your page even after it expires.";
+"Story.Privacy.TooltipStoryExpires" = "The story will disappear after it expires.";
+
+"Story.Privacy.WhoCanViewHeader" = "WHO CAN VIEW THIS STORY";
+"Story.Privacy.ContactsHeader" = "CONTACTS";
+
+"Story.Privacy.SearchChats" = "Search Chats";
+"Story.Privacy.SearchContacts" = "Search Contacts";
+
+"Story.Privacy.MentionRestrictedTitle" = "Privacy Restrictions";
+"Story.Privacy.MentionRestrictedText" = "The privacy settings of your story will prevent some users you tagged (%@) from viewing it.";
+"Story.Privacy.MentionRestrictedProceed" = "Proceed Anyway";
+
+"Story.Privacy.CategoryEveryone" = "Everyone";
+"Story.Privacy.CategoryContacts" = "Contacts";
+"Story.Privacy.CategoryCloseFriends" = "Close Friends";
+"Story.Privacy.CategorySelectedContacts" = "Selected Contacts";
+"Story.Privacy.ExcludedPeople" = "Excluded People";
+
+"Story.Privacy.ExcludePeople" = "exclude people";
+"Story.Privacy.ExcludePeopleExceptNames" = "except %@";
+"Story.Privacy.ExcludePeopleExcept_1" = "except 1 person";
+"Story.Privacy.ExcludePeopleExcept_any" = "except %@ people";
+
+"Story.Privacy.EditList" = "edit list";
+"Story.Privacy.People_1" = "1 person";
+"Story.Privacy.People_any" = "%@ people";
+
+"Story.Privacy.Choose" = "choose";
+
+"Story.Privacy.EditStory" = "Edit Story";
+"Story.Privacy.ShareStory" = "Share Story";
+
+"Story.Privacy.SaveSettings" = "Save Settings";
+"Story.Privacy.PostStory" = "Post Story";
+
+"Story.Views.ViewsExpired" = "List of viewers becomes unavailable **24 hours** after the story expires.";
+"Story.Views.ViewsNotRecorded" = "Information about viewers wasn’t recorded.";
+"Story.Views.NoViews" = "Nobody has viewed\nyour story yet.";
+
+"AutoDownloadSettings.Stories" = "Stories";
+"MediaEditor.Draft" = "Draft";
+
+"Notification.LockScreenStoryPlaceholder" = "New Story";
+
+"Chat.OpenStory" = "OPEN STORY";
+
+"Story.Editor.TooltipPremiumCaptionLimitTitle" = "Maximum Length Reached";
+"Story.Editor.TooltipPremiumCaptionLimitText" = "Increase this limit 10 times to 2048 symbols by subscribing to [Telegram Premium]().";
+
+"Story.Editor.TooltipPremiumCaptionEntities" = "Subscribe to [Telegram Premium]() to add links and formatting in captions to your stories.";
+
+"Story.Context.TooltipPremiumSaveStories" = "Subscribe to [Telegram Premium]() to save other people's unprotected stories to your Gallery.";
+
+"Story.Privacy.GroupTooLarge" = "Group Too Large";
+"Story.Privacy.GroupParticipantsLimit" = "You can select groups that are up to 200 members.";
+
+"ChatList.StoryFeedTooltipUsers" = "Tap above to view stories from %@";
+
+"Story.TooltipPrivacyCloseFriends2" = "You are seeing this story because **%@** added you to their list of Close Friends.";
+
+"Story.Editor.VideoTooShort" = "A video must be at least 1 second long.";
+
+"Story.PrivacyTooltipSelectedContacts.Contacts_1" = "1 contact";
+"Story.PrivacyTooltipSelectedContacts.Contacts_any" = "%@ contacts";
+"Story.PrivacyTooltipSelectedContactsFull" = "This story is now shown to %@.";
+
+"Story.Privacy.GrayListSelect" = "[Select people]() who will never see any of your stories.";
+"Story.Privacy.GrayListSelected" = "[%@]() will never see any of your stories.";
+"Story.Privacy.GrayListPeople_1" = "1 person";
+"Story.Privacy.GrayListPeople_any" = "%@ people";
+
+"Story.Privacy.HideMyStoriesFrom" = "Hide My Stories From";
+
+"Story.Privacy.SaveList" = "Save List";
+
+"StoryList.TooltipStoriesSavedToProfile_1" = "Story archived";
+"StoryList.TooltipStoriesSavedToProfile_any" = "%d stories archived.";
+
+"Premium.New" = "NEW";
+
+"MediaEditor.AddGif" = "Add GIF";
+"MediaEditor.AddLocation" = "Add Location";
+"MediaEditor.AddLocationShort" = "Location";
+"MediaEditor.AddAudio" = "Audio";
+
+"Premium.Stories" = "Upgraded Stories";
+"Premium.StoriesInfo" = "Priority order, stealth mode, permanent views history and more.";
+
+"Premium.Stories.Title" = "Upgraded Stories";
+"Premium.Stories.AdditionalTitle" = "Exclusive Features in Stories";
+
+"Premium.Stories.Order.Title" = "Priority Order";
+"Premium.Stories.Order.Text" = "Get more views as your stories are always displayed first.";
+
+"Premium.Stories.Stealth.Title" = "Stealth Mode";
+"Premium.Stories.Stealth.Text" = "Hide the fact that you viewed other people's stories.";
+
+"Premium.Stories.Views.Title" = "Permanent Views History";
+"Premium.Stories.Views.Text" = "Check who opens your stories — even after they expire.";
+
+"Premium.Stories.Expiration.Title" = "Expiration Durations";
+"Premium.Stories.Expiration.Text" = "Set custom expiration durations like 6 or 48 hours for your stories.";
+
+"Premium.Stories.Save.Title" = "Save Stories to Gallery";
+"Premium.Stories.Save.Text" = "Save other people's unprotected stories to your Gallery.";
+
+"Premium.Stories.Captions.Title" = "Longer Captions";
+"Premium.Stories.Captions.Text" = "Add ten times longer captions to your stories.";
+
+"Premium.Stories.Format.Title" = "Links and Formatting";
+"Premium.Stories.Format.Text" = "Add links and formatting in captions to your stories.";
+
+"Premium.MaxExpiringStoriesText" = "You can post **%@** stories in **24** hours. Subscribe to **Telegram Premium** to increase this limit to **%@**.";
+"Premium.MaxExpiringStoriesNoPremiumText" = "You have reached the limit of **%@** stories per **24** hours.";
+"Premium.MaxExpiringStoriesFinalText" = "You have reached the limit of **%@** stories per **24** hours.";
+
+"Premium.MaxStoriesWeeklyText" = "You can post **%@** stories in a week. Upgrade to **Telegram Premium** to increase this limit to **%@**.";
+"Premium.MaxStoriesWeeklyNoPremiumText" = "You have reached the limit of **%@** stories per week.";
+"Premium.MaxStoriesWeeklyFinalText" = "You have reached the limit of **%@** stories per week.";
+
+"Premium.MaxStoriesMonthlyText" = "You can post **%@** stories in a month. Upgrade to **Telegram Premium** to increase this limit to **%@**.";
+"Premium.MaxStoriesMonthlyNoPremiumText" = "You have reached the limit of **%@** stories per month.";
+"Premium.MaxStoriesMonthlyFinalText" = "You have reached the limit of **%@** stories per month.";
+
+"MediaPicker.Recents" = "Recents";
+
+"Story.LongTapForMoreReactions" = "Long tap for more reactions";
+"Story.StealthModeActivePlaceholder" = "Stealth Mode active – %@";
+
+"Story.ContextShowStoriesTo" = "Show My Stories To %@";
+"Story.ToastShowStoriesTo" = "**%@** will now see your stories.";
+"Story.ContextHideStoriesFrom" = "Hide My Stories From %@";
+"Story.ToastHideStoriesFrom" = "**%@** will not see your stories anymore.";
+"Story.ContextDeleteContact" = "Delete Contact";
+"Story.ToastDeletedContact" = "**%@** has been removed from your contacts.";
+"Story.ToastUserBlocked" = "**%@** has been blocked.";
+"Story.ToastPremiumSaveToGallery" = "Subscribe to [Telegram Premium]() to save other people's unprotected stories to your Gallery.";
+"Story.PremiumUpgradeStoriesButton" = "Upgrade Stories";
+"Story.ContextStealthMode" = "Stealth Mode";
+"Story.AlertStealthModeActiveTitle" = "You are in Stealth Mode now";
+"Story.AlertStealthModeActiveText" = "If you send a reply or reaction, the creator of the story will also see you in the list of viewers.";
+"Story.AlertStealthModeActiveAction" = "Proceed";
+"Story.ToastStealthModeActiveTitle" = "You are in Stealth Mode now";
+"Story.ToastStealthModeActiveText" = "The creators of stories you will view in the next **%@** won't see you in the viewers' lists.";
+"Story.ToastStealthModeActivatedTitle" = "Stealth Mode On";
+"Story.ToastStealthModeActivatedText" = "The creators of stories you viewed in the last **%1$@** or will view in the next **%2$@** won’t see you in the viewers’ lists.";
+
+"Story.ViewList.PremiumUpgradeText" = "List of viewers isn't available after 24 hours of story expiration.\n\nTo unlock viewers' lists for expired and saved stories, subscribe to [Telegram Premium]().";
+"Story.ViewList.PremiumUpgradeAction" = "Learn More";
+"Story.ViewList.PremiumUpgradeInlineText" = "To unlock viewers' lists for expired and saved stories, subscribe to [Telegram Premium]().";
+"Story.ViewList.NotFullyRecorded" = "Information about the other viewers wasn’t recorded.";
+"Story.ViewList.EmptyTextSearch" = "No views found";
+"Story.ViewList.EmptyTextContacts" = "None of your contacts viewed this story.";
+"Story.ViewList.ContextSortReactions" = "Reactions First";
+"Story.ViewList.ContextSortRecent" = "Recent First";
+"Story.ViewList.ContextSortInfo" = "Choose the order for the list of viewers.";
+"Story.ViewList.TabTitleAll" = "All Viewers";
+"Story.ViewList.TabTitleContacts" = "Contacts";
+"Story.ViewList.TitleViewers" = "Viewers";
+"Story.ViewList.TitleEmpty" = "No Views";
+"Story.Footer.NoViews" = "No Views";
+"Story.Footer.ViewCount_1" = "|%d| View";
+"Story.Footer.ViewCount_any" = "|%d| Views";
+"Story.StealthMode.Title" = "Stealth Mode";
+"Story.StealthMode.ControlText" = "Turn Stealth Mode on to hide the fact that you viewed peoples' stories from them.";
+"Story.StealthMode.UpgradeText" = "Subscribe to Telegram Premium to hide the fact that you viewed peoples' stories from them.";
+"Story.StealthMode.RecentTitle" = "Hide Recent Views";
+"Story.StealthMode.RecentText" = "Hide my views in the last **%@**.";
+"Story.StealthMode.NextTitle" = "Hide Next Views";
+"Story.StealthMode.NextText" = "Hide my views in the next **%@**.";
+"Story.StealthMode.ToastCooldownText" = "Please wait until the **Stealth Mode** is ready to use again";
+"Story.StealthMode.EnableAction" = "Enable Stealth Mode";
+"Story.StealthMode.CooldownAction" = "Available in %@";
+"Story.StealthMode.UpgradeAction" = "Unlock Stealth Mode";
+
+"Story.ViewLocation" = "View Location";
+
+"Location.AddThisLocation" = "Add This Location";
+"Location.AddMyLocation" = "Add My Current Location";
+"Location.TypeCity" = "City";
+"Location.TypeStreet" = "Street";
+"Location.TypeLocation" = "Location";
+
+"Story.ViewList.ViewerCount_1" = "1 Viewer";
+"Story.ViewList.ViewerCount_any" = "%d Viewers";
+
+"AuthSessions.MessageApp" = "You allowed this bot to message you when you opened %@.";
+"Notification.BotWriteAllowedMenu" = "You allowed this bot to message you when you added it to your attachment menu.";
+"Notification.BotWriteAllowedRequest" = "You allowed this bot to message you in the app.";
+
+"Story.Privacy.PostStoryAs" = "Post Story As";
+"Story.Privacy.PostStoryAsHeader" = "POST STORY AS";
+"Story.Privacy.KeepOnChannelPage" = "Post to Channel Profile";
+"Story.Privacy.KeepOnChannelPageInfo" = "Keep this story on channel profile even after it expires in %@.";
+
+"Story.Editor.TooltipPremiumReaction" = "Subscribe to [Telegram Premium]() to use this reaction.";
+
+"Story.Privacy.TooltipStoryArchivedChannel" = "Users will see this story on the channel page even after it expires.";
+
+"Story.Editor.TooltipMutedWithAudio" = "Original audio will be removed";
+"Story.Editor.TooltipUnmutedWithAudio" = "Original audio will be preserved";
+
+"SecretImage.ViewOnce.Title" = "Disappearing Photo";
+"SecretVideo.ViewOnce.Title" = "Disappearing Video";
+
+"MediaPicker.Timer.Description" = "Choose how long the media will be kept after opening.";
+"MediaPicker.Timer.ViewOnce" = "View Once";
+"MediaPicker.Timer.Seconds_1" = "%d Second";
+"MediaPicker.Timer.Seconds_any" = "%d Seconds";
+"MediaPicker.Timer.DoNotDelete" = "Do Not Delete";
+
+"MediaPicker.Timer.Photo.ViewOnceTooltip" = "Photo set to view once.";
+"MediaPicker.Timer.Photo.TimerTooltip" = "Photo will be deleted in\n%@ seconds after opening.";
+"MediaPicker.Timer.Photo.KeepTooltip" = "Photo will be kept in chat.";
+
+"MediaPicker.Timer.Video.ViewOnceTooltip" = "Video set to view once.";
+"MediaPicker.Timer.Video.TimerTooltip" = "Video will be deleted in\n%@ seconds after opening.";
+"MediaPicker.Timer.Video.KeepTooltip" = "Video will be kept in chat.";
+
+"WebApp.AllowWriteTitle" = "Allow Sending Messages?";
+"WebApp.AllowWriteConfirmation" = "This will allow the bot **%@** to message you on Telegram.";
+
+"WebApp.SharePhoneTitle" = "Share Phone Number?";
+"WebApp.SharePhoneConfirmation" = "**%@** will know your phone number. This can be useful for integration with other services.";
+"WebApp.SharePhoneConfirmationUnblock" = "**%@** will know your phone number. This can be useful for integration with other services.\n\nThis will also unblock the bot.";
+
+"Story.Editor.TooltipPremiumReactionLimitValue_1" = "**%@** reaction tag";
+"Story.Editor.TooltipPremiumReactionLimitValue_any" = "**%@** reactions tags";
+
+"Story.Editor.TooltipPremiumReactionLimitTitle" = "Increase Limit";
+"Story.Editor.TooltipPremiumReactionLimitText" = "Upgrade to [Telegram Premium]() to add up to %@ to a story.";
+
+"Story.Editor.TooltipReachedReactionLimitTitle" = "Limit Reached";
+"Story.Editor.TooltipReachedReactionLimitText" = "You can't add up more than %@ to a story.";
+
+"Gallery.ViewOncePhotoTooltip" = "This photo can only be viewed once.";
+"Gallery.ViewOnceVideoTooltip" = "This video can only be viewed once.";
+
+"WebApp.DisclaimerTitle" = "Terms of Use";
+"WebApp.DisclaimerText" = "You are about to use a mini app operated by an independent party not affiliated with Telegram. You must agree to the Terms of Use of mini apps to continue.";
+"WebApp.DisclaimerAgree" = "I agree to the [Terms of Use]()";
+"WebApp.DisclaimerContinue" = "Continue";
+"WebApp.Disclaimer_URL" = "https://telegram.org/tos/mini-apps";
+
+"WebApp.ShortcutsAdded" = "**%@** shortcut added in attachment menu.";
+"WebApp.ShortcutsSettingsAdded" = "**%@** shortcut added in attachment menu and Settings.";
+
+"WebApp.AllowWriteTitle" = "Allow Sending Messages?";
+"WebApp.AllowWriteConfirmation" = "This will allow the bot **%@** to message you on Telegram.";
+
+"AuthSessions.MessageApp" = "You allowed this bot to message you when you opened %@.";
+
+"Notification.BotWriteAllowedMenu" = "You allowed this bot to message you when you added it to your attachment menu.";
+"Notification.BotWriteAllowedRequest" = "You allowed this bot to message you in the app.";
+
+"WebApp.SharePhoneTitle" = "Share Phone Number?";
+"WebApp.SharePhoneConfirmation" = "**%@** will know your phone number. This can be useful for integration with other services.";
+"WebApp.SharePhoneConfirmationUnblock" = "**%@** will know your phone number. This can be useful for integration with other services.\n\nThis will also unblock the bot.";
+
+"SecretImage.ViewOnce.Title" = "Disappearing Photo";
+"SecretVideo.ViewOnce.Title" = "Disappearing Video";
+
+"MediaPicker.Timer.Description" = "Choose how long the media will be kept after opening.";
+"MediaPicker.Timer.ViewOnce" = "View Once";
+"MediaPicker.Timer.Seconds_1" = "%d Second";
+"MediaPicker.Timer.Seconds_any" = "%d Seconds";
+"MediaPicker.Timer.DoNotDelete" = "Do Not Delete";
+
+"MediaPicker.Timer.Photo.ViewOnceTooltip" = "Photo set to view once.";
+"MediaPicker.Timer.Photo.TimerTooltip" = "Photo will be deleted in\n%@ seconds after opening.";
+"MediaPicker.Timer.Photo.KeepTooltip" = "Photo will be kept in chat.";
+
+"MediaPicker.Timer.Video.ViewOnceTooltip" = "Video set to view once.";
+"MediaPicker.Timer.Video.TimerTooltip" = "Video will be deleted in\n%@ seconds after opening.";
+"MediaPicker.Timer.Video.KeepTooltip" = "Video will be kept in chat.";
+
+"Gallery.ViewOncePhotoTooltip" = "This photo can only be viewed once.";
+"Gallery.ViewOnceVideoTooltip" = "This video can only be viewed once.";
+
+"ChatList.SessionReview.ConfirmToastTitle" = "New Login Allowed";
+"ChatList.SessionReview.ConfirmToastText" = "You can check the list of your active logins in [Settings > Devices]().";
+
+"ChatList.SessionReview.PanelTitle" = "Someone just got acess to your messages!";
+"ChatList.SessionReview.PanelText" = "We detected a new login to your account from %1$@, %2$@. Is it you?";
+"ChatList.SessionReview.PanelConfirm" = "Yes, it's me";
+"ChatList.SessionReview.PanelReject" = "No, it's not me!";
+
+"SessionReview.NoticeText" = "Never send your login code to anyone or you can lose your Telegram account!";
+"SessionReview.Title" = "New Login Prevented";
+"SessionReview.Text" = "We have terminated the login attempt from **%1$@**, **%2$@**";
+"SessionReview.OkAction" = "Got it";
+
+"WebApp.RemoveAllConfirmationText" = "This will remove **%@** shortcuts from all menus.";
+
+
+"ChannelBoost.Level" = "Level %@";
+"ChannelBoost.EnableStories" = "Enable Stories";
+"ChannelBoost.EnableStoriesText" = "Your channel needs %1$@ to enable posting stories.\n\nAsk your **Premium** subscribers to boost your channel with this link:";
+
+"ChannelBoost.IncreaseLimit" = "Increase Story Limit";
+"ChannelBoost.IncreaseLimitText" = "Your channel needs %1$@ to post %2$@.\n\nAsk your **Premium** subscribers to boost your channel with this link:";
+
+"ChannelBoost.EnableStoriesForChannel" = "Enable Stories for This Channel";
+"ChannelBoost.EnableStoriesForOtherChannel" = "Enable Stories for The Channel";
+"ChannelBoost.EnableStoriesForChannelText" = "**%1$@** needs %2$@ to enable posting stories. Help make it possible!";
+
+"ChannelBoost.EnabledStoriesForChannelText" = "This channel reached **Level 1** and can now post stories.";
+"ChannelBoost.EnableStoriesMoreRequired" = "This channel needs **%1$@** to enable stories.";
+
+"ChannelBoost.HelpUpgradeChannel" = "Help Upgrade This Channel";
+"ChannelBoost.HelpUpgradeChannelText" = "**%1$@** needs %2$@ to be able to post %3$@.";
+
+"ChannelBoost.BoostedChannelReachedLevel" = "This channel reached **Level %1$@** and can now post %2$@.";
+"ChannelBoost.BoostedChannelMoreRequired" = "%1$@ needed to be able to post %2$@.";
+
+"ChannelBoost.MaxLevelReached" = "Maximum Level Reached";
+"ChannelBoost.MaxLevelReachedText" = "This channel reached **Level %1$@** and can now post %2$@.";
+"ChannelBoost.MaxLevelReachedTextAuthor" = "This channel reached **Level %1$@** and can now post %2$@.";
+
+"ChannelBoost.YouBoostedChannel" = "You Boosted %1$@!";
+"ChannelBoost.YouBoostedOtherChannel" = "You Boosted The Channel";
+
+"ChannelBoost.StoriesPerDay_1" = "**%@** story per day";
+"ChannelBoost.StoriesPerDay_any" = "**%@** stories per day";
+
+"ChannelBoost.MoreBoosts_1" = "**%@** more boost";
+"ChannelBoost.MoreBoosts_any" = "**%@** more boosts";
+
+"ChannelBoost.CopyLink" = "Copy Link";
+"ChannelBoost.BoostChannel" = "Boost Channel";
+
+"Story.TooltipUnmuteVideoSound" = "Tap here to enable sound";
+
+"Conversation.BoostChannel" = "BOOST";
+
+"MediaEditor.Audio" = "Audio";
+
+"Stats.Statistics" = "Statistics";
+"Stats.Boosts" = "Boosts";
+
+"Stats.Boosts.BoostersNone" = "BOOSTERS";
+"Stats.Boosts.Boosters_1" = "%@ BOOSTER";
+"Stats.Boosts.Boosters_any" = "%@ BOOSTERS";
+"Stats.Boosts.BoostsNone" = "BOOSTS";
+"Stats.Boosts.Boosts_1" = "%@ BOOST";
+"Stats.Boosts.Boosts_any" = "%@ BOOSTS";
+"Stats.Boosts.NoBoostersYet" = "No users currently boost your channel";
+"Stats.Boosts.BoostersInfo" = "Your channel is currently boosted by these users.";
+"Stats.Boosts.ExpiresOn" = "Boost expires on %@";
+
+"Stats.Boosts.OverviewHeader" = "OVERVIEW";
+"Stats.Boosts.LinkHeader" = "LINK FOR BOOSTING";
+"Stats.Boosts.LinkInfo" = "Share this link with your subscribers to get more boosts.";
+
+"Conversation.SaveToFiles" = "Save to Files";
+
+"ChatList.ContextOpenChannel" = "Open Channel";
+
+"Channel.EditAdmin.SectionMessages" = "Manage Messages";
+"Channel.EditAdmin.SectionStories" = "Manage Stories";
+
+"Channel.EditAdmin.PermissionEditMessagesOfOthers" = "Edit Messages of Others";
+"Channel.AdminLog.CanEditMessagesOfOthers" = "Edit Messages of Others";
+"Channel.EditAdmin.PermissionPostStories" = "Post Stories";
+"Channel.AdminLog.CanPostStories" = "Post Stories";
+"Channel.EditAdmin.PermissionEditStoriesOfOthers" = "Edit Stories of Others";
+"Channel.AdminLog.CanEditStoriesOfOthers" = "Edit Stories of Others";
+"Channel.EditAdmin.PermissionDeleteStoriesOfOthers" = "Delete Stories of Others";
+"Channel.AdminLog.CanDeleteStoriesOfOthers" = "Delete Stories of Others";
+
+"PeerInfo.Channel.ArchivedStories" = "Archived Stories";
+
+"Story.SendReactionAsMessage" = "Send reaction as a private message";
+
+"StoryList.TooltipStoriesSavedToChannel_1" = "Story saved to channel's profile";
+"StoryList.TooltipStoriesSavedToChannel_any" = "%d stories saved to channel's profile.";
+"Story.ToastRemovedFromChannelText" = "Story removed from the channel's profile";
+"Story.ToastSavedToChannelTitle" = "Story saved to the channel's profile";
+"Story.ToastSavedToChannelText" = "Saved stories can be viewed by others on the channel's profile until an admin removes them.";
+
+"Story.Context.SaveToChannel" = "Save to Posts";
+"Story.Context.RemoveFromChannel" = "Remove from Posts";
+
+"Story.StealthModePlaceholder" = "Stealth Mode active — {m}:{s}";
+
+"Chat.ReplyStoryPrivateChannel" = "Private story";
+"Message.ForwardedUnavailableStoryShort" = "Private Story\nFrom: %@";
+
+"ChannelBoost.ReplaceBoost" = "You currently boost **%1$@**. Do you want to boost **%2$@** instead?";
+"ChannelBoost.Replace" = "Replace";
+
+"ChannelBoost.Error.BoostTooOftenTitle" = "Can't Boost Too Often";
+"ChannelBoost.Error.BoostTooOftenText" = "You can change the channel you boost only once a day. Next time you can boost is in **%@**.";
+"ChannelBoost.Error.PremiumNeededTitle" = "Premium Needed";
+"ChannelBoost.Error.PremiumNeededText" = "Only **Telegram Premium** subscribers can boost channels. Do you want to subscribe to **Telegram Premium**?";
+"ChannelBoost.Error.GiftedPremiumNotAllowedTitle" = "Can't Boost with Gifted Premium";
+"ChannelBoost.Error.GiftedPremiumNotAllowedText" = "Because your **Telegram Premium** subscription was gifted to you, you can't use it to boost channels.";
+
+"Chat.ErrorFolderLinkExpired" = "The folder link has expired.";
+
+"Stats.Boosts.Level" = "Level";
+"Stats.Boosts.PremiumSubscribers" = "Premium Subscribers";
+"Stats.Boosts.ExistingBoosts" = "Existing Boosts";
+"Stats.Boosts.BoostsToLevelUp" = "Boosts to Level Up";
+
+"MediaEditor.RemoveAudio" = "Remove Audio";
+
+"ChannelBoost.BoostLinkCopied" = "Boost link copied to clipboard";
+"ChannelBoost.BoostLinkForwardTooltip.Chat.One" = "Boost link forwarded to **%@**";
+"ChannelBoost.BoostLinkForwardTooltip.TwoChats.One" = "Boost link forwarded to **%@** and **%@**";
+"ChannelBoost.BoostLinkForwardTooltip.ManyChats.One" = "Boost link forwarded to **%@** and %@ others";
+"ChannelBoost.BoostLinkForwardTooltip.SavedMessages.One" = "Boost link forwarded to **Saved Messages**";
+
+"ChannelBoost.YouBoostedChannelText" = "You boosted %1$@!";
+"ChannelBoost.YouBoostedOtherChannelText" = "You boosted this channel";
+
+"PremiumGift.LabelRecipients_1" = "1 recipient";
+"PremiumGift.LabelRecipients_any" = "%d recipients";
+
+"Conversation.ContextMenuQuote" = "Quote";
+
+"Message.Giveaway" = "Giveaway";
+
+"GiftLink.LinkSharedToChat" = "Gift link forwarded to **%@**";
+"GiftLink.LinkSharedToSavedMessages" = "Gift link forwarded to **Saved Messages**";
+
+"ChatContextMenu.TextSelectionTip2" = "Hold on a word, then move cursor to select more| text to copy or quote.";
+
+"Notification.GiftLink" = "You received a gift";
+
+"MESSAGE_GIFTCODE" = "%1$@ sent you a Gift Code for %2$@ months of Telegram Premium";
+"MESSAGE_GIVEAWAY" = "%1$@ sent you a giveaway of %2$@x %3$@mo Premium subscriptions";
+"CHANNEL_MESSAGE_GIVEAWAY" = "%1$@ posted a giveaway of %2$@x %3$@mo Premium subscriptions";
+"CHAT_MESSAGE_GIVEAWAY" = "%1$@ sent a giveaway of %3$@x %4$@mo Premium subscriptions to the group %2$@";
+"PINNED_GIVEAWAY" = "%1$@ pinned a giveaway";
+"REACT_GIVEAWAY" = "%1$@ reacted %2$@ to your giveaway";
+"CHAT_REACT_GIVEAWAY" = "%1$@ reacted %3$@ in group %2$@ to your giveaway";
+
+"Notification.GiveawayStarted" = "%1$@ just started a giveaway of Telegram Premium subscriptions for its followers.";
+
+"Channel.AdminLog.MessageChangedNameColorSet" = "%1$@ set name color to %2$@";
+"Channel.AdminLog.MessageChangedBackgroundEmojiSet" = "%1$@ set background emoji to %2$@";
+"Channel.AdminLog.MessageChangedBackgroundEmojiRemoved" = "%1$@ removed background emoji";
+
+"Appearance.NameColor" = "Your Name Color";
+
+"NameColor.Title.Account" = "Your Name Color";
+"NameColor.Title.Channel" = "Your Channel Color";
+
+"NameColor.ChatPreview.Title" = "COLOR PREVIEW";
+"NameColor.ChatPreview.ReplyText.Account" = "Reply to your message";
+"NameColor.ChatPreview.ReplyText.Channel" = "Reply to your channel message";
+"NameColor.ChatPreview.MessageText.Account" = "Your name and replies to your messages will be shown in the selected color.";
+"NameColor.ChatPreview.MessageText.Channel" = "The name of your channek and replies to its messages will be shown in the selected color.";
+"NameColor.ChatPreview.LinkSite" = "Telegram";
+"NameColor.ChatPreview.LinkTitle" = "Link Preview";
+"NameColor.ChatPreview.LinkText" = "Your selected color will also tint the link preview.";
+"NameColor.ChatPreview.Description.Account" = "You can choose an individual color to tint your name, the links you send, and replies to your messages.";
+"NameColor.ChatPreview.Description.Channel" = "You can choose an individual color to tint your channel's name, the links it sends, and replies to its messages.";
+
+"NameColor.ApplyColor" = "Apply Color";
+"NameColor.ApplyColorAndBackgroundEmoji" = "Apply Color and Icon";
+
+"NameColor.TooltipPremium.Account" = "Subscribe to [Telegram Premium]() to choose a custom color for your name.";
+
+"NameColor.BackgroundEmoji.Title" = "ADD ICONS TO REPLIES";
+"NameColor.BackgroundEmoji.Remove" = "REMOVE ICON";
+
+"NameColor.UnsavedChanges.Title" = "Unsaved Changes";
+"NameColor.UnsavedChanges.Text" = "You have changed your color or icon settings. Apply changes?";
+"NameColor.UnsavedChanges.Discard" = "Discard";
+"NameColor.UnsavedChanges.Apply" = "Apply";
+
+"NameColor.YourColorUpdated" = "Your name color has been updated.";
+"NameColor.ChannelColorUpdated" = "Channel name color has been updated.";
+
+"Chat.ErrorQuoteOutdatedTitle" = "Quote Outdated";
+"Chat.ErrorQuoteOutdatedText" = "**%@** updated the message you are quoting. Edit your quote to make it up-to-date.";
+"Chat.ErrorQuoteOutdatedActionEdit" = "Edit";
+
+"Premium.BoostByGiftDescription" = "Boost your channel by gifting your subscribers Telegram Premium. [Get boosts >]()";
+"Premium.BoostByGiftDescription2" = "Boost your channel by gifting your subscribers Telegram Premium. [Get boosts >]()";
+
+"ChatContextMenu.QuoteSelectionTip" = "Hold on a word, then move cursor to select more| text to quote.";
+
+"Chat.ReplyPanel.ReplyToQuoteBy" = "Reply to Quote by %@";
+"Chat.ReplyPanel.ReplyTo" = "Reply to %@";
+"Chat.ReplyPanel.AccessibilityReplyToMessageFrom" = "Reply to message. From: %@";
+"Chat.ReplyPanel.AccessibilityReplyToYourMessage" = "Reply to your message.";
+"Chat.ReplyPanel.AccessibilityReplyToMessage" = "Reply to message.";
+"Chat.ReplyPanel.HintReplyOptions" = "Tap here for reply options";
+"Chat.ReplyPanel.HintReplyOptionsShort" = "Tap here for options";
+
+"Chat.ToastQuoteChatUnavailbalePrivateChannel" = "This quote is from a private channel";
+"Chat.ToastQuoteChatUnavailbalePrivateGroup" = "This quote is from a private group";
+"Chat.ToastQuoteChatUnavailbalePrivateChat" = "This quote is from a private chat";
+
+"Chat.TitleQuoteSelection" = "Reply to Quote";
+"Chat.TitleReply" = "Reply to Message";
+"Chat.TitleLinkOptions" = "Link Preview Settings";
+"Chat.SubtitleQuoteSelectionTip" = "You can select a specific part to quote";
+"Chat.SubtitleLinkListTip" = "Tap on a link to generate its preview";
+
+"Chat.ToastQuoteNotFound" = "Quote not found";
+
+"TextFormat.Quote" = "Quote";
+
+"TextSelection.SelectAll" = "Select All";
+
+"Conversation.MessageOptionsApplyChanges" = "Apply Changes";
+"Conversation.ForwardOptionsCancel" = "Do Not Forward";
+"Conversation.MessageOptionsTabForward" = "Forward";
+"Conversation.MessageOptionsQuoteSelectedPart" = "Quote Selected Part";
+"Conversation.MessageOptionsQuoteSelect" = "Select Specific Quote";
+"Conversation.MessageOptionsQuoteRemove" = "Remove Quote";
+"Conversation.MessageOptionsReplyInAnotherChat" = "Reply in Another Chat";
+"Conversation.MessageOptionsReplyCancel" = "Do Not Reply";
+"Conversation.MessageOptionsTabReply" = "Reply";
+"Conversation.MoveReplyToAnotherChatTitle" = "Reply in...";
+"Conversation.MessageOptionsLinkMoveUp" = "Move Up";
+"Conversation.MessageOptionsLinkMoveDown" = "Move Down";
+"Conversation.MessageOptionsShrinkImage" = "Shrink Photo";
+"Conversation.MessageOptionsEnlargeImage" = "Enlarge Photo";
+"Conversation.MessageOptionsShrinkVideo" = "Shrink Video";
+"Conversation.MessageOptionsEnlargeVideo" = "Enlarge Video";
+"Conversation.LinkOptionsCancel" = "Do Not Preview";
+"Conversation.MessageOptionsTabLink" = "Link";
+
+"Stats.Boosts.ShowMoreBoosts_1" = "Show %@ More Boost";
+"Stats.Boosts.ShowMoreBoosts_any" = "Show %@ More Boosts";
+
+"ReassignBoost.Title" = "Reassign Boosts";
+"ReassignBoost.Description" = "To boost **%1$@**, reassign a previous boost or gift **Telegram Premium** to a friend to get **%2$@** additional boosts.";
+"ReassignBoost.ReassignBoosts" = "Reassign Boosts";
+"ReassignBoost.AvailableIn" = "Available in %@";
+"ReassignBoost.ExpiresOn" = "Boost expires on %@";
+"ReassignBoost.WaitForCooldown" = "Wait until the boost is available or get **%1$@** more boosts by gifting a **Telegram Premium** subscription.";
+
+"ReassignBoost.Success" = "%1$@ are reassigned from %2$@.";
+"ReassignBoost.Boosts_1" = "%@ boost";
+"ReassignBoost.Boosts_any" = "%@ boosts";
+"ReassignBoost.OtherChannels_1" = "%@ other channel";
+"ReassignBoost.OtherChannels_any" = "%@ other channels";
+
+"ChannelBoost.MoreBoosts.Title" = "More Boosts Needed";
+"ChannelBoost.MoreBoosts.Text" = "To boost **%1$@** again, gift **Telegram Premium** to a friend and get **%2$@** additional boosts.";
+
+"BoostGift.Title" = "Boosts via Gifts";
+"BoostGift.Description" = "Get more boosts for your channel by gifting\nPremium to your subscribers.";
+"BoostGift.PrepaidGiveawayTitle" = "PREPAID GIVEAWAY";
+"BoostGift.PrepaidGiveawayCount_1" = "%@ Telegram Premium";
+"BoostGift.PrepaidGiveawayCount_any" = "%@ Telegram Premium";
+"BoostGift.PrepaidGiveawayMonths" = "%@-month subscriptions";
+"BoostGift.CreateGiveaway" = "Create Giveaway";
+"BoostGift.CreateGiveawayInfo" = "winners are chosen randomly";
+"BoostGift.AwardSpecificUsers" = "Award Specific Users";
+"BoostGift.SelectRecipients" = "select recipients";
+"BoostGift.QuantityTitle" = "QUANTITY OF PRIZES";
+"BoostGift.QuantityBoosts_1" = "%@ BOOST";
+"BoostGift.QuantityBoosts_any" = "%@ BOOSTS";
+"BoostGift.QuantityInfo" = "Choose how many Premium subscriptions to give away and boosts to receive.";
+"BoostGift.ChannelsTitle" = "CHANNELS INCLUDED IN THE GIVEAWAY";
+"BoostGift.AddChannel" = "Add Channel";
+"BoostGift.ChannelsBoosts_1" = "this channel will receive %@ boost";
+"BoostGift.ChannelsBoosts_any" = "this channel will receive %@ boosts";
+"BoostGift.ChannelsInfo" = "Choose the channels users need to be subscribed to take part in the giveaway";
+"BoostGift.UsersTitle" = "USERS ELIGIBLE FOR THE GIVEAWAY";
+"BoostGift.FromCountries_1" = "from %@ country";
+"BoostGift.FromCountries_any" = "from %@ countries";
+"BoostGift.FromTwoCountries" = "from %1$@ and %2$@";
+"BoostGift.FromOneCountry" = "from %1$@";
+"BoostGift.FromAllCountries" = "from all countries";
+"BoostGift.AllSubscribers" = "All subscribers";
+"BoostGift.OnlyNewSubscribers" = "Only new subscribers";
+"BoostGift.LimitSubscribersInfo" = "Choose if you want to limit the giveaway only to those who joined the channel after the giveaway started.";
+"BoostGift.DateTitle" = "DATE WHEN GIVEAWAY ENDS";
+"BoostGift.DateEnds" = "Ends";
+"BoostGift.DateInfo" = "Choose when %1$@ of your channel will be randomly selected to receive Telegram Premium.";
+"BoostGift.DateInfoSubscribers_1" = "%@ subscriber";
+"BoostGift.DateInfoSubscribers_any" = "%@ subscribers";
+"BoostGift.DurationTitle" = "DURATION OF PREMIUM SUBSCRIPTIONS";
+"BoostGift.PremiumInfo" = "You can review the list of features and terms of use for Telegram Premium [here]().";
+"BoostGift.GiftPremium" = "Gift Premium";
+"BoostGift.StartGiveaway" = "Start Giveaway";
+"BoostGift.ReduceQuantity.Title" = "Reduce Quantity";
+"BoostGift.ReduceQuantity.Text" = "You can't acquire %1$@ %2$@-month subscriptions in the app. Do you want to reduce quantity to %3$@?";
+"BoostGift.ReduceQuantity.Reduce" = "Reduce";
+"BoostGift.GiveawayCreated.Title" = "Giveaway Created";
+"BoostGift.GiveawayCreated.Text" = "Check your channel's [Statistics]() to see how this giveaway boosted your channel.";
+"BoostGift.PremiumGifted.Title" = "Premium Subscriptions Gifted";
+"BoostGift.PremiumGifted.Text" = "Check your channel's [Statistics]() to see how gifts boosted your channel.";
+
+"BoostGift.Subscribers.Title" = "Gift Premium";
+"BoostGift.Subscribers.Subtitle" = "select up to %@ subscribers";
+"BoostGift.Subscribers.SectionTitle" = "SUBSCRIBERS";
+"BoostGift.Subscribers.Joined" = "joined %@";
+"BoostGift.Subscribers.Search" = "Search Subscribers";
+"BoostGift.Subscribers.MaximumReached" = "You can select maximum %@ subscribers.";
+"BoostGift.Subscribers.Save" = "Save Recipients";
+
+"BoostGift.Channels.Title" = "Add Channels";
+"BoostGift.Channels.Subtitle" = "select up to %@ channels";
+"BoostGift.Channels.SectionTitle" = "CHANNELS";
+"BoostGift.Channels.Search" = "Search Channels";
+"BoostGift.Channels.MaximumReached" = "You can select maximum %@ channels.";
+"BoostGift.Channels.PrivateChannel.Title" = "Channel is Private";
+"BoostGift.Channels.PrivateChannel.Text" = "Are you sure you want to add a private channel? Users won't be able to join it without an invite link.";
+"BoostGift.Channels.PrivateChannel.Add" = "Add";
+"BoostGift.Channels.Save" = "Save Channels";
+
+"Stats.Boosts.PrepaidGiveawaysTitle" = "PREPAID GIVEAWAYS";
+"Stats.Boosts.PrepaidGiveawayCount_1" = "%@ Telegram Premium";
+"Stats.Boosts.PrepaidGiveawayCount_any" = "%@ Telegram Premiums";
+"Stats.Boosts.PrepaidGiveawayMonths" = "%@-month subscriptions";
+"Stats.Boosts.PrepaidGiveawaysInfo" = "Select a giveaway you already paid for to set it up.";
+"Stats.Boosts.ShortMonth" = "%@m";
+"Stats.Boosts.Giveaway" = "Giveaway";
+"Stats.Boosts.Gift" = "Gift";
+"Stats.Boosts.TabBoosts_1" = "%@ Boost";
+"Stats.Boosts.TabBoosts_any" = "%@ Boosts";
+"Stats.Boosts.TabGifts_1" = "%@ Boost";
+"Stats.Boosts.TabGifts_any" = "%@ Boosts";
+"Stats.Boosts.ToBeDistributed" = "To Be Distributed";
+"Stats.Boosts.Unclaimed" = "Unclaimed";
+"Stats.Boosts.GetBoosts" = "Get Boosts via Gifts";
+"Stats.Boosts.GetBoostsInfo" = "Get more boosts for your channel by gifting Premium to your subscribers.";
+"Stats.Boosts.TooltipToBeDistributed" = "The recipient will be selected when the giveaway ends.";
+
+"Notification.PremiumPrize.Title" = "Congratulations!";
+"Notification.PremiumPrize.UnclaimedText" = "You have an unclaimed prize from a giveaway by **%1$@**.\n\nThis prize is a **Telegram Premium** subscription for %2$@.";
+"Notification.PremiumPrize.GiveawayText" = "You won a prize in a giveaway organized by **%1$@**.\n\nYour prize is a **Telegram Premium** subscription for %2$@.";
+"Notification.PremiumPrize.GiftText" = "You've received a gift from **%1$@**.\n\nYour gift is a **Telegram Premium** subscription for %2$@.";
+"Notification.PremiumPrize.Months_1" = "**%@** month";
+"Notification.PremiumPrize.Months_any" = "**%@** months";
+"Notification.PremiumPrize.View" = "Open Gift Link";
+"Notification.PremiumPrize.Unclaimed" = "Unclaimed Prize";
+
+"Story.SlideToSeek" = "Slide left or right to seek";
+"Story.Guide.Title" = "Watching Stories";
+"Story.Guide.Description" = "You can use these gestures to control playback.";
+"Story.Guide.ForwardTitle" = "Go forward";
+"Story.Guide.ForwardDescription" = "Tap the screen";
+"Story.Guide.PauseTitle" = "Pause and Seek";
+"Story.Guide.PauseDescription" = "Hold and move sideways";
+"Story.Guide.BackTitle" = "Go back";
+"Story.Guide.BackDescription" = "Tap the left edge";
+"Story.Guide.MoveTitle" = "Move between authors";
+"Story.Guide.MoveDescription" = "Swipe left or right";
+"Story.Guide.Proceed" = "Tap to keep watching";
+
+"Chat.Giveaway.Info.Title" = "About This Giveaway";
+"Chat.Giveaway.Info.EndedTitle" = "Giveaway Ended";
+"Chat.Giveaway.Info.AlmostOver" = "The giveaway is almost over.";
+"Chat.Giveaway.Info.OngoingIntro" = "The giveaway is sponsored by the admins of **%1$@**, who acquired %2$@ for %3$@ for its followers.";
+"Chat.Giveaway.Info.OngoingNewMany" = "On **%1$@**, Telegram will automatically select %2$@ that joined **%3$@** and %4$@ after **%5$@**.";
+"Chat.Giveaway.Info.OngoingNew" = "On **%1$@**, Telegram will automatically select %2$@ that joined **%3$@** after **%4$@**.";
+"Chat.Giveaway.Info.OngoingMany" = "On **%1$@**, Telegram will automatically select %2$@ of **%3$@** and %4$@.";
+"Chat.Giveaway.Info.Ongoing" = "On **%1$@**, Telegram will automatically select %2$@ of **%3$@**.";
+"Chat.Giveaway.Info.EndedIntro" = "The giveaway was sponsored by the admins of **%1$@**, who acquired %2$@ for %3$@ for its followers.";
+"Chat.Giveaway.Info.EndedNewMany" = "On **%1$@**, Telegram automatically selected %2$@ that joined **%3$@** and other listed channels after **%4$@**.";
+"Chat.Giveaway.Info.EndedNew" = "On **%1$@**, Telegram automatically selected %2$@ that joined **%3$@** after **%4$@**.";
+"Chat.Giveaway.Info.EndedMany" = "On **%1$@**, Telegram automatically selected %2$@ of **%3$@** and other listed channels.";
+"Chat.Giveaway.Info.Ended" = "On **%1$@**, Telegram automatically selected %2$@ of **%3$@**.";
+"Chat.Giveaway.Info.NotAllowedJoinedEarly" = "You are not eligible to participate in this giveaway, because you joined this channel on **%@**, which is before the contest started.";
+"Chat.Giveaway.Info.NotAllowedAdmin" = "You are not eligible to participate in this giveaway, because you are an admin of participating channel (**%@**).";
+"Chat.Giveaway.Info.NotAllowedCountry" = "You are not eligible to participate in this giveaway, because your country is not included in the terms of the giveaway.";
+"Chat.Giveaway.Info.NotQualified" = "To take part in this giveaway please join the channel **%1$@** before **%2$@**.";
+"Chat.Giveaway.Info.NotQualifiedMany" = "To take part in this giveaway please join the channel **%1$@** (and %2$@) before **%3$@**.";
+"Chat.Giveaway.Info.Participating" = "You are participating in this giveaway, because you have joined the channel **%1$@**.";
+"Chat.Giveaway.Info.ParticipatingMany" = "You are participating in this giveaway, because you have joined the channel **%1$@** (and %2$@).";
+"Chat.Giveaway.Info.OtherChannels_1" = "**%@** other listed channel";
+"Chat.Giveaway.Info.OtherChannels_any" = "**%@** other listed channels";
+"Chat.Giveaway.Info.Subscriptions_1" = "**%@ Telegram Premium** subscription";
+"Chat.Giveaway.Info.Subscriptions_any" = "**%@ Telegram Premium** subscriptions";
+"Chat.Giveaway.Info.RandomUsers_1" = "**%@** random user";
+"Chat.Giveaway.Info.RandomUsers_any" = "**%@** random user";
+"Chat.Giveaway.Info.RandomSubscribers_1" = "**%@** random subscriber";
+"Chat.Giveaway.Info.RandomSubscribers_any" = "**%@** random subscribers";
+"Chat.Giveaway.Info.Months_1" = "**%@** month";
+"Chat.Giveaway.Info.Months_any" = "**%@** months";
+"Chat.Giveaway.Info.ActivatedLinks_1" = "%@ winner already used their gift link.";
+"Chat.Giveaway.Info.ActivatedLinks_any" = "%@ of the winners already used their gift links.";
+"Chat.Giveaway.Info.Refunded" = "The channel cancelled the prizes by reversing the payment for them.";
+"Chat.Giveaway.Info.Won" = "You won a prize in this giveaway. %@";
+"Chat.Giveaway.Info.DidntWin" = "You didn't win a prize in this giveaway.";
+"Chat.Giveaway.Info.ViewPrize" = "View My Prize";
+
+"Chat.Giveaway.Toast.NotAllowed" = "You can't participate in this giveaway.";
+"Chat.Giveaway.Toast.Participating" = "You are participating in this giveaway.";
+"Chat.Giveaway.Toast.NotQualified" = "You are not qualified for this giveaway yet.";
+"Chat.Giveaway.Toast.AlmostOver" = "The giveaway is almost over.";
+"Chat.Giveaway.Toast.Ended" = "The giveaway is ended.";
+"Chat.Giveaway.Toast.LearnMore" = "Learn More";
+
+"Chat.Giveaway.Message.PrizeTitle" = "Giveaway Prizes";
+"Chat.Giveaway.Message.PrizeText" = "%1$@ for %2$@.";
+"Chat.Giveaway.Message.Subscriptions_1" = "**%@** Telegram Premium Subscription";
+"Chat.Giveaway.Message.Subscriptions_any" = "**%@** Telegram Premium Subscriptions";
+"Chat.Giveaway.Message.Months_1" = "**%@** month";
+"Chat.Giveaway.Message.Months_any" = "**%@** months";
+"Chat.Giveaway.Message.ParticipantsTitle" = "Participants";
+"Chat.Giveaway.Message.ParticipantsNewMany" = "All users who join the channels below after this date:";
+"Chat.Giveaway.Message.ParticipantsNew" = "All users who join this channel after this date:";
+"Chat.Giveaway.Message.ParticipantsMany" = "All subscribers of the channels below:";
+"Chat.Giveaway.Message.Participants" = "All subscribers of this channel:";
+"Chat.Giveaway.Message.CountriesFrom" = "from %@";
+"Chat.Giveaway.Message.CountriesDelimiter" = ", ";
+"Chat.Giveaway.Message.CountriesLastDelimiter" = " and ";
+"Chat.Giveaway.Message.DateTitle" = "Winners Selection Date";
+"Chat.Giveaway.Message.LearnMore" = "LEARN MORE";
+
+"GiftLink.Title" = "Gift Link";
+"GiftLink.UsedTitle" = "Used Gift Link";
+"GiftLink.Description" = "This link allows you to activate a **Telegram Premium** subscription.";
+"GiftLink.UsedDescription" = "This link was used to activate a **Telegram Premium** subscription.";
+"GiftLink.PersonalDescription" = "This link allows **%@** to activate a **Telegram Premium** subscription.";
+"GiftLink.PersonalUsedDescription" = "This link allowed **%@** to activate a **Telegram Premium** subscription.";
+"GiftLink.UnclaimedDescription" = "This link allows anyone to activate a **Telegram Premium** subscription.";
+"GiftLink.Footer" = "You can also [send this link]() to a friend as a gift.";
+"GiftLink.UsedFooter" = "This link was used on %@.";
+"GiftLink.NotUsedFooter" = "This link hasn't been used yet.";
+"GiftLink.UseLink" = "Use Link";
+"GiftLink.Gift" = "Gift";
+"GiftLink.From" = "From";
+"GiftLink.To" = "To";
+"GiftLink.Reason" = "Reason";
+"GiftLink.Reason.Giveaway" = "Giveaway";
+"GiftLink.Reason.Gift" = "You were selected by the channel";
+"GiftLink.Reason.Unclaimed" = "Incomplete Giveaway";
+"GiftLink.Date" = "Date";
+"GiftLink.NoRecipient" = "No recipient";
+"GiftLink.TelegramPremium_1" = "Telegram Premium for %@ month";
+"GiftLink.TelegramPremium_any" = "Telegram Premium for %@ months";
+"GiftLink.LinkHidden" = "Only the recipient can see the link.";
+
+"ChannelBoost.EnableColors" = "Enable Colors";
+"ChannelBoost.EnableColorsText" = "Your channel needs %1$@ to change channel color.\n\nAsk your **Premium** subscribers to boost your channel with this link:";
+"ChannelBoost.BoostAgain" = "Boost Again";
+
+"Settings.New" = "NEW";
+
+"ChannelBoost.Or" = "or";
+
+"Channel.ChannelColor" = "Channel Color";
+
+"TextFormat.Code" = "Code";

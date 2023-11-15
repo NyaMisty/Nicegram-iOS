@@ -2,7 +2,6 @@ import Foundation
 import UIKit
 import Display
 import TelegramCore
-import Postbox
 import SwiftSignalKit
 import TelegramPresentationData
 import TelegramBaseController
@@ -18,6 +17,7 @@ public final class HashtagSearchController: TelegramBaseController {
     private let context: AccountContext
     private let peer: EnginePeer?
     private let query: String
+    let all: Bool
     private var transitionDisposable: Disposable?
     private let openMessageFromSearchDisposable = MetaDisposable()
     
@@ -31,10 +31,11 @@ public final class HashtagSearchController: TelegramBaseController {
         return self.displayNode as! HashtagSearchControllerNode
     }
     
-    public init(context: AccountContext, peer: EnginePeer?, query: String) {
+    public init(context: AccountContext, peer: EnginePeer?, query: String, all: Bool = false) {
         self.context = context
         self.peer = peer
         self.query = query
+        self.all = all
         
         self.animationCache = context.animationCache
         self.animationRenderer = context.animationRenderer
@@ -54,7 +55,7 @@ public final class HashtagSearchController: TelegramBaseController {
         |> map { result, presentationData in
             let result = result.0
             let chatListPresentationData = ChatListPresentationData(theme: presentationData.theme, fontSize: presentationData.listsFontSize, strings: presentationData.strings, dateTimeFormat: presentationData.dateTimeFormat, nameSortOrder: presentationData.nameSortOrder, nameDisplayOrder: presentationData.nameDisplayOrder, disableAnimations: true)
-            return result.messages.map({ .message(EngineMessage($0), EngineRenderedPeer(message: EngineMessage($0)), result.readStates[$0.id.peerId].flatMap { EnginePeerReadCounters(state: $0, isMuted: false) }, nil, chatListPresentationData, result.totalCount, nil, false, .index($0.index), nil, .generic, false) })
+            return result.messages.map({ .message(EngineMessage($0), EngineRenderedPeer(message: EngineMessage($0)), result.readStates[$0.id.peerId].flatMap { EnginePeerReadCounters(state: $0, isMuted: false) }, nil, chatListPresentationData, result.totalCount, nil, false, .index($0.index), nil, .generic, false, nil) })
         }
         let interaction = ChatListNodeInteraction(context: context, animationCache: self.animationCache, animationRenderer: self.animationRenderer, activateSearch: {
         }, peerSelected: { _, _, _, _ in
@@ -66,7 +67,7 @@ public final class HashtagSearchController: TelegramBaseController {
             if let strongSelf = self {
                 strongSelf.openMessageFromSearchDisposable.set((strongSelf.context.engine.peers.ensurePeerIsLocallyAvailable(peer: peer) |> deliverOnMainQueue).start(next: { actualPeer in
                     if let strongSelf = self, let navigationController = strongSelf.navigationController as? NavigationController {
-                        strongSelf.context.sharedContext.navigateToChatController(NavigateToChatControllerParams(navigationController: navigationController, context: strongSelf.context, chatLocation: .peer(actualPeer), subject: message.id.peerId == actualPeer.id ? .message(id: .id(message.id), highlight: true, timecode: nil) : nil, keepStack: .always))
+                        strongSelf.context.sharedContext.navigateToChatController(NavigateToChatControllerParams(navigationController: navigationController, context: strongSelf.context, chatLocation: .peer(actualPeer), subject: message.id.peerId == actualPeer.id ? .message(id: .id(message.id), highlight: ChatControllerSubject.MessageHighlight(quote: nil), timecode: nil) : nil, keepStack: .always))
                     }
                 }))
                 strongSelf.controllerNode.listNode.clearHighlightAnimated(true)
@@ -91,6 +92,14 @@ public final class HashtagSearchController: TelegramBaseController {
             gesture?.cancel()
         }, present: { _ in
         }, openForumThread: { _, _ in
+        }, openStorageManagement: {
+        }, openPasswordSetup: {
+        }, openPremiumIntro: {
+        }, openActiveSessions: {
+        }, performActiveSessionAction: { _, _ in
+        }, openChatFolderUpdates: {
+        }, hideChatFolderUpdates: {
+        }, openStories: { _, _ in
         })
         
         let previousSearchItems = Atomic<[ChatListSearchEntry]?>(value: nil)
@@ -111,10 +120,11 @@ public final class HashtagSearchController: TelegramBaseController {
                 })
                 
                 let firstTime = previousEntries == nil
-                let transition = chatListSearchContainerPreparedTransition(from: previousEntries ?? [], to: entries, displayingResults: true, isEmpty: entries.isEmpty, isLoading: false, animated: false, context: strongSelf.context, presentationData: strongSelf.presentationData, enableHeaders: false, filter: [], location: .chatList(groupId: .root), key: .chats, tagMask: nil, interaction: interaction, listInteraction: listInteraction, peerContextAction: nil, toggleExpandLocalResults: {
+                let transition = chatListSearchContainerPreparedTransition(from: previousEntries ?? [], to: entries, displayingResults: true, isEmpty: entries.isEmpty, isLoading: false, animated: false, context: strongSelf.context, presentationData: strongSelf.presentationData, enableHeaders: false, filter: [], requestPeerType: nil, location: .chatList(groupId: .root), key: .chats, tagMask: nil, interaction: interaction, listInteraction: listInteraction, peerContextAction: nil, toggleExpandLocalResults: {
                 }, toggleExpandGlobalResults: {
                 }, searchPeer: { _ in
-                }, searchQuery: "", searchOptions: nil, messageContextAction: nil, openClearRecentlyDownloaded: {}, toggleAllPaused: {})
+                }, searchQuery: "", searchOptions: nil, messageContextAction: nil, openClearRecentlyDownloaded: {}, toggleAllPaused: {}, openStories: { _, _ in
+                })
                 strongSelf.controllerNode.enqueueTransition(transition, firstTime: firstTime)
             }
         })
@@ -149,7 +159,7 @@ public final class HashtagSearchController: TelegramBaseController {
     }
     
     override public func loadDisplayNode() {
-        self.displayNode = HashtagSearchControllerNode(context: self.context, peer: self.peer, query: self.query, navigationBar: self.navigationBar, navigationController: self.navigationController as? NavigationController)
+        self.displayNode = HashtagSearchControllerNode(context: self.context, controller: self, peer: self.peer, query: self.query, navigationBar: self.navigationBar, navigationController: self.navigationController as? NavigationController)
         if let chatController = self.controllerNode.chatController {
             chatController.parentController = self
         }

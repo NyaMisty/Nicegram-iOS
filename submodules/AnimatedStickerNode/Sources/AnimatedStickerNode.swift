@@ -252,6 +252,15 @@ public final class DefaultAnimatedStickerNodeImpl: ASDisplayNode, AnimatedSticke
     private var overlayColor: (UIColor?, Bool)? = nil
     private var size: CGSize?
     
+    public var dynamicColor: UIColor? {
+        didSet {
+            if let renderer = self.renderer?.renderer as? SoftwareAnimationRenderer {
+                renderer.renderAsTemplateImage = self.dynamicColor != nil
+            }
+            self.renderer?.renderer.view.tintColor = self.dynamicColor
+        }
+    }
+    
     public init(useMetalCache: Bool = false) {
         self.queue = sharedQueue
         self.eventsNode = AnimatedStickerNodeDisplayEvents()
@@ -279,12 +288,12 @@ public final class DefaultAnimatedStickerNodeImpl: ASDisplayNode, AnimatedSticke
         if #available(iOS 10.0, *) {
             return CompressedAnimationRenderer()
         } else {
-            return SoftwareAnimationRenderer()
+            return SoftwareAnimationRenderer(templateImageSupport: true)
         }
     })
     
     private static let softwareRendererPool = AnimationRendererPool(generate: {
-        return SoftwareAnimationRenderer()
+        return SoftwareAnimationRenderer(templateImageSupport: true)
     })
     
     private weak var nodeToCopyFrameFrom: DefaultAnimatedStickerNodeImpl?
@@ -295,6 +304,12 @@ public final class DefaultAnimatedStickerNodeImpl: ASDisplayNode, AnimatedSticke
             self.renderer = DefaultAnimatedStickerNodeImpl.hardwareRendererPool.take()
         } else {
             self.renderer = DefaultAnimatedStickerNodeImpl.softwareRendererPool.take()
+            
+            if let renderer = self.renderer?.renderer as? SoftwareAnimationRenderer {
+                renderer.renderAsTemplateImage = self.dynamicColor != nil
+            }
+            self.renderer?.renderer.view.tintColor = self.dynamicColor
+            
             if let contents = self.nodeToCopyFrameFrom?.renderer?.renderer.contents {
                 self.renderer?.renderer.contents = contents
             }
@@ -353,12 +368,12 @@ public final class DefaultAnimatedStickerNodeImpl: ASDisplayNode, AnimatedSticke
             }
             self.disposable.set((source.directDataPath(attemptSynchronously: false)
             |> filter { $0 != nil }
-            |> deliverOnMainQueue).start(next: { path in
+            |> deliverOnMainQueue).startStrict(next: { path in
                 f(path!)
             }))
         case .cached:
             self.disposable.set((source.cachedDataPath(width: width, height: height)
-            |> deliverOnMainQueue).start(next: { [weak self] path, complete in
+            |> deliverOnMainQueue).startStrict(next: { [weak self] path, complete in
                 guard let strongSelf = self else {
                     return
                 }

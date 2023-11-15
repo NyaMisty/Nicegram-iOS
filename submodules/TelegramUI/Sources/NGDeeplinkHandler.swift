@@ -1,12 +1,19 @@
 import Foundation
 import AccountContext
 import Display
-import NGAppContext
-import NGExtensions
-import NGLoadingIndicator
+import FeatImagesHubUI
+import NGAiChatUI
+import NGAnalytics
+import NGAssistantUI
+import NGAuth
+import NGCardUI
+import class NGCoreUI.SharedLoadingView
 import NGModels
 import NGOnboarding
-import NGSubscription
+import NGRemoteConfig
+import NGPremiumUI
+import NGSpecialOffer
+import NGUI
 import TelegramPresentationData
 import UIKit
 
@@ -34,45 +41,39 @@ class NGDeeplinkHandler {
     //  MARK: - Private Functions
 
     private func handle(url: URL) -> Bool {
-        if handleUniversalLink(url) {
-            return true
-        }
-        
-        if handleDeeplink(url) {
-            return true
-        }
-        
-        return false
-    }
-    
-    private func handleUniversalLink(_ url: URL) -> Bool {
-        guard url.scheme == "https",
-              url.host == "nicegram.app",
-              url.path == "/deeplink",
-              let deeplinkParam = url.queryItems["url"],
-              let deeplink = URL(string: deeplinkParam) else { return false }
-        
-        return handleDeeplink(deeplink)
+        return handleDeeplink(url)
     }
     
     private func handleDeeplink(_ url: URL) -> Bool {
         guard url.scheme == "ncg" else { return false }
         
         switch url.host {
-        case "nicegramPremium":
-            return handleNicegramPremium(url: url)
+        case "aiAuth":
+            return handleAiAuth(url: url)
+        case "aiLily":
+            return handleAi(url: url)
         case "assistant":
             return handleAssistant(url: url)
-        case "getEsim":
-            return handlePurchaseEsim(url: url)
-        case "onboarding":
-            return handleOnboarding(url: url)
         case "assistant-auth":
             if #available(iOS 13.0, *) {
                 return handleLoginWithTelegram(url: url)
             } else {
                 return false
             }
+        case "generateImage":
+            return handleGenerateImage(url: url)
+        case "nicegramPremium":
+            return handleNicegramPremium(url: url)
+        case "onboarding":
+            return handleOnboarding(url: url)
+        case "specialOffer":
+            if #available(iOS 13.0, *) {
+                return handleSpecialOffer(url: url)
+            } else {
+                return false
+            }
+        case "pstAuth":
+            return handlePstAuth(url: url)
         default:
             return false
         }
@@ -83,33 +84,64 @@ class NGDeeplinkHandler {
 // TODO: Nicegram Extract each handler to separate class
 
 private extension NGDeeplinkHandler {
+    func handleAiAuth(url: URL) -> Bool {
+        if #available(iOS 13.0, *) {
+            Task { @MainActor in
+                AiChatUITgHelper.routeToAiOnboarding(
+                    push: { [self] controller in
+                        self.push(controller)
+                    }
+                )
+            }
+            return true
+        }
+        return false
+    }
+    
+    func handleAi(url: URL) -> Bool {
+        if #available(iOS 13.0, *) {
+            Task { @MainActor in
+                AiChatUITgHelper.tryRouteToAiChatBotFromDeeplink(
+                    push: { [self] controller in
+                        self.push(controller)
+                    }
+                )
+            }
+            return true
+        }
+        return false
+    }
+    
+    func handleGenerateImage(url: URL) -> Bool {
+        if #available(iOS 15.0, *) {
+            Task { @MainActor in
+                ImagesHubUITgHelper.showFeed(
+                    source: .deeplink,
+                    forceGeneration: true
+                )
+            }
+            return true
+        } else {
+            return false
+        }
+    }
+    
     func handleNicegramPremium(url: URL) -> Bool {
-        let presentationData = getCurrentPresentationData()
-        
-        let c = SubscriptionBuilderImpl(presentationData: presentationData).build()
-        c.modalPresentationStyle = .fullScreen
-        
-        navigationController?.topViewController?.present(c, animated: true)
-        
+        PremiumUITgHelper.routeToPremium()
         return true
     }
     
     func handleAssistant(url: URL) -> Bool {
-        showNicegramAssistant(deeplink: AssistantDeeplink())
-        return true
-    }
-    
-    func handlePurchaseEsim(url: URL) -> Bool {
-        let bundleId: Int?
-        if let bundleIdParam = url.queryItems["bundleId"] {
-            bundleId = Int(bundleIdParam)
+        if #available(iOS 15.0, *) {
+            Task { @MainActor in
+                AssistantUITgHelper.routeToAssistant(
+                    source: .deeplink
+                )
+            }
+            return true
         } else {
-            bundleId = nil
+            return false
         }
-        
-        showNicegramAssistant(deeplink: PurchaseEsimDeeplink(bundleId: bundleId))
-        
-        return true
     }
     
     func handleOnboarding(url: URL) -> Bool {
@@ -133,14 +165,16 @@ private extension NGDeeplinkHandler {
     
     @available(iOS 13.0, *)
     func handleLoginWithTelegram(url: URL) -> Bool {
-        let appContext = AppContext(accountContext: tgAccountContext)
-        let initiateLoginWithTelegramUseCase = appContext.resolveInitiateLoginWithTelegramUseCase()
+        let initTgLoginUseCase = AuthTgHelper.resolveInitTgLoginUseCase()
         
-        NGLoadingIndicator.shared.startAnimating()
-        // Retain initiateLoginWithTelegramUseCase
-        initiateLoginWithTelegramUseCase.initiateLoginWithTelegram { [initiateLoginWithTelegramUseCase] result in
-            DispatchQueue.main.async {
-                NGLoadingIndicator.shared.stopAnimating()
+        SharedLoadingView.start()
+        // Retain initTgLoginUseCase
+        Task {
+            let result = await initTgLoginUseCase(source: .general)
+            
+            await MainActor.run {
+                SharedLoadingView.stop()
+                
                 switch result {
                 case .success(let url):
                     UIApplication.shared.open(url)
@@ -148,24 +182,42 @@ private extension NGDeeplinkHandler {
                     break
                 }
             }
-            debugPrint(initiateLoginWithTelegramUseCase)
         }
         return true
+    }
+    
+    @available(iOS 13.0, *)
+    func handleSpecialOffer(url: URL) -> Bool {
+        return SpecialOfferTgHelper.showSpecialOfferFromDeeplink(
+            id: url.queryItems["id"]
+        )
+    }
+    
+    func handlePstAuth(url: URL) -> Bool {
+        if #available(iOS 13.0, *) {
+            Task { @MainActor in
+                CardUITgHelper.showSplashFromDeeplink()
+            }
+            return true
+        }
+        return false
     }
 }
 
 //  MARK: - Helpers
 
 private extension NGDeeplinkHandler {
-    func showNicegramAssistant(deeplink: Deeplink) {
-        guard let rootController = navigationController as? TelegramRootController else { return }
-        rootController.openChatsController(activateSearch: false)
-        rootController.popToRoot(animated: true)
-        rootController.chatListController?.showNicegramAssistant(deeplink: deeplink)
-    }
-    
     func getCurrentPresentationData() -> PresentationData {
         return tgAccountContext.sharedContext.currentPresentationData.with({ $0 })
+    }
+    
+    func push(_ c: UIViewController) {
+        self.navigationController?.pushViewController(
+            NativeControllerWrapper(
+                controller: c,
+                accountContext: self.tgAccountContext
+            )
+        )
     }
 }
 

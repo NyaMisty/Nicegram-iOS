@@ -130,8 +130,10 @@ const NSInteger PGCameraFrameRate = 30;
         [self setFrameRate:PGCameraFrameRate forDevice:_videoDevice];
     }
     
-    AVCaptureStillImageOutput *imageOutput = [[AVCaptureStillImageOutput alloc] init];
-    [imageOutput setOutputSettings:@{AVVideoCodecKey : AVVideoCodecJPEG}];
+    AVCapturePhotoOutput *imageOutput = [[AVCapturePhotoOutput alloc] init];
+    if (@available(iOS 13.0, *)) {
+        [imageOutput setMaxPhotoQualityPrioritization:AVCapturePhotoQualityPrioritizationBalanced];
+    }
     if ([self canAddOutput:imageOutput])
     {
 #if !TARGET_IPHONE_SIMULATOR
@@ -208,6 +210,7 @@ const NSInteger PGCameraFrameRate = 30;
 
 - (void)reset
 {
+    NSAssert([[PGCameraCaptureSession cameraQueue] isCurrentQueue], @"[[PGCameraCaptureSession cameraQueue] isCurrentQueue]");
     [self beginConfiguration];
     
     [self _removeAudioInputEndAudioSession:true];
@@ -259,6 +262,8 @@ const NSInteger PGCameraFrameRate = 30;
 
 - (void)setCurrentMode:(PGCameraMode)mode
 {
+    NSAssert([[PGCameraCaptureSession cameraQueue] isCurrentQueue], @"[[PGCameraCaptureSession cameraQueue] isCurrentQueue]");
+    
     _currentMode = mode;
     
     [self beginConfiguration];
@@ -314,11 +319,13 @@ const NSInteger PGCameraFrameRate = 30;
 
 - (void)switchToBestVideoFormatForDevice:(AVCaptureDevice *)device
 {
+    bool preferZoomableFormat = [self hasTelephotoCamera] || [self hasUltrawideCamera];
     [self _reconfigureDevice:device withBlock:^(AVCaptureDevice *device)
     {
         NSArray *availableFormats = device.formats;
         AVCaptureDeviceFormat *preferredFormat = nil;
         NSMutableArray *maybeFormats = nil;
+        bool hasSecondaryZoomLevels = false;
         int32_t maxWidth = 0;
         int32_t maxHeight = 0;
         for (AVCaptureDeviceFormat *format in availableFormats)
@@ -329,8 +336,10 @@ const NSInteger PGCameraFrameRate = 30;
             CMVideoDimensions dimensions = CMVideoFormatDescriptionGetDimensions(format.formatDescription);
             if (dimensions.width >= maxWidth && dimensions.width <= 1920 && dimensions.height >= maxHeight && dimensions.height <= 1080)
             {
-                if (dimensions.width > maxWidth)
+                if (dimensions.width > maxWidth) {
+                    hasSecondaryZoomLevels = false;
                     maybeFormats = [[NSMutableArray alloc] init];
+                }
                 FourCharCode mediaSubType = CMFormatDescriptionGetMediaSubType(format.formatDescription);
                 if (mediaSubType == kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange)
                 {
@@ -347,8 +356,14 @@ const NSInteger PGCameraFrameRate = 30;
                         }
                     }
                     
-                    if (supportedRate)
-                        [maybeFormats addObject:format];
+                    if (supportedRate) {
+                        if (iosMajorVersion() >= 16 && format.secondaryNativeResolutionZoomFactors.count > 0) {
+                            hasSecondaryZoomLevels = true;
+                            [maybeFormats addObject:format];
+                        } else if (!hasSecondaryZoomLevels) {
+                            [maybeFormats addObject:format];
+                        }
+                    }
                 }
             }
         }
@@ -394,7 +409,11 @@ const NSInteger PGCameraFrameRate = 30;
 {
     AVCaptureConnection *videoConnection = [_videoOutput connectionWithMediaType:AVMediaTypeVideo];
     if (videoConnection.supportsVideoStabilization) {
-        videoConnection.preferredVideoStabilizationMode = AVCaptureVideoStabilizationModeStandard;
+        if (iosMajorVersion() >= 13) {
+            videoConnection.preferredVideoStabilizationMode = AVCaptureVideoStabilizationModeCinematicExtended;
+        } else {
+            videoConnection.preferredVideoStabilizationMode = AVCaptureVideoStabilizationModeCinematic;
+        }
     }
 }
 
@@ -684,6 +703,10 @@ const NSInteger PGCameraFrameRate = 30;
 
 #pragma mark - Flash
 
+- (AVCaptureFlashMode)currentDeviceFlashMode {
+    return [PGCameraCaptureSession _deviceFlashModeForCameraFlashMode:self.currentFlashMode];
+}
+
 - (PGCameraFlashMode)currentFlashMode
 {
     switch (self.currentMode)
@@ -790,6 +813,7 @@ const NSInteger PGCameraFrameRate = 30;
 
 - (void)setCurrentCameraPosition:(PGCameraPosition)position
 {
+    NSAssert([[PGCameraCaptureSession cameraQueue] isCurrentQueue], @"[[PGCameraCaptureSession cameraQueue] isCurrentQueue]");
     AVCaptureDevice *deviceForTargetPosition = [PGCameraCaptureSession _deviceWithCameraPosition:position];
     if ([_videoDevice isEqual:deviceForTargetPosition])
         return;
@@ -976,12 +1000,6 @@ const NSInteger PGCameraFrameRate = 30;
     NSDictionary *videoSettings = [_videoOutput recommendedVideoSettingsForAssetWriterWithOutputFileType:AVFileTypeMPEG4];
     NSDictionary *audioSettings = [_audioOutput recommendedAudioSettingsForAssetWriterWithOutputFileType:AVFileTypeMPEG4];
     
-    if (self.compressVideo)
-    {
-        videoSettings = [TGMediaVideoConversionPresetSettings videoSettingsForPreset:TGMediaVideoConversionPresetCompressedMedium dimensions:CGSizeMake(848, 480)];
-        audioSettings = [TGMediaVideoConversionPresetSettings audioSettingsForPreset:TGMediaVideoConversionPresetCompressedMedium];
-    }
-    
     _movieWriter = [[PGCameraMovieWriter alloc] initWithVideoTransform:TGTransformForVideoOrientation(orientation, mirrored) videoOutputSettings:videoSettings audioOutputSettings:audioSettings];
     _movieWriter.finishedWithMovieAtURL = completion;
     [_movieWriter startRecording];
@@ -1113,6 +1131,20 @@ static UIImageOrientation TGSnapshotOrientationForVideoOrientation(bool mirrored
             });
         }
     }
+}
+
+#pragma mark -
+
++ (SQueue *)cameraQueue
+{
+    static dispatch_once_t onceToken;
+    static SQueue *queue = nil;
+    dispatch_once(&onceToken, ^
+    {
+        queue = [[SQueue alloc] init];
+    });
+    
+    return queue;
 }
 
 @end

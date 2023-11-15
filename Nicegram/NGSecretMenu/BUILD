@@ -8,6 +8,7 @@ swift_library(
     ]),
     deps = [
 		"//submodules/PresentationDataUtils:PresentationDataUtils",
+        "//Nicegram/NGCopyProtectedContent:NGCopyProtectedContent",
         "//Nicegram/NGRemoteConfig:NGRemoteConfig",
     ],
     visibility = [

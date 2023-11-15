@@ -16,18 +16,8 @@ func _internal_clearCloudDraftsInteractively(postbox: Postbox, network: Network,
             var keys = Set<Key>()
             switch updates {
                 case let .updates(updates, users, chats, _, _):
-                    var peers: [Peer] = []
-                    var peerPresences: [PeerId: Api.User] = [:]
-                    for chat in chats {
-                        if let groupOrChannel = parseTelegramGroupOrChannel(chat: chat) {
-                            peers.append(groupOrChannel)
-                        }
-                    }
-                    for user in users {
-                        let telegramUser = TelegramUser(user: user)
-                        peers.append(telegramUser)
-                        peerPresences[telegramUser.id] = user
-                    }
+                    let parsedPeers = AccumulatedPeers(transaction: transaction, chats: chats, users: users)
+                    
                     for update in updates {
                         switch update {
                             case let .updateDraftMessage(_, peer, topMsgId, _):
@@ -40,23 +30,28 @@ func _internal_clearCloudDraftsInteractively(postbox: Postbox, network: Network,
                                 break
                         }
                     }
-                    updatePeers(transaction: transaction, peers: peers, update: { _, updated -> Peer in
-                        return updated
-                    })
+                    updatePeers(transaction: transaction, accountPeerId: accountPeerId, peers: parsedPeers)
                     
-                    updatePeerPresences(transaction: transaction, accountPeerId: accountPeerId, peerPresences: peerPresences)
                     var signals: [Signal<Void, NoError>] = []
                     for key in keys {
                         _internal_updateChatInputState(transaction: transaction, peerId: key.peerId, threadId: key.threadId,  inputState: nil)
                         
                         if let peer = transaction.getPeer(key.peerId), let inputPeer = apiInputPeer(peer) {
-                            var flags: Int32 = 0
                             var topMsgId: Int32?
                             if let threadId = key.threadId {
-                                flags |= (1 << 2)
                                 topMsgId = Int32(clamping: threadId)
                             }
-                            signals.append(network.request(Api.functions.messages.saveDraft(flags: flags, replyToMsgId: nil, topMsgId: topMsgId, peer: inputPeer, message: "", entities: nil))
+                            var flags: Int32 = 0
+                            var replyTo: Api.InputReplyTo?
+                            if let topMsgId = topMsgId {
+                                flags |= (1 << 0)
+                                
+                                //inputReplyToMessage#73ec805 flags:# reply_to_msg_id:int top_msg_id:flags.0?int reply_to_peer_id:flags.1?InputPeer quote_text:flags.2?string quote_entities:flags.3?Vector<MessageEntity> = InputReplyTo;
+                                var innerFlags: Int32 = 0
+                                innerFlags |= 1 << 0
+                                replyTo = .inputReplyToMessage(flags: innerFlags, replyToMsgId: 0, topMsgId: topMsgId, replyToPeerId: nil, quoteText: nil, quoteEntities: nil)
+                            }
+                            signals.append(network.request(Api.functions.messages.saveDraft(flags: flags, replyTo: replyTo, peer: inputPeer, message: "", entities: nil, media: nil))
                             |> `catch` { _ -> Signal<Api.Bool, NoError> in
                                 return .single(.boolFalse)
                             }

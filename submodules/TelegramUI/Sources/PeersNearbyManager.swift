@@ -1,6 +1,5 @@
 import Foundation
 import SwiftSignalKit
-import Postbox
 import TelegramCore
 import TelegramApi
 import DeviceLocationManager
@@ -36,24 +35,9 @@ final class PeersNearbyManagerImpl: PeersNearbyManager {
             return state.visibilityExpires
         }
         |> deliverOnMainQueue
-        |> distinctUntilChanged).start(next: { [weak self] visibility in
+        |> distinctUntilChanged).startStrict(next: { [weak self] visibility in
             if let strongSelf = self {
                 strongSelf.visibilityUpdated(visible: visibility != nil)
-            }
-        })
-
-        self.accessDisposable = (DeviceAccess.authorizationStatus(applicationInForeground: nil, siriAuthorization: nil, subject: .location(.live))
-        |> deliverOnMainQueue).start(next: { [weak self] status in
-            guard let strongSelf = self else {
-                return
-            }
-            switch status {
-            case .denied:
-                let _ = strongSelf.engine.peersNearby.updatePeersNearbyVisibility(update: .invisible, background: false).start()
-                strongSelf.locationDisposable.set(nil)
-                strongSelf.updateDisposable.set(nil)
-            default:
-                break
             }
         })
     }
@@ -76,7 +60,7 @@ final class PeersNearbyManagerImpl: PeersNearbyManager {
             }
                    
             let signal = (poll |> then(.complete() |> suspendAwareDelay(locationUpdateTimePeriod, queue: Queue.concurrentDefaultQueue()))) |> restart
-            self.locationDisposable.set(signal.start(next: { [weak self] coordinate in
+            self.locationDisposable.set(signal.startStrict(next: { [weak self] coordinate in
                 if let strongSelf = self, let coordinate = coordinate {
                     let location = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
                     var update = true
@@ -97,6 +81,6 @@ final class PeersNearbyManagerImpl: PeersNearbyManager {
     }
     
     private func updateLocation(_ location: CLLocation) {
-        self.updateDisposable.set(self.engine.peersNearby.updatePeersNearbyVisibility(update: .location(latitude: location.coordinate.latitude, longitude: location.coordinate.longitude), background: true).start())
+        self.updateDisposable.set(self.engine.peersNearby.updatePeersNearbyVisibility(update: .location(latitude: location.coordinate.latitude, longitude: location.coordinate.longitude), background: true).startStrict())
     }
 }

@@ -1,11 +1,13 @@
 import Foundation
 import UIKit
+import Display
 import SwiftSignalKit
 import Postbox
 import TelegramCore
 import TelegramUIPreferences
 import AccountContext
 import MusicAlbumArtResources
+import TextFormat
 
 private enum PeerMessagesMediaPlaylistLoadAnchor {
     case messageId(MessageId)
@@ -58,7 +60,7 @@ final class MessageMediaPlaylistItem: SharedMediaPlaylistItem {
         return MessageMediaPlaylistItemStableId(stableId: message.stableId)
     }
     
-    var playbackData: SharedMediaPlaybackData? {
+    lazy var playbackData: SharedMediaPlaybackData? = {
         if let file = extractFileMedia(self.message) {
             let fileReference = FileMediaReference.message(message: MessageReference(self.message), media: file)
             let source = SharedMediaPlaybackDataSource.telegramFile(reference: fileReference, isCopyProtected: self.message.isCopyProtected())
@@ -70,7 +72,7 @@ final class MessageMediaPlaylistItem: SharedMediaPlaylistItem {
                         } else {
                             return SharedMediaPlaybackData(type: .music, source: source)
                         }
-                    case let .Video(_, _, flags):
+                    case let .Video(_, _, flags, _):
                         if flags.contains(.instantRoundVideo) {
                             return SharedMediaPlaybackData(type: .instantVideo, source: source)
                         } else {
@@ -91,46 +93,57 @@ final class MessageMediaPlaylistItem: SharedMediaPlaylistItem {
             }
         }
         return nil
-    }
+    }()
 
-    var displayData: SharedMediaPlaybackDisplayData? {
+    lazy var displayData: SharedMediaPlaybackDisplayData? = {
         if let file = extractFileMedia(self.message) {
+            let text = self.message.text
+            var entities: [MessageTextEntity] = []
+            if let result = addLocallyGeneratedEntities(text, enabledTypes: [.timecode], entities: [], mediaDuration: file.duration.flatMap(Double.init)) {
+                entities = result
+            }
+              
+            let textFont = Font.regular(14.0)
+            let caption = stringWithAppliedEntities(text, entities: entities, baseColor: .white, linkColor: .white, baseFont: textFont, linkFont: textFont, boldFont: textFont, italicFont: textFont, boldItalicFont: textFont, fixedFont: textFont, blockQuoteFont: textFont, underlineLinks: false, message: self.message)
+                        
             for attribute in file.attributes {
                 switch attribute {
-                    case let .Audio(isVoice, duration, title, performer, _):
-                        if isVoice {
-                            return SharedMediaPlaybackDisplayData.voice(author: self.message.effectiveAuthor, peer: self.message.peers[self.message.id.peerId])
-                        } else {
-                            var updatedTitle = title
-                            let updatedPerformer = performer
-                            if (title ?? "").isEmpty && (performer ?? "").isEmpty {
-                                updatedTitle = file.fileName ?? ""
-                            }
-                            
-                            let albumArt: SharedMediaPlaybackAlbumArt?
-                            if file.fileName?.lowercased().hasSuffix(".ogg") == true {
-                                albumArt = nil
-                            } else {
-                                albumArt = SharedMediaPlaybackAlbumArt(thumbnailResource: ExternalMusicAlbumArtResource(file: .message(message: MessageReference(self.message), media: file), title: updatedTitle ?? "", performer: updatedPerformer ?? "", isThumbnail: true), fullSizeResource: ExternalMusicAlbumArtResource(file: .message(message: MessageReference(self.message), media: file), title: updatedTitle ?? "", performer: updatedPerformer ?? "", isThumbnail: false))
-                            }
-                            
-                            return SharedMediaPlaybackDisplayData.music(title: updatedTitle, performer: updatedPerformer, albumArt: albumArt, long: CGFloat(duration) > 10.0 * 60.0)
+                case let .Audio(isVoice, duration, title, performer, _):
+                    let displayData: SharedMediaPlaybackDisplayData
+                    if isVoice {
+                        displayData = SharedMediaPlaybackDisplayData.voice(author: self.message.effectiveAuthor.flatMap(EnginePeer.init), peer: self.message.peers[self.message.id.peerId].flatMap(EnginePeer.init))
+                    } else {
+                        var updatedTitle = title
+                        let updatedPerformer = performer
+                        if (title ?? "").isEmpty && (performer ?? "").isEmpty {
+                            updatedTitle = file.fileName ?? ""
                         }
-                    case let .Video(_, _, flags):
-                        if flags.contains(.instantRoundVideo) {
-                            return SharedMediaPlaybackDisplayData.instantVideo(author: self.message.effectiveAuthor, peer: self.message.peers[self.message.id.peerId], timestamp: self.message.timestamp)
+                        
+                        let albumArt: SharedMediaPlaybackAlbumArt?
+                        if file.fileName?.lowercased().hasSuffix(".ogg") == true {
+                            albumArt = nil
                         } else {
-                            return nil
+                            albumArt = SharedMediaPlaybackAlbumArt(thumbnailResource: ExternalMusicAlbumArtResource(file: .message(message: MessageReference(self.message), media: file), title: updatedTitle ?? "", performer: updatedPerformer ?? "", isThumbnail: true), fullSizeResource: ExternalMusicAlbumArtResource(file: .message(message: MessageReference(self.message), media: file), title: updatedTitle ?? "", performer: updatedPerformer ?? "", isThumbnail: false))
                         }
-                    default:
-                        break
+                        
+                        displayData = SharedMediaPlaybackDisplayData.music(title: updatedTitle, performer: updatedPerformer, albumArt: albumArt, long: CGFloat(duration) > 10.0 * 60.0, caption: caption)
+                    }
+                    return displayData
+                case let .Video(_, _, flags, _):
+                    if flags.contains(.instantRoundVideo) {
+                        return SharedMediaPlaybackDisplayData.instantVideo(author: self.message.effectiveAuthor.flatMap(EnginePeer.init), peer: self.message.peers[self.message.id.peerId].flatMap(EnginePeer.init), timestamp: self.message.timestamp)
+                    } else {
+                        return nil
+                    }
+                default:
+                    break
                 }
             }
             
-            return SharedMediaPlaybackDisplayData.music(title: file.fileName ?? "", performer: self.message.effectiveAuthor?.debugDisplayTitle ?? "", albumArt: nil, long: false)
+            return SharedMediaPlaybackDisplayData.music(title: file.fileName ?? "", performer: self.message.effectiveAuthor?.debugDisplayTitle ?? "", albumArt: nil, long: false, caption: caption)
         }
         return nil
-    }
+    }()
 }
 
 private enum NavigatedMessageFromViewPosition {
@@ -218,23 +231,74 @@ private func navigatedMessageFromMessages(_ messages: [Message], anchorIndex: Me
     }
 }
 
-private func navigatedMessageFromView(_ view: MessageHistoryView, anchorIndex: MessageIndex, position: NavigatedMessageFromViewPosition) -> (message: Message, around: [Message], exact: Bool)? {
+private func navigatedMessageFromView(_ view: MessageHistoryView, anchorIndex: MessageIndex, position: NavigatedMessageFromViewPosition, reversed: Bool) -> (message: Message, around: [Message], exact: Bool)? {
     var index = 0
+    
     for entry in view.entries {
         if entry.index.id == anchorIndex.id {
+            let currentGroupKey = entry.message.groupingKey
+            
             switch position {
                 case .exact:
                     return (entry.message, aroundMessagesFromView(view: view, centralIndex: entry.index), true)
                 case .later:
-                    if index + 1 < view.entries.count {
+                    if !reversed, let currentGroupKey {
+                        if index - 1 > 0, view.entries[index - 1].message.groupingKey == currentGroupKey {
+                            let message = view.entries[index - 1].message
+                            return (message, aroundMessagesFromView(view: view, centralIndex: view.entries[index - 1].index), true)
+                        } else {
+                            for i in index ..< view.entries.count {
+                                if view.entries[i].message.groupingKey != currentGroupKey {
+                                    let message = view.entries[i].message
+                                    return (message, aroundMessagesFromView(view: view, centralIndex: view.entries[i].index), true)
+                                }
+                            }
+                        }
+                    } else if index + 1 < view.entries.count {
                         let message = view.entries[index + 1].message
                         return (message, aroundMessagesFromView(view: view, centralIndex: view.entries[index + 1].index), true)
                     } else {
                         return nil
                     }
                 case .earlier:
-                    if index != 0 {
+                    if !reversed, let currentGroupKey {
+                        if index + 1 < view.entries.count, view.entries[index + 1].message.groupingKey == currentGroupKey {
+                            let message = view.entries[index + 1].message
+                            return (message, aroundMessagesFromView(view: view, centralIndex: view.entries[index + 1].index), true)
+                        } else {
+                            var nextGroupingKey: Int64?
+                            for i in (0 ..< index).reversed() {
+                                if let nextGroupingKey {
+                                    if view.entries[i].message.groupingKey != nextGroupingKey {
+                                        let message = view.entries[i + 1].message
+                                        return (message, aroundMessagesFromView(view: view, centralIndex: view.entries[i + 1].index), true)
+                                    } else if i == 0 {
+                                        let message = view.entries[i].message
+                                        return (message, aroundMessagesFromView(view: view, centralIndex: view.entries[i].index), true)
+                                    }
+                                } else if view.entries[i].message.groupingKey != currentGroupKey {
+                                    if let groupingKey = view.entries[i].message.groupingKey {
+                                        nextGroupingKey = groupingKey
+                                    } else {
+                                        let message = view.entries[i].message
+                                        return (message, aroundMessagesFromView(view: view, centralIndex: view.entries[i].index), true)
+                                    }
+                                }
+                            }
+                        }
+                    } else if index != 0 {
                         let message = view.entries[index - 1].message
+                        if !reversed, let nextGroupingKey = message.groupingKey {
+                            for i in (0 ..< index).reversed() {
+                                if view.entries[i].message.groupingKey != nextGroupingKey {
+                                    let message = view.entries[i + 1].message
+                                    return (message, aroundMessagesFromView(view: view, centralIndex: view.entries[i + 1].index), true)
+                                } else if i == 0 {
+                                    let message = view.entries[i].message
+                                    return (message, aroundMessagesFromView(view: view, centralIndex: view.entries[i].index), true)
+                                }
+                            }
+                        }
                         return (message, aroundMessagesFromView(view: view, centralIndex: view.entries[index - 1].index), true)
                     } else {
                         return nil
@@ -306,7 +370,7 @@ private struct PlaybackStack {
 }
 
 final class PeerMessagesMediaPlaylist: SharedMediaPlaylist {
-    private let context: AccountContext
+    let context: AccountContext
     private let messagesLocation: PeerMessagesPlaylistLocation
     private let chatLocationContextHolder: Atomic<ChatLocationContextHolder?>?
     
@@ -348,7 +412,7 @@ final class PeerMessagesMediaPlaylist: SharedMediaPlaylist {
         
         switch self.messagesLocation {
         case let .messages(_, _, messageId), let .singleMessage(messageId), let .custom(_, messageId, _):
-            self.loadItem(anchor: .messageId(messageId), navigation: .later)
+            self.loadItem(anchor: .messageId(messageId), navigation: .later, reversed: self.order == .reversed)
         case let .recentActions(message):
             self.loadingItem = false
             self.currentItem = (message, [])
@@ -401,7 +465,7 @@ final class PeerMessagesMediaPlaylist: SharedMediaPlaylist {
                             self.currentItem = nil
                             self.updateState()
                         } else {
-                            self.loadItem(anchor: .index(currentItem.current.index), navigation: navigation)
+                            self.loadItem(anchor: .index(currentItem.current.index), navigation: navigation, reversed: self.order == .reversed)
                         }
                     }
                 }
@@ -453,7 +517,7 @@ final class PeerMessagesMediaPlaylist: SharedMediaPlaylist {
                     }
                 }
                 |> take(1)
-                |> deliverOnMainQueue).start(next: { [weak self] _ in
+                |> deliverOnMainQueue).startStrict(next: { [weak self] _ in
                     self?.currentItemDisappeared?()
                 }))
             } else {
@@ -462,7 +526,7 @@ final class PeerMessagesMediaPlaylist: SharedMediaPlaylist {
         }
     }
     
-    private func loadItem(anchor: PeerMessagesMediaPlaylistLoadAnchor, navigation: PeerMessagesMediaPlaylistNavigation) {
+    private func loadItem(anchor: PeerMessagesMediaPlaylistLoadAnchor, navigation: PeerMessagesMediaPlaylistNavigation, reversed: Bool) {
         self.loadingItem = true
         self.updateState()
         
@@ -486,7 +550,7 @@ final class PeerMessagesMediaPlaylist: SharedMediaPlaylist {
                             
                             return self.context.account.postbox.aroundMessageHistoryViewForLocation(self.context.chatLocationInput(for: chatLocation, contextHolder: self.chatLocationContextHolder ?? Atomic<ChatLocationContextHolder?>(value: nil)), anchor: .index(message.index), ignoreMessagesInTimestampRange: nil, count: 10, fixedCombinedReadStates: nil, topTaggedMessageIdNamespaces: [], tagMask: tagMask, appendMessagesFromTheSameGroup: false, namespaces: namespaces, orderStatistics: [])
                             |> mapToSignal { view -> Signal<(Message, [Message])?, NoError> in
-                                if let (message, aroundMessages, _) = navigatedMessageFromView(view.0, anchorIndex: message.index, position: .exact) {
+                                if let (message, aroundMessages, _) = navigatedMessageFromView(view.0, anchorIndex: message.index, position: .exact, reversed: reversed) {
                                     return .single((message, aroundMessages))
                                 } else {
                                     return .single((message, []))
@@ -495,7 +559,7 @@ final class PeerMessagesMediaPlaylist: SharedMediaPlaylist {
                         }
                         |> take(1)
                         |> deliverOnMainQueue
-                        self.navigationDisposable.set(historySignal.start(next: { [weak self] messageAndAroundMessages in
+                        self.navigationDisposable.set(historySignal.startStrict(next: { [weak self] messageAndAroundMessages in
                             if let strongSelf = self {
                                 assert(strongSelf.loadingItem)
                                 
@@ -514,7 +578,7 @@ final class PeerMessagesMediaPlaylist: SharedMediaPlaylist {
                     case let .custom(messages, at, _):
                         self.navigationDisposable.set((messages
                         |> take(1)
-                        |> deliverOnMainQueue).start(next: { [weak self] messages in
+                        |> deliverOnMainQueue).startStrict(next: { [weak self] messages in
                             if let strongSelf = self {
                                 assert(strongSelf.loadingItem)
                                 
@@ -538,7 +602,7 @@ final class PeerMessagesMediaPlaylist: SharedMediaPlaylist {
                     default:
                         self.navigationDisposable.set((self.context.account.postbox.messageAtId(messageId)
                         |> take(1)
-                        |> deliverOnMainQueue).start(next: { [weak self] message in
+                        |> deliverOnMainQueue).startStrict(next: { [weak self] message in
                             if let strongSelf = self {
                                 assert(strongSelf.loadingItem)
                                 
@@ -608,7 +672,7 @@ final class PeerMessagesMediaPlaylist: SharedMediaPlaylist {
                                         position = .exact
                                 }
                                 
-                                if let (message, aroundMessages, exact) = navigatedMessageFromView(view.0, anchorIndex: inputIndex, position: position) {
+                                if let (message, aroundMessages, exact) = navigatedMessageFromView(view.0, anchorIndex: inputIndex, position: position, reversed: reversed) {
                                     switch navigation {
                                         case .random:
                                             return .single((message, []))
@@ -635,7 +699,7 @@ final class PeerMessagesMediaPlaylist: SharedMediaPlaylist {
                                             case .earlier:
                                                 position = .later
                                         }
-                                        if let (message, aroundMessages, _) = navigatedMessageFromView(view.0, anchorIndex: MessageIndex.absoluteLowerBound(), position: position) {
+                                        if let (message, aroundMessages, _) = navigatedMessageFromView(view.0, anchorIndex: MessageIndex.absoluteLowerBound(), position: position, reversed: reversed) {
                                             return .single((message, aroundMessages))
                                         } else {
                                             return .single(nil)
@@ -648,7 +712,7 @@ final class PeerMessagesMediaPlaylist: SharedMediaPlaylist {
                         }
                         |> take(1)
                         |> deliverOnMainQueue
-                        self.navigationDisposable.set(historySignal.start(next: { [weak self] messageAndAroundMessages in
+                        self.navigationDisposable.set(historySignal.startStrict(next: { [weak self] messageAndAroundMessages in
                             if let strongSelf = self {
                                 assert(strongSelf.loadingItem)
                                 
@@ -670,7 +734,7 @@ final class PeerMessagesMediaPlaylist: SharedMediaPlaylist {
                     case .singleMessage:
                         self.navigationDisposable.set((self.context.account.postbox.messageAtId(index.id)
                         |> take(1)
-                        |> deliverOnMainQueue).start(next: { [weak self] message in
+                        |> deliverOnMainQueue).startStrict(next: { [weak self] message in
                             if let strongSelf = self {
                                 assert(strongSelf.loadingItem)
                                 
@@ -752,7 +816,7 @@ final class PeerMessagesMediaPlaylist: SharedMediaPlaylist {
                         }
                         |> take(1)
                         |> deliverOnMainQueue
-                        self.navigationDisposable.set(historySignal.start(next: { [weak self] messageAndAroundMessages, previousMessagesCount, shouldLoadMore in
+                        self.navigationDisposable.set(historySignal.startStrict(next: { [weak self] messageAndAroundMessages, previousMessagesCount, shouldLoadMore in
                             if let strongSelf = self {
                                 assert(strongSelf.loadingItem)
                                 
@@ -764,13 +828,13 @@ final class PeerMessagesMediaPlaylist: SharedMediaPlaylist {
                                     loadMore?()
                                     
                                     strongSelf.loadMoreDisposable.set((messages
-                                    |> deliverOnMainQueue).start(next: { messages, totalCount, hasMore in
+                                    |> deliverOnMainQueue).startStrict(next: { messages, totalCount, hasMore in
                                         guard let strongSelf = self else {
                                             return
                                         }
                                         
                                         if messages.count > previousMessagesCount {
-                                            strongSelf.loadItem(anchor: anchor, navigation: navigation)
+                                            strongSelf.loadItem(anchor: anchor, navigation: navigation, reversed: strongSelf.order == .reversed)
                                             
                                             strongSelf.loadMoreDisposable.set(nil)
                                             strongSelf.loadingMore = false
@@ -805,7 +869,7 @@ final class PeerMessagesMediaPlaylist: SharedMediaPlaylist {
                 default:
                     break
             }
-            let _ = self.context.engine.messages.markMessageContentAsConsumedInteractively(messageId: item.message.id).start()
+            let _ = self.context.engine.messages.markMessageContentAsConsumedInteractively(messageId: item.message.id).startStandalone()
         }
     }
 }

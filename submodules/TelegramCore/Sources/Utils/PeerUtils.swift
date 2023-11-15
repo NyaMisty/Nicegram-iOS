@@ -15,6 +15,17 @@ public extension Peer {
         }
     }
     
+    // MARK: Nicegram
+    func restrictionReason(contentSettings: ContentSettings) -> String? {
+        restrictionText(platform: "ios", contentSettings: contentSettings, extractReason: true)
+    }
+    
+    func hasPornRestriction(contentSettings: ContentSettings) -> Bool {
+        let reason = restrictionReason(contentSettings: contentSettings)
+        return reason?.contains("porn") ?? false
+    }
+    //
+    
     // MARK: Nicegram (extractReason)
     func restrictionText(platform: String, contentSettings: ContentSettings, extractReason: Bool = false) -> String? {
         var restrictionInfo: PeerAccessRestrictionInfo?
@@ -147,7 +158,7 @@ public extension Peer {
     var isDeleted: Bool {
         switch self {
         case let user as TelegramUser:
-            return user.firstName == nil && user.lastName == nil && user.phone == nil
+            return user.firstName == nil && user.lastName == nil
         default:
             return false
         }
@@ -195,12 +206,16 @@ public extension Peer {
         }
     }
     
-    var isCopyProtectionEnabled: Bool {
-        //  MARK: - Nicegram (allow saving+forwarding content when copy protected)
-        if canCopyProtectedContent() {
+    var isCloseFriend: Bool {
+        switch self {
+        case let user as TelegramUser:
+            return user.flags.contains(.isCloseFriend)
+        default:
             return false
         }
-        
+    }
+    
+    var isCopyProtectionEnabled: Bool {
         switch self {
         case let group as TelegramGroup:
             return group.flags.contains(.copyProtectionEnabled)
@@ -216,6 +231,44 @@ public extension Peer {
             return channel.flags.contains(.isForum)
         } else {
             return false
+        }
+    }
+    
+    var nameColor: PeerNameColor? {
+        switch self {
+        case let user as TelegramUser:
+            if let nameColor = user.nameColor {
+                return nameColor
+            } else {
+                return PeerNameColor(rawValue: Int32(self.id.id._internalGetInt64Value() % 7))
+            }
+        case let channel as TelegramChannel:
+            if let nameColor = channel.nameColor {
+                return nameColor
+            } else {
+                return PeerNameColor(rawValue: Int32(self.id.id._internalGetInt64Value() % 7))
+            }
+        default:
+            return nil
+        }
+    }
+    
+    var hasCustomNameColor: Bool {
+        let defaultNameColor = PeerNameColor(rawValue: Int32(self.id.id._internalGetInt64Value() % 7))
+        if self.nameColor != defaultNameColor {
+            return true
+        }
+        return false
+    }
+    
+    var backgroundEmojiId: Int64? {
+        switch self {
+        case let user as TelegramUser:
+            return user.backgroundEmojiId
+        case let channel as TelegramChannel:
+            return channel.backgroundEmojiId
+        default:
+            return nil
         }
     }
 }

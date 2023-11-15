@@ -1,0 +1,799 @@
+{
+  "direct_dep_identities": [
+    "nicegram-assistant-ios"
+  ],
+  "modules": [
+    {
+      "name": "Factory",
+      "c99name": "Factory",
+      "src_type": "swift",
+      "label": "@swiftpkg_factory//:Sources_Factory",
+      "package_identity": "factory",
+      "product_memberships": [
+        "Factory"
+      ]
+    },
+    {
+      "name": "FloatingPanel",
+      "c99name": "FloatingPanel",
+      "src_type": "swift",
+      "label": "@swiftpkg_floatingpanel//:Sources_FloatingPanel",
+      "modulemap_label": "@swiftpkg_floatingpanel//:Sources_FloatingPanel_modulemap",
+      "package_identity": "floatingpanel",
+      "product_memberships": [
+        "FloatingPanel"
+      ]
+    },
+    {
+      "name": "GRDB",
+      "c99name": "GRDB",
+      "src_type": "swift",
+      "label": "@swiftpkg_grdb.swift//:GRDB_GRDB",
+      "modulemap_label": "@swiftpkg_grdb.swift//:GRDB_GRDB_modulemap",
+      "package_identity": "grdb.swift",
+      "product_memberships": [
+        "GRDB",
+        "GRDB-dynamic"
+      ]
+    },
+    {
+      "name": "LNExtensionExecutor",
+      "c99name": "LNExtensionExecutor",
+      "src_type": "objc",
+      "label": "@swiftpkg_lnextensionexecutor//:Sources_LNExtensionExecutor",
+      "package_identity": "lnextensionexecutor",
+      "product_memberships": [
+        "LNExtensionExecutor",
+        "LNExtensionExecutor-Static"
+      ]
+    },
+    {
+      "name": "CoreSwiftUI",
+      "c99name": "CoreSwiftUI",
+      "src_type": "swift",
+      "label": "@swiftpkg_nicegram_assistant_ios//:Sources_CoreSwiftUI",
+      "package_identity": "nicegram-assistant-ios",
+      "product_memberships": [
+        "nicegram-assistant"
+      ]
+    },
+    {
+      "name": "FeatImagesHub",
+      "c99name": "FeatImagesHub",
+      "src_type": "swift",
+      "label": "@swiftpkg_nicegram_assistant_ios//:Sources_FeatImagesHub",
+      "package_identity": "nicegram-assistant-ios",
+      "product_memberships": [
+        "nicegram-assistant"
+      ]
+    },
+    {
+      "name": "FeatImagesHubUI",
+      "c99name": "FeatImagesHubUI",
+      "src_type": "swift",
+      "label": "@swiftpkg_nicegram_assistant_ios//:Sources_FeatImagesHubUI",
+      "package_identity": "nicegram-assistant-ios",
+      "product_memberships": [
+        "nicegram-assistant"
+      ]
+    },
+    {
+      "name": "FeatPartners",
+      "c99name": "FeatPartners",
+      "src_type": "swift",
+      "label": "@swiftpkg_nicegram_assistant_ios//:Sources_FeatPartners",
+      "package_identity": "nicegram-assistant-ios",
+      "product_memberships": [
+        "nicegram-assistant"
+      ]
+    },
+    {
+      "name": "FeatPinnedChats",
+      "c99name": "FeatPinnedChats",
+      "src_type": "swift",
+      "label": "@swiftpkg_nicegram_assistant_ios//:Sources_FeatPinnedChats",
+      "package_identity": "nicegram-assistant-ios",
+      "product_memberships": [
+        "nicegram-assistant"
+      ]
+    },
+    {
+      "name": "NGAiChat",
+      "c99name": "NGAiChat",
+      "src_type": "swift",
+      "label": "@swiftpkg_nicegram_assistant_ios//:Sources_NGAiChat",
+      "package_identity": "nicegram-assistant-ios",
+      "product_memberships": [
+        "nicegram-assistant"
+      ]
+    },
+    {
+      "name": "NGAiChatUI",
+      "c99name": "NGAiChatUI",
+      "src_type": "swift",
+      "label": "@swiftpkg_nicegram_assistant_ios//:Sources_NGAiChatUI",
+      "package_identity": "nicegram-assistant-ios",
+      "product_memberships": [
+        "nicegram-assistant"
+      ]
+    },
+    {
+      "name": "NGAnalytics",
+      "c99name": "NGAnalytics",
+      "src_type": "swift",
+      "label": "@swiftpkg_nicegram_assistant_ios//:Sources_NGAnalytics",
+      "package_identity": "nicegram-assistant-ios",
+      "product_memberships": [
+        "nicegram-assistant"
+      ]
+    },
+    {
+      "name": "NGApi",
+      "c99name": "NGApi",
+      "src_type": "swift",
+      "label": "@swiftpkg_nicegram_assistant_ios//:Sources_NGApi",
+      "package_identity": "nicegram-assistant-ios",
+      "product_memberships": [
+        "nicegram-assistant"
+      ]
+    },
+    {
+      "name": "NGAssistant",
+      "c99name": "NGAssistant",
+      "src_type": "swift",
+      "label": "@swiftpkg_nicegram_assistant_ios//:Sources_NGAssistant",
+      "package_identity": "nicegram-assistant-ios",
+      "product_memberships": [
+        "nicegram-assistant"
+      ]
+    },
+    {
+      "name": "NGAssistantUI",
+      "c99name": "NGAssistantUI",
+      "src_type": "swift",
+      "label": "@swiftpkg_nicegram_assistant_ios//:Sources_NGAssistantUI",
+      "package_identity": "nicegram-assistant-ios",
+      "product_memberships": [
+        "nicegram-assistant"
+      ]
+    },
+    {
+      "name": "NGAuth",
+      "c99name": "NGAuth",
+      "src_type": "swift",
+      "label": "@swiftpkg_nicegram_assistant_ios//:Sources_NGAuth",
+      "package_identity": "nicegram-assistant-ios",
+      "product_memberships": [
+        "nicegram-assistant"
+      ]
+    },
+    {
+      "name": "NGCard",
+      "c99name": "NGCard",
+      "src_type": "swift",
+      "label": "@swiftpkg_nicegram_assistant_ios//:Sources_NGCard",
+      "package_identity": "nicegram-assistant-ios",
+      "product_memberships": [
+        "nicegram-assistant"
+      ]
+    },
+    {
+      "name": "NGCardUI",
+      "c99name": "NGCardUI",
+      "src_type": "swift",
+      "label": "@swiftpkg_nicegram_assistant_ios//:Sources_NGCardUI",
+      "package_identity": "nicegram-assistant-ios",
+      "product_memberships": [
+        "nicegram-assistant"
+      ]
+    },
+    {
+      "name": "NGCore",
+      "c99name": "NGCore",
+      "src_type": "swift",
+      "label": "@swiftpkg_nicegram_assistant_ios//:Sources_NGCore",
+      "package_identity": "nicegram-assistant-ios",
+      "product_memberships": [
+        "nicegram-assistant"
+      ]
+    },
+    {
+      "name": "NGCoreUI",
+      "c99name": "NGCoreUI",
+      "src_type": "swift",
+      "label": "@swiftpkg_nicegram_assistant_ios//:Sources_NGCoreUI",
+      "modulemap_label": "@swiftpkg_nicegram_assistant_ios//:Sources_NGCoreUI_modulemap",
+      "package_identity": "nicegram-assistant-ios",
+      "product_memberships": [
+        "nicegram-assistant"
+      ]
+    },
+    {
+      "name": "NGEntryPoint",
+      "c99name": "NGEntryPoint",
+      "src_type": "swift",
+      "label": "@swiftpkg_nicegram_assistant_ios//:Sources_NGEntryPoint",
+      "package_identity": "nicegram-assistant-ios",
+      "product_memberships": [
+        "nicegram-assistant"
+      ]
+    },
+    {
+      "name": "NGGrum",
+      "c99name": "NGGrum",
+      "src_type": "swift",
+      "label": "@swiftpkg_nicegram_assistant_ios//:Sources_NGGrum",
+      "package_identity": "nicegram-assistant-ios",
+      "product_memberships": [
+        "nicegram-assistant"
+      ]
+    },
+    {
+      "name": "NGGrumUI",
+      "c99name": "NGGrumUI",
+      "src_type": "swift",
+      "label": "@swiftpkg_nicegram_assistant_ios//:Sources_NGGrumUI",
+      "package_identity": "nicegram-assistant-ios",
+      "product_memberships": [
+        "nicegram-assistant"
+      ]
+    },
+    {
+      "name": "NGPremium",
+      "c99name": "NGPremium",
+      "src_type": "swift",
+      "label": "@swiftpkg_nicegram_assistant_ios//:Sources_NGPremium",
+      "package_identity": "nicegram-assistant-ios",
+      "product_memberships": [
+        "nicegram-assistant"
+      ]
+    },
+    {
+      "name": "NGPremiumUI",
+      "c99name": "NGPremiumUI",
+      "src_type": "swift",
+      "label": "@swiftpkg_nicegram_assistant_ios//:Sources_NGPremiumUI",
+      "package_identity": "nicegram-assistant-ios",
+      "product_memberships": [
+        "nicegram-assistant"
+      ]
+    },
+    {
+      "name": "NGRepoTg",
+      "c99name": "NGRepoTg",
+      "src_type": "swift",
+      "label": "@swiftpkg_nicegram_assistant_ios//:Sources_NGRepoTg",
+      "package_identity": "nicegram-assistant-ios",
+      "product_memberships": [
+        "nicegram-assistant"
+      ]
+    },
+    {
+      "name": "NGRepoUser",
+      "c99name": "NGRepoUser",
+      "src_type": "swift",
+      "label": "@swiftpkg_nicegram_assistant_ios//:Sources_NGRepoUser",
+      "package_identity": "nicegram-assistant-ios",
+      "product_memberships": [
+        "nicegram-assistant"
+      ]
+    },
+    {
+      "name": "NGSpecialOffer",
+      "c99name": "NGSpecialOffer",
+      "src_type": "swift",
+      "label": "@swiftpkg_nicegram_assistant_ios//:Sources_NGSpecialOffer",
+      "package_identity": "nicegram-assistant-ios",
+      "product_memberships": [
+        "nicegram-assistant"
+      ]
+    },
+    {
+      "name": "_NGRemoteConfig",
+      "c99name": "_NGRemoteConfig",
+      "src_type": "swift",
+      "label": "@swiftpkg_nicegram_assistant_ios//:Sources__NGRemoteConfig",
+      "package_identity": "nicegram-assistant-ios",
+      "product_memberships": [
+        "nicegram-assistant"
+      ]
+    },
+    {
+      "name": "RswiftGenerateInternalResources",
+      "c99name": "RswiftGenerateInternalResources",
+      "src_type": "unknown",
+      "label": "@swiftpkg_r.swift//:Plugins_RswiftGenerateInternalResources",
+      "package_identity": "r.swift",
+      "product_memberships": [
+        "RswiftGenerateInternalResources"
+      ]
+    },
+    {
+      "name": "RswiftGeneratePublicResources",
+      "c99name": "RswiftGeneratePublicResources",
+      "src_type": "unknown",
+      "label": "@swiftpkg_r.swift//:Plugins_RswiftGeneratePublicResources",
+      "package_identity": "r.swift",
+      "product_memberships": [
+        "RswiftGeneratePublicResources"
+      ]
+    },
+    {
+      "name": "RswiftGenerateResourcesCommand",
+      "c99name": "RswiftGenerateResourcesCommand",
+      "src_type": "unknown",
+      "label": "@swiftpkg_r.swift//:Plugins_RswiftGenerateResourcesCommand",
+      "package_identity": "r.swift",
+      "product_memberships": [
+        "RswiftGenerateResourcesCommand"
+      ]
+    },
+    {
+      "name": "RswiftModifyXcodePackages",
+      "c99name": "RswiftModifyXcodePackages",
+      "src_type": "unknown",
+      "label": "@swiftpkg_r.swift//:Plugins_RswiftModifyXcodePackages",
+      "package_identity": "r.swift",
+      "product_memberships": [
+        "RswiftModifyXcodePackages"
+      ]
+    },
+    {
+      "name": "RswiftGenerators",
+      "c99name": "RswiftGenerators",
+      "src_type": "swift",
+      "label": "@swiftpkg_r.swift//:Sources_RswiftGenerators",
+      "package_identity": "r.swift",
+      "product_memberships": [
+        "rswift",
+        "RswiftGenerateInternalResources",
+        "RswiftGeneratePublicResources",
+        "RswiftGenerateResourcesCommand",
+        "RswiftModifyXcodePackages"
+      ]
+    },
+    {
+      "name": "RswiftParsers",
+      "c99name": "RswiftParsers",
+      "src_type": "swift",
+      "label": "@swiftpkg_r.swift//:Sources_RswiftParsers",
+      "modulemap_label": "@swiftpkg_r.swift//:Sources_RswiftParsers_modulemap",
+      "package_identity": "r.swift",
+      "product_memberships": [
+        "rswift",
+        "RswiftGenerateInternalResources",
+        "RswiftGeneratePublicResources",
+        "RswiftGenerateResourcesCommand",
+        "RswiftModifyXcodePackages"
+      ]
+    },
+    {
+      "name": "RswiftResources",
+      "c99name": "RswiftResources",
+      "src_type": "swift",
+      "label": "@swiftpkg_r.swift//:Sources_RswiftResources",
+      "package_identity": "r.swift",
+      "product_memberships": [
+        "rswift",
+        "RswiftLibrary",
+        "RswiftGenerateInternalResources",
+        "RswiftGeneratePublicResources",
+        "RswiftGenerateResourcesCommand",
+        "RswiftModifyXcodePackages"
+      ]
+    },
+    {
+      "name": "rswift",
+      "c99name": "rswift",
+      "src_type": "swift",
+      "label": "@swiftpkg_r.swift//:Sources_rswift",
+      "package_identity": "r.swift",
+      "product_memberships": [
+        "rswift",
+        "RswiftGenerateInternalResources",
+        "RswiftGeneratePublicResources",
+        "RswiftGenerateResourcesCommand",
+        "RswiftModifyXcodePackages"
+      ]
+    },
+    {
+      "name": "SDWebImageMapKit",
+      "c99name": "SDWebImageMapKit",
+      "src_type": "objc",
+      "label": "@swiftpkg_sdwebimage//:SDWebImageMapKit_SDWebImageMapKit",
+      "package_identity": "sdwebimage",
+      "product_memberships": [
+        "SDWebImageMapKit"
+      ]
+    },
+    {
+      "name": "SDWebImage",
+      "c99name": "SDWebImage",
+      "src_type": "objc",
+      "label": "@swiftpkg_sdwebimage//:SDWebImage_SDWebImage",
+      "package_identity": "sdwebimage",
+      "product_memberships": [
+        "SDWebImage",
+        "SDWebImageMapKit"
+      ]
+    },
+    {
+      "name": "SnapKit",
+      "c99name": "SnapKit",
+      "src_type": "swift",
+      "label": "@swiftpkg_snapkit//:Sources_SnapKit",
+      "package_identity": "snapkit",
+      "product_memberships": [
+        "SnapKit",
+        "SnapKit-Dynamic"
+      ]
+    },
+    {
+      "name": "SubscriptionAnalytics",
+      "c99name": "SubscriptionAnalytics",
+      "src_type": "swift",
+      "label": "@swiftpkg_subscriptionanalytics_ios//:SubscriptionAnalytics_Classes_SubscriptionAnalytics",
+      "package_identity": "subscriptionanalytics-ios",
+      "product_memberships": [
+        "SubscriptionAnalytics"
+      ]
+    },
+    {
+      "name": "GenerateManual",
+      "c99name": "GenerateManual",
+      "src_type": "unknown",
+      "label": "@swiftpkg_swift_argument_parser//:Plugins_GenerateManual",
+      "package_identity": "swift-argument-parser",
+      "product_memberships": [
+        "GenerateManual"
+      ]
+    },
+    {
+      "name": "ArgumentParser",
+      "c99name": "ArgumentParser",
+      "src_type": "swift",
+      "label": "@swiftpkg_swift_argument_parser//:Sources_ArgumentParser",
+      "package_identity": "swift-argument-parser",
+      "product_memberships": [
+        "ArgumentParser",
+        "GenerateManual"
+      ]
+    },
+    {
+      "name": "ArgumentParserToolInfo",
+      "c99name": "ArgumentParserToolInfo",
+      "src_type": "swift",
+      "label": "@swiftpkg_swift_argument_parser//:Sources_ArgumentParserToolInfo",
+      "package_identity": "swift-argument-parser",
+      "product_memberships": [
+        "ArgumentParser",
+        "GenerateManual"
+      ]
+    },
+    {
+      "name": "generate-manual",
+      "c99name": "generate_manual",
+      "src_type": "swift",
+      "label": "@swiftpkg_swift_argument_parser//:Tools_generate-manual",
+      "package_identity": "swift-argument-parser",
+      "product_memberships": [
+        "GenerateManual"
+      ]
+    },
+    {
+      "name": "SwiftyStoreKit",
+      "c99name": "SwiftyStoreKit",
+      "src_type": "swift",
+      "label": "@swiftpkg_swiftystorekit//:Sources_SwiftyStoreKit",
+      "package_identity": "swiftystorekit",
+      "product_memberships": [
+        "SwiftyStoreKit"
+      ]
+    },
+    {
+      "name": "XcodeEdit",
+      "c99name": "XcodeEdit",
+      "src_type": "swift",
+      "label": "@swiftpkg_xcodeedit//:Sources_XcodeEdit",
+      "package_identity": "xcodeedit",
+      "product_memberships": [
+        "XcodeEdit"
+      ]
+    }
+  ],
+  "products": [
+    {
+      "identity": "factory",
+      "name": "Factory",
+      "type": "library",
+      "target_labels": [
+        "@swiftpkg_factory//:Sources_Factory"
+      ]
+    },
+    {
+      "identity": "floatingpanel",
+      "name": "FloatingPanel",
+      "type": "library",
+      "target_labels": [
+        "@swiftpkg_floatingpanel//:Sources_FloatingPanel"
+      ]
+    },
+    {
+      "identity": "grdb.swift",
+      "name": "GRDB",
+      "type": "library",
+      "target_labels": [
+        "@swiftpkg_grdb.swift//:GRDB_GRDB"
+      ]
+    },
+    {
+      "identity": "grdb.swift",
+      "name": "GRDB-dynamic",
+      "type": "library",
+      "target_labels": [
+        "@swiftpkg_grdb.swift//:GRDB_GRDB"
+      ]
+    },
+    {
+      "identity": "lnextensionexecutor",
+      "name": "LNExtensionExecutor",
+      "type": "library",
+      "target_labels": [
+        "@swiftpkg_lnextensionexecutor//:Sources_LNExtensionExecutor"
+      ]
+    },
+    {
+      "identity": "lnextensionexecutor",
+      "name": "LNExtensionExecutor-Static",
+      "type": "library",
+      "target_labels": [
+        "@swiftpkg_lnextensionexecutor//:Sources_LNExtensionExecutor"
+      ]
+    },
+    {
+      "identity": "nicegram-assistant-ios",
+      "name": "nicegram-assistant",
+      "type": "library",
+      "target_labels": [
+        "@swiftpkg_nicegram_assistant_ios//:Sources_FeatImagesHubUI",
+        "@swiftpkg_nicegram_assistant_ios//:Sources_FeatPartners",
+        "@swiftpkg_nicegram_assistant_ios//:Sources_FeatPinnedChats",
+        "@swiftpkg_nicegram_assistant_ios//:Sources_NGAiChatUI",
+        "@swiftpkg_nicegram_assistant_ios//:Sources_NGAssistantUI",
+        "@swiftpkg_nicegram_assistant_ios//:Sources_NGCardUI",
+        "@swiftpkg_nicegram_assistant_ios//:Sources_NGEntryPoint",
+        "@swiftpkg_nicegram_assistant_ios//:Sources_NGPremiumUI"
+      ]
+    },
+    {
+      "identity": "r.swift",
+      "name": "RswiftGenerateInternalResources",
+      "type": "plugin",
+      "target_labels": [
+        "@swiftpkg_r.swift//:Plugins_RswiftGenerateInternalResources"
+      ]
+    },
+    {
+      "identity": "r.swift",
+      "name": "RswiftGeneratePublicResources",
+      "type": "plugin",
+      "target_labels": [
+        "@swiftpkg_r.swift//:Plugins_RswiftGeneratePublicResources"
+      ]
+    },
+    {
+      "identity": "r.swift",
+      "name": "RswiftGenerateResourcesCommand",
+      "type": "plugin",
+      "target_labels": [
+        "@swiftpkg_r.swift//:Plugins_RswiftGenerateResourcesCommand"
+      ]
+    },
+    {
+      "identity": "r.swift",
+      "name": "RswiftLibrary",
+      "type": "library",
+      "target_labels": [
+        "@swiftpkg_r.swift//:Sources_RswiftResources"
+      ]
+    },
+    {
+      "identity": "r.swift",
+      "name": "RswiftModifyXcodePackages",
+      "type": "plugin",
+      "target_labels": [
+        "@swiftpkg_r.swift//:Plugins_RswiftModifyXcodePackages"
+      ]
+    },
+    {
+      "identity": "r.swift",
+      "name": "rswift",
+      "type": "executable",
+      "target_labels": [
+        "@swiftpkg_r.swift//:Sources_rswift"
+      ]
+    },
+    {
+      "identity": "sdwebimage",
+      "name": "SDWebImage",
+      "type": "library",
+      "target_labels": [
+        "@swiftpkg_sdwebimage//:SDWebImage_SDWebImage"
+      ]
+    },
+    {
+      "identity": "sdwebimage",
+      "name": "SDWebImageMapKit",
+      "type": "library",
+      "target_labels": [
+        "@swiftpkg_sdwebimage//:SDWebImageMapKit_SDWebImageMapKit"
+      ]
+    },
+    {
+      "identity": "snapkit",
+      "name": "SnapKit",
+      "type": "library",
+      "target_labels": [
+        "@swiftpkg_snapkit//:Sources_SnapKit"
+      ]
+    },
+    {
+      "identity": "snapkit",
+      "name": "SnapKit-Dynamic",
+      "type": "library",
+      "target_labels": [
+        "@swiftpkg_snapkit//:Sources_SnapKit"
+      ]
+    },
+    {
+      "identity": "subscriptionanalytics-ios",
+      "name": "SubscriptionAnalytics",
+      "type": "library",
+      "target_labels": [
+        "@swiftpkg_subscriptionanalytics_ios//:SubscriptionAnalytics_Classes_SubscriptionAnalytics"
+      ]
+    },
+    {
+      "identity": "swift-argument-parser",
+      "name": "ArgumentParser",
+      "type": "library",
+      "target_labels": [
+        "@swiftpkg_swift_argument_parser//:Sources_ArgumentParser"
+      ]
+    },
+    {
+      "identity": "swift-argument-parser",
+      "name": "GenerateManual",
+      "type": "plugin",
+      "target_labels": [
+        "@swiftpkg_swift_argument_parser//:Plugins_GenerateManual"
+      ]
+    },
+    {
+      "identity": "swiftystorekit",
+      "name": "SwiftyStoreKit",
+      "type": "library",
+      "target_labels": [
+        "@swiftpkg_swiftystorekit//:Sources_SwiftyStoreKit"
+      ]
+    },
+    {
+      "identity": "xcodeedit",
+      "name": "XcodeEdit",
+      "type": "library",
+      "target_labels": [
+        "@swiftpkg_xcodeedit//:Sources_XcodeEdit"
+      ]
+    }
+  ],
+  "packages": [
+    {
+      "name": "swiftpkg_factory",
+      "identity": "factory",
+      "remote": {
+        "commit": "8ca11a7bd1ede031e8e6d7a912bb116e2e43961b",
+        "remote": "https://github.com/hmlongco/Factory",
+        "version": "2.3.1"
+      }
+    },
+    {
+      "name": "swiftpkg_floatingpanel",
+      "identity": "floatingpanel",
+      "remote": {
+        "commit": "dd238884bf85e96a4c6c2703fc2fc1ff0f5c7494",
+        "remote": "https://github.com/scenee/FloatingPanel",
+        "version": "2.8.0"
+      }
+    },
+    {
+      "name": "swiftpkg_grdb.swift",
+      "identity": "grdb.swift",
+      "remote": {
+        "commit": "58d3673030f8a640d7278f45bf2dc21b078ecae8",
+        "remote": "https://github.com/denis15yo/GRDB.swift.git",
+        "branch": "master"
+      }
+    },
+    {
+      "name": "swiftpkg_lnextensionexecutor",
+      "identity": "lnextensionexecutor",
+      "remote": {
+        "commit": "16b741f659e344f4569c9f9d32ef2298ef0233ff",
+        "remote": "https://github.com/LeoNatan/LNExtensionExecutor",
+        "version": "1.2.0"
+      }
+    },
+    {
+      "name": "swiftpkg_nicegram_assistant_ios",
+      "identity": "nicegram-assistant-ios",
+      "remote": {
+        "commit": "74a903bbc75af22ef19aa77ab20ba8df1ae0de27",
+        "remote": "git@bitbucket.org:mobyrix/nicegram-assistant-ios.git",
+        "branch": "develop"
+      }
+    },
+    {
+      "name": "swiftpkg_r.swift",
+      "identity": "r.swift",
+      "remote": {
+        "commit": "4a0f8c97f1baa27d165dc801982c55bbf51126e5",
+        "remote": "https://github.com/denis15yo/R.swift.git",
+        "branch": "main"
+      }
+    },
+    {
+      "name": "swiftpkg_sdwebimage",
+      "identity": "sdwebimage",
+      "remote": {
+        "commit": "fd1950de05a5ad77cb252fd88576c1e1809ee50d",
+        "remote": "https://github.com/SDWebImage/SDWebImage.git",
+        "version": "5.18.4"
+      }
+    },
+    {
+      "name": "swiftpkg_snapkit",
+      "identity": "snapkit",
+      "remote": {
+        "commit": "f222cbdf325885926566172f6f5f06af95473158",
+        "remote": "https://github.com/SnapKit/SnapKit.git",
+        "version": "5.6.0"
+      }
+    },
+    {
+      "name": "swiftpkg_subscriptionanalytics_ios",
+      "identity": "subscriptionanalytics-ios",
+      "remote": {
+        "commit": "53bfc6c6f26322ec647b87c338a071714ac69420",
+        "remote": "git@bitbucket.org:mobyrix/subscriptionanalytics-ios.git",
+        "version": "0.4.3"
+      }
+    },
+    {
+      "name": "swiftpkg_swift_argument_parser",
+      "identity": "swift-argument-parser",
+      "remote": {
+        "commit": "8f4d2753f0e4778c76d5f05ad16c74f707390531",
+        "remote": "https://github.com/apple/swift-argument-parser",
+        "version": "1.2.3"
+      }
+    },
+    {
+      "name": "swiftpkg_swiftystorekit",
+      "identity": "swiftystorekit",
+      "remote": {
+        "commit": "9ce911639680113dac9b554d6243e406a9758ebe",
+        "remote": "https://github.com/bizz84/SwiftyStoreKit.git",
+        "version": "0.16.4"
+      }
+    },
+    {
+      "name": "swiftpkg_xcodeedit",
+      "identity": "xcodeedit",
+      "remote": {
+        "commit": "b6b67389a0f1a6fdd9c6457a8ab5b02eaab13c5c",
+        "remote": "https://github.com/tomlokhorst/XcodeEdit",
+        "version": "2.9.2"
+      }
+    }
+  ]
+}

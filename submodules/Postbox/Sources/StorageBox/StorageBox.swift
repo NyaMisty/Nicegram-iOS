@@ -158,20 +158,42 @@ public final class StorageBox {
         let contentTypeStatsTable: ValueBoxTable
         let metadataTable: ValueBoxTable
         
-        init(queue: Queue, logger: StorageBox.Logger, basePath: String) {
+        let totalSizeSubscribers = Bag<(Int64) -> Void>()
+        private var totalSize: Int64 = 0
+        
+        private var queuedInternalTransactions = Atomic<[() -> Void]>(value: [])
+        
+        init(queue: Queue, logger: StorageBox.Logger, basePath: String, isMainProcess: Bool) {
             self.queue = queue
             self.logger = logger
             self.basePath = basePath
             
             let databasePath = self.basePath + "/db"
             let _ = try? FileManager.default.createDirectory(atPath: databasePath, withIntermediateDirectories: true)
-            var valueBox = SqliteValueBox(basePath: databasePath, queue: queue, isTemporary: false, isReadOnly: false, useCaches: true, removeDatabaseOnError: true, encryptionParameters: nil, upgradeProgress: { _ in })
-            if valueBox == nil {
-                let _ = try? FileManager.default.removeItem(atPath: databasePath)
-                valueBox = SqliteValueBox(basePath: databasePath, queue: queue, isTemporary: false, isReadOnly: false, useCaches: true, removeDatabaseOnError: true, encryptionParameters: nil, upgradeProgress: { _ in })
+            
+            var valueBox: SqliteValueBox?
+            for i in 0 ..< 3 {
+                if let valueBoxValue = SqliteValueBox(basePath: basePath + "/db", queue: queue, isTemporary: false, isReadOnly: false, useCaches: isMainProcess, removeDatabaseOnError: isMainProcess, encryptionParameters: nil, upgradeProgress: { _ in }) {
+                    valueBox = valueBoxValue
+                    break
+                } else {
+                    postboxLog("Could not open value box at \(basePath + "/db") (try \(i))")
+                    postboxLogSync()
+                    
+                    Thread.sleep(forTimeInterval: 0.1 + 0.5 * Double(i))
+                }
             }
+            
+            if valueBox == nil, isMainProcess {
+                postboxLog("Removing value box at \(basePath + "/db")")
+                let _ = try? FileManager.default.removeItem(atPath: databasePath)
+                valueBox = SqliteValueBox(basePath: databasePath, queue: queue, isTemporary: false, isReadOnly: false, useCaches: isMainProcess, removeDatabaseOnError: isMainProcess, encryptionParameters: nil, upgradeProgress: { _ in })
+            }
+            
             guard let valueBox = valueBox else {
-                preconditionFailure("Could not open database")
+                postboxLog("Giving up on opening value box at \(basePath + "/db")")
+                postboxLogSync()
+                preconditionFailure()
             }
             self.valueBox = valueBox
             
@@ -183,32 +205,36 @@ public final class StorageBox {
             self.metadataTable = ValueBoxTable(id: 21, keyType: .binary, compactValuesOnCreation: true)
             
             self.performUpdatesIfNeeded()
+            
+            self.updateTotalSize()
         }
         
         private func performUpdatesIfNeeded() {
-            self.valueBox.begin()
-            
-            let mainMetadataKey = ValueBoxKey(length: 2)
-            mainMetadataKey.setUInt8(0, value: 0)
-            mainMetadataKey.setUInt8(1, value: 0)
-            
-            var metadata: Metadata
-            if let value = self.valueBox.get(self.metadataTable, key: mainMetadataKey), let parsedValue = try? JSONDecoder().decode(Metadata.self, from: value.makeData()) {
-                metadata = parsedValue
-            } else {
-                metadata = Metadata(version: 0)
-            }
-            
-            if metadata.version != 2 {
-                self.reindexPeerStats()
+            self.beginInternalTransaction {
+                self.valueBox.begin()
                 
-                metadata.version = 2
-                if let data = try? JSONEncoder().encode(metadata) {
-                    self.valueBox.set(self.metadataTable, key: mainMetadataKey, value: MemoryBuffer(data: data))
+                let mainMetadataKey = ValueBoxKey(length: 2)
+                mainMetadataKey.setUInt8(0, value: 0)
+                mainMetadataKey.setUInt8(1, value: 0)
+                
+                var metadata: Metadata
+                if let value = self.valueBox.get(self.metadataTable, key: mainMetadataKey), let parsedValue = try? JSONDecoder().decode(Metadata.self, from: value.makeData()) {
+                    metadata = parsedValue
+                } else {
+                    metadata = Metadata(version: 0)
                 }
+                
+                if metadata.version != 2 {
+                    self.reindexPeerStats()
+                    
+                    metadata.version = 2
+                    if let data = try? JSONEncoder().encode(metadata) {
+                        self.valueBox.set(self.metadataTable, key: mainMetadataKey, value: MemoryBuffer(data: data))
+                    }
+                }
+                
+                self.valueBox.commit()
             }
-            
-            self.valueBox.commit()
         }
         
         private func reindexPeerStats() {
@@ -230,17 +256,52 @@ public final class StorageBox {
             })
         }
         
+        func updateTotalSize() {
+            self.beginInternalTransaction {
+                self.valueBox.begin()
+                
+                var totalSize: Int64 = 0
+                self.valueBox.scan(self.contentTypeStatsTable, values: { key, value in
+                    var size: Int64 = 0
+                    value.read(&size, offset: 0, length: 8)
+                    totalSize += size
+                    
+                    return true
+                })
+                
+                self.valueBox.commit()
+                
+                if self.totalSize != totalSize {
+                    self.totalSize = totalSize
+                    
+                    for f in self.totalSizeSubscribers.copyItems() {
+                        f(totalSize)
+                    }
+                }
+            }
+        }
+        
+        func incrementalUpdateTotalSize() {
+            for f in self.totalSizeSubscribers.copyItems() {
+                f(totalSize)
+            }
+        }
+        
         func reset() {
-            self.valueBox.begin()
-                        
-            self.valueBox.removeAllFromTable(self.hashIdToInfoTable)
-            self.valueBox.removeAllFromTable(self.idToReferenceTable)
-            self.valueBox.removeAllFromTable(self.peerIdToIdTable)
-            self.valueBox.removeAllFromTable(self.peerContentTypeStatsTable)
-            self.valueBox.removeAllFromTable(self.contentTypeStatsTable)
-            self.valueBox.removeAllFromTable(self.metadataTable)
-            
-            self.valueBox.commit()
+            self.beginInternalTransaction {
+                self.valueBox.begin()
+                
+                self.valueBox.removeAllFromTable(self.hashIdToInfoTable)
+                self.valueBox.removeAllFromTable(self.idToReferenceTable)
+                self.valueBox.removeAllFromTable(self.peerIdToIdTable)
+                self.valueBox.removeAllFromTable(self.peerContentTypeStatsTable)
+                self.valueBox.removeAllFromTable(self.contentTypeStatsTable)
+                self.valueBox.removeAllFromTable(self.metadataTable)
+                
+                self.valueBox.commit()
+                
+                self.updateTotalSize()
+            }
         }
         
         private func internalAddSize(contentType: UInt8, delta: Int64) {
@@ -260,6 +321,8 @@ public final class StorageBox {
             }
             
             self.valueBox.set(self.contentTypeStatsTable, key: key, value: MemoryBuffer(memory: &currentSize, capacity: 8, length: 8, freeWhenDone: false))
+            
+            self.totalSize += delta
         }
         
         private func internalAddSize(peerId: Int64, contentType: UInt8, delta: Int64) {
@@ -375,21 +438,27 @@ public final class StorageBox {
         }
         
         func add(reference: Reference, to id: Data, contentType: UInt8, size: Int64?) {
-            self.valueBox.begin()
-            
-            self.internalAdd(reference: reference, to: id, contentType: contentType, size: size)
-            
-            self.valueBox.commit()
+            self.beginInternalTransaction {
+                self.valueBox.begin()
+                
+                self.internalAdd(reference: reference, to: id, contentType: contentType, size: size)
+                
+                self.valueBox.commit()
+            }
         }
         
         func batchAdd(items: [(reference: Reference, id: Data, contentType: UInt8, size: Int64)]) {
-            self.valueBox.begin()
-            
-            for (reference, id, contentType, size) in items {
-                self.internalAdd(reference: reference, to: id, contentType: contentType, size: size)
+            self.beginInternalTransaction {
+                self.valueBox.begin()
+                
+                for (reference, id, contentType, size) in items {
+                    self.internalAdd(reference: reference, to: id, contentType: contentType, size: size)
+                }
+                
+                self.valueBox.commit()
+                
+                self.incrementalUpdateTotalSize()
             }
-            
-            self.valueBox.commit()
         }
         
         private func peerIdsReferencing(hashId: HashId) -> Set<Int64> {
@@ -407,56 +476,64 @@ public final class StorageBox {
         }
         
         func update(id: Data, size: Int64) {
-            self.valueBox.begin()
-            
-            let hashId = md5Hash(id)
-            
-            let mainKey = ValueBoxKey(length: 16)
-            mainKey.setData(0, value: hashId.data)
-            
-            if let currentInfoValue = self.valueBox.get(self.hashIdToInfoTable, key: mainKey) {
-                var info = ItemInfo(buffer: currentInfoValue)
+            self.beginInternalTransaction {
+                self.valueBox.begin()
                 
-                var sizeDelta: Int64 = 0
-                if info.size != size {
-                    sizeDelta = size - info.size
-                    info.size = size
+                let hashId = md5Hash(id)
+                
+                let mainKey = ValueBoxKey(length: 16)
+                mainKey.setData(0, value: hashId.data)
+                
+                if let currentInfoValue = self.valueBox.get(self.hashIdToInfoTable, key: mainKey) {
+                    var info = ItemInfo(buffer: currentInfoValue)
                     
-                    self.valueBox.set(self.hashIdToInfoTable, key: mainKey, value: info.serialize())
+                    var sizeDelta: Int64 = 0
+                    if info.size != size {
+                        sizeDelta = size - info.size
+                        info.size = size
+                        
+                        self.valueBox.set(self.hashIdToInfoTable, key: mainKey, value: info.serialize())
+                    }
+                    
+                    if sizeDelta != 0 {
+                        self.internalAddSize(contentType: info.contentType, delta: sizeDelta)
+                    }
+                    
+                    for peerId in self.peerIdsReferencing(hashId: hashId) {
+                        self.internalAddSize(peerId: peerId, contentType: info.contentType, delta: sizeDelta)
+                    }
+                } else {
+                    self.internalAdd(reference: StorageBox.Reference(peerId: 0, messageNamespace: 0, messageId: 0), to: id, contentType: 0, size: size)
                 }
                 
-                if sizeDelta != 0 {
-                    self.internalAddSize(contentType: info.contentType, delta: sizeDelta)
-                }
+                self.valueBox.commit()
                 
-                for peerId in self.peerIdsReferencing(hashId: hashId) {
-                    self.internalAddSize(peerId: peerId, contentType: info.contentType, delta: sizeDelta)
-                }
+                self.incrementalUpdateTotalSize()
             }
-            
-            self.valueBox.commit()
         }
         
-        func addEmptyReferencesIfNotReferenced(ids: [(id: Data, size: Int64)], contentType: UInt8) -> Int {
-            self.valueBox.begin()
-            
-            let mainKey = ValueBoxKey(length: 16)
-            var addedCount = 0
-            
-            for (id, size) in ids {
-                let hashId = md5Hash(id)
-                mainKey.setData(0, value: hashId.data)
-                if self.valueBox.exists(self.hashIdToInfoTable, key: mainKey) {
-                    continue
+        func addEmptyReferencesIfNotReferenced(ids: [(id: Data, size: Int64)], contentType: UInt8, completion: @escaping (Int) -> Void) {
+            self.beginInternalTransaction {
+                self.valueBox.begin()
+                
+                let mainKey = ValueBoxKey(length: 16)
+                var addedCount = 0
+                
+                for (id, size) in ids {
+                    let hashId = md5Hash(id)
+                    mainKey.setData(0, value: hashId.data)
+                    if self.valueBox.exists(self.hashIdToInfoTable, key: mainKey) {
+                        continue
+                    }
+                    
+                    self.internalAdd(reference: StorageBox.Reference(peerId: 0, messageNamespace: 0, messageId: 0), to: id, contentType: contentType, size: size)
+                    addedCount += 1
                 }
                 
-                self.internalAdd(reference: StorageBox.Reference(peerId: 0, messageNamespace: 0, messageId: 0), to: id, contentType: contentType, size: size)
-                addedCount += 1
+                self.valueBox.commit()
+                
+                completion(addedCount)
             }
-            
-            self.valueBox.commit()
-            
-            return addedCount
         }
         
         private func internalRemove(hashId: Data) {
@@ -501,51 +578,57 @@ public final class StorageBox {
         }
         
         func remove(ids: [Data]) {
-            self.valueBox.begin()
-            
-            for id in ids {
-                self.internalRemove(hashId: md5Hash(id).data)
-            }
-            
-            self.valueBox.commit()
-        }
-        
-        func allPeerIds() -> [PeerId] {
-            var result: [PeerId] = []
-            
-            self.valueBox.begin()
-            
-            var fromKey = ValueBoxKey(length: 8)
-            fromKey.setInt64(0, value: 0)
-            
-            let toKey = ValueBoxKey(length: 8)
-            toKey.setInt64(0, value: Int64.max)
-            
-            while true {
-                var peerId: Int64?
-                self.valueBox.range(self.peerIdToIdTable, start: fromKey, end: toKey, keys: { key in
-                    peerId = key.getInt64(0)
-                    return false
-                }, limit: 1)
+            self.beginInternalTransaction {
+                self.valueBox.begin()
                 
-                if let peerId = peerId {
-                    if peerId != 0 {
-                        result.append(PeerId(peerId))
-                    }
-                    
-                    fromKey.setInt64(0, value: peerId)
-                    fromKey = fromKey.successor
-                } else {
-                    break
+                for id in ids {
+                    self.internalRemove(hashId: md5Hash(id).data)
                 }
+                
+                self.valueBox.commit()
+                
+                self.incrementalUpdateTotalSize()
             }
-            
-            self.valueBox.commit()
-            
-            return result
         }
         
-        private func allInternal(peerId: PeerId) -> [Data] {
+        func allPeerIds(completion: @escaping([PeerId]) -> Void) {
+            self.beginInternalTransaction {
+                var result: [PeerId] = []
+                
+                self.valueBox.begin()
+                
+                var fromKey = ValueBoxKey(length: 8)
+                fromKey.setInt64(0, value: 0)
+                
+                let toKey = ValueBoxKey(length: 8)
+                toKey.setInt64(0, value: Int64.max)
+                
+                while true {
+                    var peerId: Int64?
+                    self.valueBox.range(self.peerIdToIdTable, start: fromKey, end: toKey, keys: { key in
+                        peerId = key.getInt64(0)
+                        return false
+                    }, limit: 1)
+                    
+                    if let peerId = peerId {
+                        if peerId != 0 {
+                            result.append(PeerId(peerId))
+                        }
+                        
+                        fromKey.setInt64(0, value: peerId)
+                        fromKey = fromKey.successor
+                    } else {
+                        break
+                    }
+                }
+                
+                self.valueBox.commit()
+                
+                completion(result)
+            }
+        }
+        
+        private func allInternal(peerId: PeerId, excludeType: UInt8) -> [Data] {
             var hashIds: [Data] = []
             let peerIdIdKey = ValueBoxKey(length: 8)
             peerIdIdKey.setInt64(0, value: peerId.toInt64())
@@ -560,297 +643,410 @@ public final class StorageBox {
                 mainKey.setData(0, value: hashId)
                 if let infoValue = self.valueBox.get(self.hashIdToInfoTable, key: mainKey) {
                     let info = ItemInfo(buffer: infoValue)
-                    result.append(info.id)
-                }
-            }
-            
-            return result
-        }
-        
-        func all(peerId: PeerId) -> [Data] {
-            self.valueBox.begin()
-            
-            let result = self.allInternal(peerId: peerId)
-            
-            self.valueBox.commit()
-            
-            return result
-        }
-        
-        func enumerateItems(startingWith startId: Data?, limit: Int) -> (ids: [Data], nextStartId: Data?) {
-            self.valueBox.begin()
-            
-            let startKey: ValueBoxKey
-            if let startId = startId, startId.count == 16 {
-                startKey = ValueBoxKey(length: 16)
-                startKey.setData(0, value: startId)
-            } else {
-                startKey = ValueBoxKey(length: 1)
-                startKey.setUInt8(0, value: 0)
-            }
-            
-            let endKey = ValueBoxKey(length: 16)
-            for i in 0 ..< 16 {
-                endKey.setUInt8(i, value: 0xff)
-            }
-            
-            var ids: [Data] = []
-            var nextKey: ValueBoxKey?
-            self.valueBox.range(self.hashIdToInfoTable, start: startKey, end: endKey, values: { key, value in
-                nextKey = key
-                
-                let info = ItemInfo(buffer: value)
-                ids.append(info.id)
-                
-                return true
-            }, limit: limit)
-            
-            self.valueBox.commit()
-            
-            var nextId = nextKey?.getData(0, length: 16)
-            if nextId == startId {
-                nextId = nil
-            }
-            
-            return (ids, nextId)
-        }
-        
-        func all() -> [Entry] {
-            var result: [Entry] = []
-            
-            self.valueBox.begin()
-            
-            var currentId: Data?
-            var currentReferences: [Reference] = []
-            
-            let mainKey = ValueBoxKey(length: 16)
-            
-            self.valueBox.scan(self.idToReferenceTable, keys: { key in
-                let id = key.getData(0, length: 16)
-                
-                let peerId = key.getInt64(16)
-                let messageNamespace: UInt8 = key.getUInt8(16 + 8)
-                let messageId = key.getInt32(16 + 8 + 1)
-                
-                let reference = Reference(peerId: peerId, messageNamespace: messageNamespace, messageId: messageId)
-                
-                if currentId == id {
-                    currentReferences.append(reference)
-                } else {
-                    if let currentId = currentId, !currentReferences.isEmpty {
-                        mainKey.setData(0, value: currentId)
-                        if let infoValue = self.valueBox.get(self.hashIdToInfoTable, key: mainKey) {
-                            let info = ItemInfo(buffer: infoValue)
-                            result.append(StorageBox.Entry(id: info.id, references: currentReferences))
-                        }
-                        currentReferences.removeAll(keepingCapacity: true)
+                    if info.contentType != excludeType {
+                        result.append(info.id)
                     }
-                    currentId = id
-                    currentReferences.append(reference)
                 }
-                
-                return true
-            })
-            
-            self.valueBox.commit()
+            }
             
             return result
         }
         
-        func get(ids: [Data]) -> [Entry] {
-            var result: [Entry] = []
+        private func allInternal(peerId: PeerId, onlyType: UInt8) -> [Data] {
+            var hashIds: [Data] = []
+            let peerIdIdKey = ValueBoxKey(length: 8)
+            peerIdIdKey.setInt64(0, value: peerId.toInt64())
+            self.valueBox.range(self.peerIdToIdTable, start: peerIdIdKey, end: peerIdIdKey.successor, keys: { key in
+                hashIds.append(key.getData(8, length: 16))
+                return true
+            }, limit: 0)
             
-            self.valueBox.begin()
+            var result: [Data] = []
+            let mainKey = ValueBoxKey(length: 16)
+            for hashId in hashIds {
+                mainKey.setData(0, value: hashId)
+                if let infoValue = self.valueBox.get(self.hashIdToInfoTable, key: mainKey) {
+                    let info = ItemInfo(buffer: infoValue)
+                    if info.contentType == onlyType {
+                        result.append(info.id)
+                    }
+                }
+            }
             
-            let idKey = ValueBoxKey(length: 16)
+            return result
+        }
+        
+        func all(peerId: PeerId, excludeType: UInt8, completion: @escaping ([Data]) -> Void) {
+            self.beginInternalTransaction {
+                self.valueBox.begin()
+                
+                let result = self.allInternal(peerId: peerId, excludeType: excludeType)
+                
+                self.valueBox.commit()
+                
+                completion(result)
+            }
+        }
+        
+        func all(peerId: PeerId, onlyType: UInt8, completion: @escaping ([Data]) -> Void) {
+            self.beginInternalTransaction {
+                self.valueBox.begin()
+                
+                let result = self.allInternal(peerId: peerId, onlyType: onlyType)
+                
+                self.valueBox.commit()
+                
+                completion(result)
+            }
+        }
+        
+        func enumerateItems(startingWith startId: Data?, limit: Int, completion: @escaping ((ids: [Data], nextStartId: Data?)) -> Void) {
+            self.beginInternalTransaction {
+                self.valueBox.begin()
+                
+                let startKey: ValueBoxKey
+                if let startId = startId, startId.count == 16 {
+                    startKey = ValueBoxKey(length: 16)
+                    startKey.setData(0, value: startId)
+                } else {
+                    startKey = ValueBoxKey(length: 1)
+                    startKey.setUInt8(0, value: 0)
+                }
+                
+                let endKey = ValueBoxKey(length: 16)
+                for i in 0 ..< 16 {
+                    endKey.setUInt8(i, value: 0xff)
+                }
+                
+                var ids: [Data] = []
+                var nextKey: ValueBoxKey?
+                self.valueBox.range(self.hashIdToInfoTable, start: startKey, end: endKey, values: { key, value in
+                    nextKey = key
+                    
+                    let info = ItemInfo(buffer: value)
+                    ids.append(info.id)
+                    
+                    return true
+                }, limit: limit)
+                
+                self.valueBox.commit()
+                
+                var nextId = nextKey?.getData(0, length: 16)
+                if nextId == startId {
+                    nextId = nil
+                }
+                
+                completion((ids, nextId))
+            }
+        }
+        
+        func subscribeTotalSize(next: @escaping (Int64) -> Void) -> Disposable {
+            let index = self.totalSizeSubscribers.add(next)
             
-            for id in ids {
-                let hashId = md5Hash(id)
-                idKey.setData(0, value: hashId.data)
+            next(self.totalSize)
+            
+            let queue = self.queue
+            return ActionDisposable { [weak self] in
+                queue.async {
+                    guard let `self` = self else {
+                        return
+                    }
+                    self.totalSizeSubscribers.remove(index)
+                }
+            }
+        }
+        
+        func all(completion: @escaping ([Entry]) -> Void) {
+            self.beginInternalTransaction {
+                var result: [Entry] = []
+                
+                self.valueBox.begin()
+                
+                var currentId: Data?
                 var currentReferences: [Reference] = []
-                self.valueBox.range(self.idToReferenceTable, start: idKey, end: idKey.successor, keys: { key in
+                
+                let mainKey = ValueBoxKey(length: 16)
+                
+                self.valueBox.scan(self.idToReferenceTable, keys: { key in
+                    let id = key.getData(0, length: 16)
+                    
                     let peerId = key.getInt64(16)
                     let messageNamespace: UInt8 = key.getUInt8(16 + 8)
                     let messageId = key.getInt32(16 + 8 + 1)
                     
                     let reference = Reference(peerId: peerId, messageNamespace: messageNamespace, messageId: messageId)
                     
-                    currentReferences.append(reference)
-                    return true
-                }, limit: 0)
-                
-                if !currentReferences.isEmpty {
-                    result.append(StorageBox.Entry(id: id, references: currentReferences))
-                }
-            }
-            
-            self.valueBox.commit()
-            
-            return result
-        }
-        
-        func getAllStats() -> AllStats {
-            self.valueBox.begin()
-            
-            let allStats = AllStats(total: StorageBox.Stats(contentTypes: [:]), peers: [:])
-            
-            self.valueBox.scan(self.contentTypeStatsTable, values: { key, value in
-                var size: Int64 = 0
-                value.read(&size, offset: 0, length: 8)
-                allStats.total.contentTypes[key.getUInt8(0)] = Stats.ContentTypeStats(size: size, messages: [:])
-                
-                return true
-            })
-            
-            self.valueBox.scan(self.peerContentTypeStatsTable, values: { key, value in
-                var size: Int64 = 0
-                value.read(&size, offset: 0, length: 8)
-                
-                let peerId = key.getInt64(0)
-                let contentType = key.getUInt8(8)
-                if allStats.peers[PeerId(peerId)] == nil {
-                    allStats.peers[PeerId(peerId)] = StorageBox.Stats(contentTypes: [:])
-                }
-                allStats.peers[PeerId(peerId)]?.contentTypes[contentType] = Stats.ContentTypeStats(size: size, messages: [:])
-                
-                return true
-            })
-            
-            let idKey = ValueBoxKey(length: 16 + 8)
-            
-            let mainKey = ValueBoxKey(length: 16)
-            self.valueBox.scan(self.peerIdToIdTable, keys: { key in
-                let peerId = key.getInt64(0)
-                if peerId == 0 {
-                    return true
-                }
-                
-                let hashId = key.getData(8, length: 16)
-                
-                mainKey.setData(0, value: hashId)
-                if let currentInfoValue = self.valueBox.get(self.hashIdToInfoTable, key: mainKey) {
-                    let info = ItemInfo(buffer: currentInfoValue)
-                    if info.size != 0 {
-                        idKey.setData(0, value: hashId)
-                        idKey.setInt64(16, value: peerId)
-                        
-                        let contentType = info.contentType
-                        if contentType == 0 {
-                            return true
-                        }
-                        
-                        self.valueBox.range(self.idToReferenceTable, start: idKey, end: idKey.successor, keys: { subKey in
-                            let messageNamespace: UInt8 = subKey.getUInt8(16 + 8)
-                            let messageId = subKey.getInt32(16 + 8 + 1)
-                            
-                            if messageId != 0 {
-                                allStats.total.contentTypes[contentType]?.messages[MessageId(peerId: PeerId(peerId), namespace: Int32(messageNamespace), id: messageId), default: 0] += info.size
-                                allStats.peers[PeerId(peerId)]?.contentTypes[contentType]?.messages[MessageId(peerId: PeerId(peerId), namespace: Int32(messageNamespace), id: messageId), default: 0] += info.size
+                    if currentId == id {
+                        currentReferences.append(reference)
+                    } else {
+                        if let currentId = currentId, !currentReferences.isEmpty {
+                            mainKey.setData(0, value: currentId)
+                            if let infoValue = self.valueBox.get(self.hashIdToInfoTable, key: mainKey) {
+                                let info = ItemInfo(buffer: infoValue)
+                                result.append(StorageBox.Entry(id: info.id, references: currentReferences))
                             }
-                            
-                            return true
-                        }, limit: 0)
-                    }
-                }
-                
-                return true
-            })
-            
-            self.valueBox.commit()
-            
-            return allStats
-        }
-        
-        func remove(peerId: Int64?, contentTypes: [UInt8]) -> [Data] {
-            var resultIds: [Data] = []
-            
-            self.valueBox.begin()
-            
-            var scannedIds: [Data: Data] = [:]
-            
-            for contentType in contentTypes {
-                self.internalAddSize(contentType: contentType, delta: 0)
-            }
-            
-            self.valueBox.scan(self.hashIdToInfoTable, values: { key, value in
-                let info = ItemInfo(buffer: value)
-                if !contentTypes.contains(info.contentType) {
-                    return true
-                }
-                scannedIds[key.getData(0, length: 16)] = info.id
-                return true
-            })
-            
-            if let peerId = peerId {
-                var filteredHashIds: [Data] = []
-                self.valueBox.scan(self.idToReferenceTable, keys: { key in
-                    let id = key.getData(0, length: 16)
-                    if scannedIds[id] == nil {
-                        return true
-                    }
-                    
-                    let itemPeerId = key.getInt64(16)
-                    //let messageNamespace: UInt8 = key.getUInt8(16 + 8)
-                    //let messageId = key.getInt32(16 + 8 + 1)
-                    
-                    if itemPeerId == peerId {
-                        filteredHashIds.append(id)
+                            currentReferences.removeAll(keepingCapacity: true)
+                        }
+                        currentId = id
+                        currentReferences.append(reference)
                     }
                     
                     return true
                 })
-                for hashId in filteredHashIds {
-                    if let id = scannedIds[hashId] {
+                
+                self.valueBox.commit()
+                
+                completion(result)
+            }
+        }
+        
+        func get(ids: [Data], completion: @escaping ([Entry]) -> Void) {
+            self.beginInternalTransaction {
+                var result: [Entry] = []
+                
+                self.valueBox.begin()
+                
+                let idKey = ValueBoxKey(length: 16)
+                
+                for id in ids {
+                    let hashId = md5Hash(id)
+                    idKey.setData(0, value: hashId.data)
+                    var currentReferences: [Reference] = []
+                    self.valueBox.range(self.idToReferenceTable, start: idKey, end: idKey.successor, keys: { key in
+                        let peerId = key.getInt64(16)
+                        let messageNamespace: UInt8 = key.getUInt8(16 + 8)
+                        let messageId = key.getInt32(16 + 8 + 1)
+                        
+                        let reference = Reference(peerId: peerId, messageNamespace: messageNamespace, messageId: messageId)
+                        
+                        currentReferences.append(reference)
+                        return true
+                    }, limit: 0)
+                    
+                    if !currentReferences.isEmpty {
+                        result.append(StorageBox.Entry(id: id, references: currentReferences))
+                    }
+                }
+                
+                self.valueBox.commit()
+                
+                completion(result)
+            }
+        }
+        
+        func getAllStats(completion: @escaping (AllStats) -> Void) {
+            self.beginInternalTransaction {
+                self.valueBox.begin()
+                
+                let allStats = AllStats(total: StorageBox.Stats(contentTypes: [:]), peers: [:])
+                
+                self.valueBox.scan(self.contentTypeStatsTable, values: { key, value in
+                    var size: Int64 = 0
+                    value.read(&size, offset: 0, length: 8)
+                    allStats.total.contentTypes[key.getUInt8(0)] = Stats.ContentTypeStats(size: size, messages: [:])
+                    
+                    return true
+                })
+                
+                self.valueBox.scan(self.peerContentTypeStatsTable, values: { key, value in
+                    var size: Int64 = 0
+                    value.read(&size, offset: 0, length: 8)
+                    
+                    let peerId = key.getInt64(0)
+                    let contentType = key.getUInt8(8)
+                    if allStats.peers[PeerId(peerId)] == nil {
+                        allStats.peers[PeerId(peerId)] = StorageBox.Stats(contentTypes: [:])
+                    }
+                    allStats.peers[PeerId(peerId)]?.contentTypes[contentType] = Stats.ContentTypeStats(size: size, messages: [:])
+                    
+                    return true
+                })
+                
+                let idKey = ValueBoxKey(length: 16 + 8)
+                
+                let mainKey = ValueBoxKey(length: 16)
+                var processedIds = Set<Data>()
+                self.valueBox.scan(self.peerIdToIdTable, keys: { key in
+                    let peerId = key.getInt64(0)
+                    if peerId == 0 {
+                        return true
+                    }
+                    
+                    let hashId = key.getData(8, length: 16)
+                    if processedIds.contains(hashId) {
+                        return true
+                    }
+                    processedIds.insert(hashId)
+                    
+                    mainKey.setData(0, value: hashId)
+                    if let currentInfoValue = self.valueBox.get(self.hashIdToInfoTable, key: mainKey) {
+                        let info = ItemInfo(buffer: currentInfoValue)
+                        if info.size != 0 {
+                            idKey.setData(0, value: hashId)
+                            idKey.setInt64(16, value: peerId)
+                            
+                            let contentType = info.contentType
+                            if contentType == 0 {
+                                return true
+                            }
+                            
+                            self.valueBox.range(self.idToReferenceTable, start: idKey, end: idKey.successor, keys: { subKey in
+                                let messageNamespace: UInt8 = subKey.getUInt8(16 + 8)
+                                let messageId = subKey.getInt32(16 + 8 + 1)
+                                
+                                if messageId != 0 {
+                                    allStats.total.contentTypes[contentType]?.messages[MessageId(peerId: PeerId(peerId), namespace: Int32(messageNamespace), id: messageId), default: 0] += info.size
+                                    allStats.peers[PeerId(peerId)]?.contentTypes[contentType]?.messages[MessageId(peerId: PeerId(peerId), namespace: Int32(messageNamespace), id: messageId), default: 0] += info.size
+                                }
+                                
+                                return true
+                            }, limit: 1)
+                        }
+                    }
+                    
+                    return true
+                })
+                
+                self.valueBox.commit()
+                
+                completion(allStats)
+            }
+        }
+        
+        func remove(peerId: Int64?, contentTypes: [UInt8], includeIds: [Data], excludeIds: [Data], completion: @escaping ([Data]) -> Void) {
+            self.beginInternalTransaction {
+                var resultIds: [Data] = []
+                
+                self.valueBox.begin()
+                
+                var scannedIds: [Data: Data] = [:]
+                
+                self.valueBox.scan(self.hashIdToInfoTable, values: { key, value in
+                    let info = ItemInfo(buffer: value)
+                    if !contentTypes.contains(info.contentType) {
+                        return true
+                    }
+                    scannedIds[key.getData(0, length: 16)] = info.id
+                    return true
+                })
+                
+                for id in includeIds {
+                    scannedIds[md5Hash(id).data] = id
+                }
+                
+                let excludeIds = Set(excludeIds)
+                
+                if let peerId = peerId {
+                    var filteredHashIds: [Data] = []
+                    self.valueBox.scan(self.idToReferenceTable, keys: { key in
+                        let id = key.getData(0, length: 16)
+                        guard let realId = scannedIds[id] else {
+                            return true
+                        }
+                        if excludeIds.contains(realId) {
+                            return true
+                        }
+                        
+                        let itemPeerId = key.getInt64(16)
+                        
+                        if itemPeerId == peerId {
+                            filteredHashIds.append(id)
+                        }
+                        
+                        return true
+                    })
+                    for hashId in filteredHashIds {
+                        if let id = scannedIds[hashId] {
+                            self.internalRemove(hashId: hashId)
+                            resultIds.append(id)
+                        }
+                    }
+                } else {
+                    for (hashId, id) in scannedIds {
+                        if excludeIds.contains(id) {
+                            continue
+                        }
                         self.internalRemove(hashId: hashId)
                         resultIds.append(id)
                     }
                 }
-            } else {
-                for (hashId, id) in scannedIds {
-                    self.internalRemove(hashId: hashId)
-                    resultIds.append(id)
-                }
-            }
-            
-            if let peerId = peerId {
-                let _ = peerId
-            } else {
                 
+                self.valueBox.commit()
+                
+                self.incrementalUpdateTotalSize()
+                
+                completion(Array(resultIds))
             }
-            
-            self.valueBox.commit()
-            
-            return Array(resultIds)
         }
         
-        func remove(peerIds: Set<PeerId>) -> [Data] {
-            var resultIds: [Data] = []
-            
-            self.valueBox.begin()
-            
-            var scannedIds = Set<Data>()
-            for peerId in peerIds {
-                scannedIds.formUnion(self.allInternal(peerId: peerId))
+        func remove(peerIds: Set<PeerId>, includeIds: [Data], excludeIds: [Data], completion: @escaping ([Data]) -> Void) {
+            self.beginInternalTransaction {
+                var resultIds: [Data] = []
+                
+                self.valueBox.begin()
+                
+                var scannedIds = Set<Data>()
+                for peerId in peerIds {
+                    scannedIds.formUnion(self.allInternal(peerId: peerId, excludeType: UInt8.max))
+                }
+                
+                for id in includeIds {
+                    scannedIds.insert(id)
+                }
+                
+                let excludedIds = Set(excludeIds)
+                
+                for id in scannedIds {
+                    if excludedIds.contains(id) {
+                        continue
+                    }
+                    self.internalRemove(hashId: md5Hash(id).data)
+                    resultIds.append(id)
+                }
+                
+                self.valueBox.commit()
+                
+                self.incrementalUpdateTotalSize()
+                
+                completion(Array(resultIds))
             }
-            
-            for id in scannedIds {
-                self.internalRemove(hashId: md5Hash(id).data)
-                resultIds.append(id)
+        }
+        
+        private func beginInternalTransaction(ignoreDisabled: Bool = false, _ f: @escaping () -> Void) {
+            assert(self.queue.isCurrent())
+            if ignoreDisabled || self.canBeginTransactionsValue.with({ $0 }) {
+                f()
+            } else {
+                let _ = self.queuedInternalTransactions.modify { fs in
+                    var fs = fs
+                    fs.append(f)
+                    return fs
+                }
             }
-            
-            self.valueBox.commit()
-            
-            return Array(resultIds)
+        }
+        
+        let canBeginTransactionsValue = Atomic<Bool>(value: true)
+        func setCanBeginTransactions(_ value: Bool, afterTransactionIfRunning: @escaping () -> Void) {
+            let previous = self.canBeginTransactionsValue.swap(value)
+            if previous != value && value {
+                let fs = self.queuedInternalTransactions.swap([])
+                for f in fs {
+                    f()
+                }
+            }
+            afterTransactionIfRunning()
         }
     }
     
+    private static let sharedQueue = Queue(name: "StorageBox-Shared")
     private let queue: Queue
     private let impl: QueueLocalObject<Impl>
     
-    public init(queue: Queue = Queue(name: "StorageBox"), logger: StorageBox.Logger, basePath: String) {
+    public init(logger: StorageBox.Logger, basePath: String, isMainProcess: Bool) {
+        let queue = StorageBox.sharedQueue
         self.queue = queue
         self.impl = QueueLocalObject(queue: queue, generate: {
-            return Impl(queue: queue, logger: logger, basePath: basePath)
+            return Impl(queue: queue, logger: logger, basePath: basePath, isMainProcess: isMainProcess)
         })
     }
     
@@ -868,9 +1064,7 @@ public final class StorageBox {
     
     public func addEmptyReferencesIfNotReferenced(ids: [(id: Data, size: Int64)], contentType: UInt8, completion: @escaping (Int) -> Void) {
         self.impl.with { impl in
-            let addedCount = impl.addEmptyReferencesIfNotReferenced(ids: ids, contentType: contentType)
-            
-            completion(addedCount)
+            impl.addEmptyReferencesIfNotReferenced(ids: ids, contentType: contentType, completion: completion)
         }
     }
     
@@ -888,8 +1082,10 @@ public final class StorageBox {
     
     public func all() -> Signal<[Entry], NoError> {
         return self.impl.signalWith { impl, subscriber in
-            subscriber.putNext(impl.all())
-            subscriber.putCompletion()
+            impl.all(completion: { result in
+                subscriber.putNext(result)
+                subscriber.putCompletion()
+            })
             
             return EmptyDisposable
         }
@@ -897,17 +1093,32 @@ public final class StorageBox {
     
     public func allPeerIds() -> Signal<[PeerId], NoError> {
         return self.impl.signalWith { impl, subscriber in
-            subscriber.putNext(impl.allPeerIds())
-            subscriber.putCompletion()
+            impl.allPeerIds(completion: { result in
+                subscriber.putNext(result)
+                subscriber.putCompletion()
+            })
             
             return EmptyDisposable
         }
     }
     
-    public func all(peerId: PeerId) -> Signal<[Data], NoError> {
+    public func all(peerId: PeerId, excludeType: UInt8) -> Signal<[Data], NoError> {
         return self.impl.signalWith { impl, subscriber in
-            subscriber.putNext(impl.all(peerId: peerId))
-            subscriber.putCompletion()
+            impl.all(peerId: peerId, excludeType: excludeType, completion: { result in
+                subscriber.putNext(result)
+                subscriber.putCompletion()
+            })
+            
+            return EmptyDisposable
+        }
+    }
+    
+    public func all(peerId: PeerId, onlyType: UInt8) -> Signal<[Data], NoError> {
+        return self.impl.signalWith { impl, subscriber in
+            impl.all(peerId: peerId, onlyType: onlyType, completion: { result in
+                subscriber.putNext(result)
+                subscriber.putCompletion()
+            })
             
             return EmptyDisposable
         }
@@ -915,8 +1126,10 @@ public final class StorageBox {
     
     public func get(ids: [Data]) -> Signal<[Entry], NoError> {
         return self.impl.signalWith { impl, subscriber in
-            subscriber.putNext(impl.get(ids: ids))
-            subscriber.putCompletion()
+            impl.get(ids: ids, completion: { result in
+                subscriber.putNext(result)
+                subscriber.putCompletion()
+            })
             
             return EmptyDisposable
         }
@@ -924,24 +1137,28 @@ public final class StorageBox {
     
     public func getAllStats() -> Signal<AllStats, NoError> {
         return self.impl.signalWith { impl, subscriber in
-            subscriber.putNext(impl.getAllStats())
-            subscriber.putCompletion()
+            impl.getAllStats(completion: { result in
+                subscriber.putNext(result)
+                subscriber.putCompletion()
+            })
             
             return EmptyDisposable
         }
     }
     
-    public func remove(peerId: PeerId?, contentTypes: [UInt8], completion: @escaping ([Data]) -> Void) {
+    public func remove(peerId: PeerId?, contentTypes: [UInt8], includeIds: [Data], excludeIds: [Data], completion: @escaping ([Data]) -> Void) {
         self.impl.with { impl in
-            let ids = impl.remove(peerId: peerId?.toInt64(), contentTypes: contentTypes)
-            completion(ids)
+            impl.remove(peerId: peerId?.toInt64(), contentTypes: contentTypes, includeIds: includeIds, excludeIds: excludeIds, completion: { result in
+                completion(result)
+            })
         }
     }
     
-    public func remove(peerIds: Set<PeerId>, completion: @escaping ([Data]) -> Void) {
+    public func remove(peerIds: Set<PeerId>, includeIds: [Data], excludeIds: [Data], completion: @escaping ([Data]) -> Void) {
         self.impl.with { impl in
-            let ids = impl.remove(peerIds: peerIds)
-            completion(ids)
+            impl.remove(peerIds: peerIds, includeIds: includeIds, excludeIds: excludeIds, completion: { result in
+                completion(result)
+            })
         }
     }
     
@@ -953,10 +1170,26 @@ public final class StorageBox {
     
     public func enumerateItems(startingWith startId: Data?, limit: Int) -> Signal<(ids: [Data], nextStartId: Data?), NoError> {
         return self.impl.signalWith { impl, subscriber in
-            subscriber.putNext(impl.enumerateItems(startingWith: startId, limit: limit))
-            subscriber.putCompletion()
+            impl.enumerateItems(startingWith: startId, limit: limit, completion: { result in
+                subscriber.putNext(result)
+                subscriber.putCompletion()
+            })
             
             return EmptyDisposable
+        }
+    }
+    
+    public func totalSize() -> Signal<Int64, NoError> {
+        return self.impl.signalWith { impl, subscriber in
+            return impl.subscribeTotalSize(next: { value in
+                subscriber.putNext(value)
+            })
+        }
+    }
+    
+    public func setCanBeginTransactions(_ value: Bool, afterTransactionIfRunning: @escaping () -> Void) {
+        self.impl.with { impl in
+            impl.setCanBeginTransactions(value, afterTransactionIfRunning: afterTransactionIfRunning)
         }
     }
 }

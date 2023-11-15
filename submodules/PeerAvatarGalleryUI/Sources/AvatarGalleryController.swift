@@ -2,7 +2,6 @@ import Foundation
 import UIKit
 import Display
 import QuickLook
-import Postbox
 import SwiftSignalKit
 import AsyncDisplayKit
 import TelegramCore
@@ -17,7 +16,7 @@ import PresentationDataUtils
 
 public enum AvatarGalleryEntryId: Hashable {
     case topImage
-    case image(MediaId)
+    case image(EngineMedia.Id)
     case resource(String)
 }
 
@@ -27,7 +26,7 @@ public func peerInfoProfilePhotos(context: AccountContext, peerId: EnginePeer.Id
         guard let peer = peer else {
             return .single(nil)
         }
-        return initialAvatarGalleryEntries(account: context.account, engine: context.engine, peer: peer._asPeer())
+        return initialAvatarGalleryEntries(account: context.account, engine: context.engine, peer: peer)
     }
     |> distinctUntilChanged
     |> mapToSignal { entries -> Signal<(Bool, [AvatarGalleryEntry])?, NoError> in
@@ -51,7 +50,7 @@ public func peerInfoProfilePhotos(context: AccountContext, peerId: EnginePeer.Id
                                 lastEntry = photo
                             }
                         }
-                        return fetchedAvatarGalleryEntries(engine: context.engine, account: context.account, peer: peer, firstEntry: firstEntry, secondEntry: secondEntry, lastEntry: lastEntry)
+                        return fetchedAvatarGalleryEntries(engine: context.engine, account: context.account, peer: EnginePeer(peer), firstEntry: firstEntry, secondEntry: secondEntry, lastEntry: lastEntry)
                         |> map(Optional.init)
                     } else {
                         return .single(nil)
@@ -76,7 +75,7 @@ public func peerInfoProfilePhotos(context: AccountContext, peerId: EnginePeer.Id
     }
 }
 
-public func peerInfoProfilePhotosWithCache(context: AccountContext, peerId: PeerId) -> Signal<(Bool, [AvatarGalleryEntry]), NoError> {
+public func peerInfoProfilePhotosWithCache(context: AccountContext, peerId: EnginePeer.Id) -> Signal<(Bool, [AvatarGalleryEntry]), NoError> {
     return context.peerChannelMemberCategoriesContextsManager.profilePhotos(postbox: context.account.postbox, network: context.account.network, peerId: peerId, fetch: peerInfoProfilePhotos(context: context, peerId: peerId))
     |> map { items -> (Bool, [AvatarGalleryEntry]) in
         return items as? (Bool, [AvatarGalleryEntry]) ?? (true, [])
@@ -84,10 +83,10 @@ public func peerInfoProfilePhotosWithCache(context: AccountContext, peerId: Peer
 }
 
 public enum AvatarGalleryEntry: Equatable {
-    case topImage([ImageRepresentationWithReference], [VideoRepresentationWithReference], Peer?, GalleryItemIndexData?, Data?, String?)
-    case image(MediaId, TelegramMediaImageReference?, [ImageRepresentationWithReference], [VideoRepresentationWithReference], Peer?, Int32?, GalleryItemIndexData?, MessageId?, Data?, String?, Bool)
+    case topImage([ImageRepresentationWithReference], [VideoRepresentationWithReference], EnginePeer?, GalleryItemIndexData?, Data?, String?)
+    case image(EngineMedia.Id, TelegramMediaImageReference?, [ImageRepresentationWithReference], [VideoRepresentationWithReference], EnginePeer?, Int32?, GalleryItemIndexData?, EngineMessage.Id?, Data?, String?, Bool, TelegramMediaImage.EmojiMarkup?)
     
-    public init(representation: TelegramMediaImageRepresentation, peer: Peer) {
+    public init(representation: TelegramMediaImageRepresentation, peer: EnginePeer) {
         self = .topImage([ImageRepresentationWithReference(representation: representation, reference: MediaResourceReference.standalone(resource: representation.resource))], [], peer, nil, nil, nil)
     }
     
@@ -98,7 +97,7 @@ public enum AvatarGalleryEntry: Equatable {
                 return .resource(last.representation.resource.id.stringRepresentation)
             }
             return .topImage
-        case let .image(id, _, representations, _, _, _, _, _, _, _, _):
+        case let .image(id, _, representations, _, _, _, _, _, _, _, _, _):
             if let last = representations.last {
                 return .resource(last.representation.resource.id.stringRepresentation)
             }
@@ -106,11 +105,11 @@ public enum AvatarGalleryEntry: Equatable {
         }
     }
     
-    public var peer: Peer? {
+    public var peer: EnginePeer? {
         switch self {
             case let .topImage(_, _, peer, _, _, _):
                 return peer
-            case let .image(_, _, _, _, peer, _, _, _, _, _, _):
+            case let .image(_, _, _, _, peer, _, _, _, _, _, _, _):
                 return peer
         }
     }
@@ -119,7 +118,7 @@ public enum AvatarGalleryEntry: Equatable {
         switch self {
             case let .topImage(representations, _, _, _, _, _):
                 return representations
-            case let .image(_, _, representations, _, _, _, _, _, _, _, _):
+            case let .image(_, _, representations, _, _, _, _, _, _, _, _, _):
                 return representations
         }
     }
@@ -128,7 +127,7 @@ public enum AvatarGalleryEntry: Equatable {
         switch self {
             case let .topImage(_, _, _, _, immediateThumbnailData, _):
                 return immediateThumbnailData
-            case let .image(_, _, _, _, _, _, _, _, immediateThumbnailData, _, _):
+            case let .image(_, _, _, _, _, _, _, _, immediateThumbnailData, _, _, _):
                 return immediateThumbnailData
         }
     }
@@ -137,8 +136,17 @@ public enum AvatarGalleryEntry: Equatable {
         switch self {
             case let .topImage(_, videoRepresentations, _, _, _, _):
                 return videoRepresentations
-            case let .image(_, _, _, videoRepresentations, _, _, _, _, _, _, _):
+            case let .image(_, _, _, videoRepresentations, _, _, _, _, _, _, _, _):
                 return videoRepresentations
+        }
+    }
+    
+    public var emojiMarkup: TelegramMediaImage.EmojiMarkup? {
+        switch self {
+            case .topImage:
+                return nil
+            case let .image(_, _, _, _, _, _, _, _, _, _, _, markup):
+                return markup
         }
     }
     
@@ -146,7 +154,7 @@ public enum AvatarGalleryEntry: Equatable {
         switch self {
             case let .topImage(_, _, _, indexData, _, _):
                 return indexData
-            case let .image(_, _, _, _, _, _, indexData, _, _, _, _):
+            case let .image(_, _, _, _, _, _, indexData, _, _, _, _, _):
                 return indexData
         }
     }
@@ -154,13 +162,13 @@ public enum AvatarGalleryEntry: Equatable {
     public static func ==(lhs: AvatarGalleryEntry, rhs: AvatarGalleryEntry) -> Bool {
         switch lhs {
             case let .topImage(lhsRepresentations, lhsVideoRepresentations, lhsPeer, lhsIndexData, lhsImmediateThumbnailData, lhsCategory):
-                if case let .topImage(rhsRepresentations, rhsVideoRepresentations, rhsPeer, rhsIndexData, rhsImmediateThumbnailData, rhsCategory) = rhs, lhsRepresentations == rhsRepresentations, lhsVideoRepresentations == rhsVideoRepresentations, arePeersEqual(lhsPeer, rhsPeer), lhsIndexData == rhsIndexData, lhsImmediateThumbnailData == rhsImmediateThumbnailData, lhsCategory == rhsCategory {
+                if case let .topImage(rhsRepresentations, rhsVideoRepresentations, rhsPeer, rhsIndexData, rhsImmediateThumbnailData, rhsCategory) = rhs, lhsRepresentations == rhsRepresentations, lhsVideoRepresentations == rhsVideoRepresentations, lhsPeer == rhsPeer, lhsIndexData == rhsIndexData, lhsImmediateThumbnailData == rhsImmediateThumbnailData, lhsCategory == rhsCategory {
                     return true
                 } else {
                     return false
                 }
-            case let .image(lhsId, lhsImageReference, lhsRepresentations, lhsVideoRepresentations, lhsPeer, lhsDate, lhsIndexData, lhsMessageId, lhsImmediateThumbnailData, lhsCategory, lhsIsFallback):
-                if case let .image(rhsId, rhsImageReference, rhsRepresentations, rhsVideoRepresentations, rhsPeer, rhsDate, rhsIndexData, rhsMessageId, rhsImmediateThumbnailData, rhsCategory, rhsIsFallback) = rhs, lhsId == rhsId, lhsImageReference == rhsImageReference, lhsRepresentations == rhsRepresentations, lhsVideoRepresentations == rhsVideoRepresentations, arePeersEqual(lhsPeer, rhsPeer), lhsDate == rhsDate, lhsIndexData == rhsIndexData, lhsMessageId == rhsMessageId, lhsImmediateThumbnailData == rhsImmediateThumbnailData, lhsCategory == rhsCategory, lhsIsFallback == rhsIsFallback {
+            case let .image(lhsId, lhsImageReference, lhsRepresentations, lhsVideoRepresentations, lhsPeer, lhsDate, lhsIndexData, lhsMessageId, lhsImmediateThumbnailData, lhsCategory, lhsIsFallback, lhsEmojiMarkup):
+                if case let .image(rhsId, rhsImageReference, rhsRepresentations, rhsVideoRepresentations, rhsPeer, rhsDate, rhsIndexData, rhsMessageId, rhsImmediateThumbnailData, rhsCategory, rhsIsFallback, rhsEmojiMarkup) = rhs, lhsId == rhsId, lhsImageReference == rhsImageReference, lhsRepresentations == rhsRepresentations, lhsVideoRepresentations == rhsVideoRepresentations, lhsPeer == rhsPeer, lhsDate == rhsDate, lhsIndexData == rhsIndexData, lhsMessageId == rhsMessageId, lhsImmediateThumbnailData == rhsImmediateThumbnailData, lhsCategory == rhsCategory, lhsIsFallback == rhsIsFallback, lhsEmojiMarkup == rhsEmojiMarkup {
                     return true
                 } else {
                     return false
@@ -187,48 +195,54 @@ public func normalizeEntries(_ entries: [AvatarGalleryEntry]) -> [AvatarGalleryE
        let indexData = GalleryItemIndexData(position: index, totalCount: count)
        if case let .topImage(representations, videoRepresentations, peer, _, immediateThumbnailData, category) = entry {
            updatedEntries.append(.topImage(representations, videoRepresentations, peer, indexData, immediateThumbnailData, category))
-       } else if case let .image(id, reference, representations, videoRepresentations, peer, date, _, messageId, immediateThumbnailData, category, isFallback) = entry {
-           updatedEntries.append(.image(id, reference, representations, videoRepresentations, peer, date, indexData, messageId, immediateThumbnailData, category, isFallback))
+       } else if case let .image(id, reference, representations, videoRepresentations, peer, date, _, messageId, immediateThumbnailData, category, isFallback, emojiMarkup) = entry {
+           updatedEntries.append(.image(id, reference, representations, videoRepresentations, peer, date, indexData, messageId, immediateThumbnailData, category, isFallback, emojiMarkup))
        }
        index += 1
    }
    return updatedEntries
 }
 
-public func initialAvatarGalleryEntries(account: Account, engine: TelegramEngine, peer: Peer) -> Signal<[AvatarGalleryEntry]?, NoError> {
+public func initialAvatarGalleryEntries(account: Account, engine: TelegramEngine, peer: EnginePeer) -> Signal<[AvatarGalleryEntry]?, NoError> {
     var initialEntries: [AvatarGalleryEntry] = []
-    if !peer.profileImageRepresentations.isEmpty, let peerReference = PeerReference(peer) {
+    if !peer.profileImageRepresentations.isEmpty, let peerReference = PeerReference(peer._asPeer()) {
         initialEntries.append(.topImage(peer.profileImageRepresentations.map({ ImageRepresentationWithReference(representation: $0, reference: MediaResourceReference.avatar(peer: peerReference, resource: $0.resource)) }), [], peer, nil, nil, nil))
     }
     
-    if peer is TelegramChannel || peer is TelegramGroup, let peerReference = PeerReference(peer) {
-        return engine.data.get(TelegramEngine.EngineData.Item.Peer.Photo(id: peer.id))
-        |> map { peerPhoto in
-            var initialPhoto: TelegramMediaImage?
-            if case let .known(value) = peerPhoto {
-                initialPhoto = value
+    guard let peerReference = PeerReference(peer._asPeer()) else {
+        return .single(initialEntries)
+    }
+    switch peer {
+    case .channel, .legacyGroup:
+        break
+    default:
+        return .single(initialEntries)
+    }
+    
+    return engine.data.get(TelegramEngine.EngineData.Item.Peer.Photo(id: peer.id))
+    |> map { peerPhoto in
+        var initialPhoto: TelegramMediaImage?
+        if case let .known(value) = peerPhoto {
+            initialPhoto = value
+        }
+        
+        if let photo = initialPhoto {
+            var representations = photo.representations.map({ ImageRepresentationWithReference(representation: $0, reference: MediaResourceReference.avatar(peer: peerReference, resource: $0.resource)) })
+            if photo.immediateThumbnailData == nil, let firstEntry = initialEntries.first, let firstRepresentation = firstEntry.representations.first {
+                representations.insert(firstRepresentation, at: 0)
             }
-            
-            if let photo = initialPhoto {
-                var representations = photo.representations.map({ ImageRepresentationWithReference(representation: $0, reference: MediaResourceReference.avatar(peer: peerReference, resource: $0.resource)) })
-                if photo.immediateThumbnailData == nil, let firstEntry = initialEntries.first, let firstRepresentation = firstEntry.representations.first {
-                    representations.insert(firstRepresentation, at: 0)
-                }
-                return [.image(photo.imageId, photo.reference, representations, photo.videoRepresentations.map({ VideoRepresentationWithReference(representation: $0, reference: MediaResourceReference.avatarList(peer: peerReference, resource: $0.resource)) }), peer, nil, nil, nil, photo.immediateThumbnailData, nil, false)]
+            return [.image(photo.imageId, photo.reference, representations, photo.videoRepresentations.map({ VideoRepresentationWithReference(representation: $0, reference: MediaResourceReference.avatarList(peer: peerReference, resource: $0.resource)) }), peer, nil, nil, nil, photo.immediateThumbnailData, nil, false, photo.emojiMarkup)]
+        } else {
+            if case .known = peerPhoto {
+                return []
             } else {
-                if case .known = peerPhoto {
-                    return []
-                } else {
-                    return nil
-                }
+                return nil
             }
         }
-    } else {
-        return .single(initialEntries)
     }
 }
 
-public func fetchedAvatarGalleryEntries(engine: TelegramEngine, account: Account, peer: Peer) -> Signal<[AvatarGalleryEntry], NoError> {
+public func fetchedAvatarGalleryEntries(engine: TelegramEngine, account: Account, peer: EnginePeer) -> Signal<[AvatarGalleryEntry], NoError> {
     return initialAvatarGalleryEntries(account: account, engine: engine, peer: peer)
     |> map { entries -> [AvatarGalleryEntry] in
         return entries ?? []
@@ -241,12 +255,12 @@ public func fetchedAvatarGalleryEntries(engine: TelegramEngine, account: Account
                 var result: [AvatarGalleryEntry] = []
                 if photos.isEmpty {
                     result = initialEntries
-                } else if let peerReference = PeerReference(peer) {
+                } else if let peerReference = PeerReference(peer._asPeer()) {
                     var index: Int32 = 0
                     if [Namespaces.Peer.CloudGroup, Namespaces.Peer.CloudChannel].contains(peer.id.namespace) {
-                        var initialMediaIds = Set<MediaId>()
+                        var initialMediaIds = Set<EngineMedia.Id>()
                         for entry in initialEntries {
-                            if case let .image(mediaId, _, _, _, _, _, _, _, _, _, _) = entry {
+                            if case let .image(mediaId, _, _, _, _, _, _, _, _, _, _, _) = entry {
                                 initialMediaIds.insert(mediaId)
                             }
                         }
@@ -258,24 +272,24 @@ public func fetchedAvatarGalleryEntries(engine: TelegramEngine, account: Account
                                 photosCount += 1
                                 for entry in initialEntries {
                                     let indexData = GalleryItemIndexData(position: index, totalCount: Int32(photosCount))
-                                    if case let .image(mediaId, imageReference, representations, videoRepresentations, peer, _, _, _, thumbnailData, _, _) = entry {
-                                        result.append(.image(mediaId, imageReference, representations, videoRepresentations, peer, nil, indexData, nil, thumbnailData, nil, false))
+                                    if case let .image(mediaId, imageReference, representations, videoRepresentations, peer, _, _, _, thumbnailData, _, _, emojiMarkup) = entry {
+                                        result.append(.image(mediaId, imageReference, representations, videoRepresentations, peer, nil, indexData, nil, thumbnailData, nil, false, emojiMarkup))
                                         index += 1
                                     }
                                 }
                             }
                             
                             let indexData = GalleryItemIndexData(position: index, totalCount: Int32(photosCount))
-                            result.append(.image(photo.image.imageId, photo.image.reference, photo.image.representations.map({ ImageRepresentationWithReference(representation: $0, reference: MediaResourceReference.avatarList(peer: peerReference, resource: $0.resource)) }), photo.image.videoRepresentations.map({ VideoRepresentationWithReference(representation: $0, reference: MediaResourceReference.avatarList(peer: peerReference, resource: $0.resource)) }), peer, photo.date, indexData, photo.messageId, photo.image.immediateThumbnailData, nil, false))
+                            result.append(.image(photo.image.imageId, photo.image.reference, photo.image.representations.map({ ImageRepresentationWithReference(representation: $0, reference: MediaResourceReference.avatarList(peer: peerReference, resource: $0.resource)) }), photo.image.videoRepresentations.map({ VideoRepresentationWithReference(representation: $0, reference: MediaResourceReference.avatarList(peer: peerReference, resource: $0.resource)) }), peer, photo.date, indexData, photo.messageId, photo.image.immediateThumbnailData, nil, false, photo.image.emojiMarkup))
                             index += 1
                         }
                     } else {
                         for photo in photos {
                             let indexData = GalleryItemIndexData(position: index, totalCount: Int32(photos.count))
                             if result.isEmpty, let first = initialEntries.first {
-                                result.append(.image(photo.image.imageId, photo.image.reference, first.representations, photo.image.videoRepresentations.map({ VideoRepresentationWithReference(representation: $0, reference: MediaResourceReference.avatarList(peer: peerReference, resource: $0.resource)) }), peer, photo.date, indexData, photo.messageId, photo.image.immediateThumbnailData, nil, false))
+                                result.append(.image(photo.image.imageId, photo.image.reference, first.representations, photo.image.videoRepresentations.map({ VideoRepresentationWithReference(representation: $0, reference: MediaResourceReference.avatarList(peer: peerReference, resource: $0.resource)) }), peer, photo.date, indexData, photo.messageId, photo.image.immediateThumbnailData, nil, false, photo.image.emojiMarkup))
                             } else {
-                                result.append(.image(photo.image.imageId, photo.image.reference, photo.image.representations.map({ ImageRepresentationWithReference(representation: $0, reference: MediaResourceReference.avatarList(peer: peerReference, resource: $0.resource)) }), photo.image.videoRepresentations.map({ VideoRepresentationWithReference(representation: $0, reference: MediaResourceReference.avatarList(peer: peerReference, resource: $0.resource)) }), peer, photo.date, indexData, photo.messageId, photo.image.immediateThumbnailData, nil, false))
+                                result.append(.image(photo.image.imageId, photo.image.reference, photo.image.representations.map({ ImageRepresentationWithReference(representation: $0, reference: MediaResourceReference.avatarList(peer: peerReference, resource: $0.resource)) }), photo.image.videoRepresentations.map({ VideoRepresentationWithReference(representation: $0, reference: MediaResourceReference.avatarList(peer: peerReference, resource: $0.resource)) }), peer, photo.date, indexData, photo.messageId, photo.image.immediateThumbnailData, nil, false, photo.image.emojiMarkup))
                             }
                             index += 1
                         }
@@ -287,7 +301,7 @@ public func fetchedAvatarGalleryEntries(engine: TelegramEngine, account: Account
     }
 }
 
-public func fetchedAvatarGalleryEntries(engine: TelegramEngine, account: Account, peer: Peer, firstEntry: AvatarGalleryEntry, secondEntry: TelegramMediaImage?, lastEntry: TelegramMediaImage?) -> Signal<(Bool, [AvatarGalleryEntry]), NoError> {
+public func fetchedAvatarGalleryEntries(engine: TelegramEngine, account: Account, peer: EnginePeer, firstEntry: AvatarGalleryEntry, secondEntry: TelegramMediaImage?, lastEntry: TelegramMediaImage?) -> Signal<(Bool, [AvatarGalleryEntry]), NoError> {
     let initialEntries = [firstEntry]
     return Signal<(Bool, [AvatarGalleryEntry]), NoError>.single((false, initialEntries))
     |> then(
@@ -297,13 +311,13 @@ public func fetchedAvatarGalleryEntries(engine: TelegramEngine, account: Account
             let initialEntries = [firstEntry]
             if photos.isEmpty {
                 result = initialEntries
-            } else if let peerReference = PeerReference(peer) {
+            } else if let peerReference = PeerReference(peer._asPeer()) {
                 var index: Int32 = 0
                 
                 if [Namespaces.Peer.CloudGroup, Namespaces.Peer.CloudChannel].contains(peer.id.namespace) {
-                    var initialMediaIds = Set<MediaId>()
+                    var initialMediaIds = Set<EngineMedia.Id>()
                     for entry in initialEntries {
-                        if case let .image(mediaId, _, _, _, _, _, _, _, _, _, _) = entry {
+                        if case let .image(mediaId, _, _, _, _, _, _, _, _, _, _, _) = entry {
                             initialMediaIds.insert(mediaId)
                         }
                     }
@@ -317,8 +331,8 @@ public func fetchedAvatarGalleryEntries(engine: TelegramEngine, account: Account
                                 photosCount += 1
                                 for entry in initialEntries {
                                     let indexData = GalleryItemIndexData(position: index, totalCount: Int32(photosCount))
-                                    if case let .image(mediaId, imageReference, representations, videoRepresentations, peer, _, _, _, thumbnailData, _, _) = entry {
-                                        result.append(.image(mediaId, imageReference, representations, videoRepresentations, peer, nil, indexData, nil, thumbnailData, nil, false))
+                                    if case let .image(mediaId, imageReference, representations, videoRepresentations, peer, _, _, _, thumbnailData, _, _, emojiMarkup) = entry {
+                                        result.append(.image(mediaId, imageReference, representations, videoRepresentations, peer, nil, indexData, nil, thumbnailData, nil, false, emojiMarkup))
                                         index += 1
                                     }
                                 }
@@ -328,7 +342,7 @@ public func fetchedAvatarGalleryEntries(engine: TelegramEngine, account: Account
                         }
                         
                         let indexData = GalleryItemIndexData(position: index, totalCount: Int32(photosCount))
-                        result.append(.image(photo.image.imageId, photo.image.reference, representations, photo.image.videoRepresentations.map({ VideoRepresentationWithReference(representation: $0, reference: MediaResourceReference.avatarList(peer: peerReference, resource: $0.resource)) }), peer, photo.date, indexData, photo.messageId, photo.image.immediateThumbnailData, nil, false))
+                        result.append(.image(photo.image.imageId, photo.image.reference, representations, photo.image.videoRepresentations.map({ VideoRepresentationWithReference(representation: $0, reference: MediaResourceReference.avatarList(peer: peerReference, resource: $0.resource)) }), peer, photo.date, indexData, photo.messageId, photo.image.immediateThumbnailData, nil, false, photo.image.emojiMarkup))
                         index += 1
                     }
                 } else {
@@ -343,13 +357,18 @@ public func fetchedAvatarGalleryEntries(engine: TelegramEngine, account: Account
                         let indexData = GalleryItemIndexData(position: index, totalCount: Int32(photos.count))
                         if result.isEmpty, let first = initialEntries.first {
                             var videoRepresentations: [VideoRepresentationWithReference] = first.videoRepresentations
+                            var emojiMarkup: TelegramMediaImage.EmojiMarkup? = first.emojiMarkup
                             let isPersonal = first.representations.first?.representation.isPersonal == true
                             if videoRepresentations.isEmpty, !isPersonal {
                                 videoRepresentations = photo.image.videoRepresentations.map({ VideoRepresentationWithReference(representation: $0, reference: MediaResourceReference.avatarList(peer: peerReference, resource: $0.resource)) })
                             }
-                            result.append(.image(photo.image.imageId, photo.image.reference, first.representations, videoRepresentations, peer, secondEntry != nil ? 0 : photo.date, indexData, photo.messageId, photo.image.immediateThumbnailData, nil, false))
+                            if emojiMarkup == nil, !isPersonal {
+                                emojiMarkup = photo.image.emojiMarkup
+                            }
+                            
+                            result.append(.image(photo.image.imageId, photo.image.reference, first.representations, videoRepresentations, peer, secondEntry != nil ? 0 : photo.date, indexData, photo.messageId, first.immediateThumbnailData ?? photo.image.immediateThumbnailData, nil, false, emojiMarkup))
                         } else {
-                            result.append(.image(photo.image.imageId, photo.image.reference, photo.image.representations.map({ ImageRepresentationWithReference(representation: $0, reference: MediaResourceReference.avatarList(peer: peerReference, resource: $0.resource)) }), photo.image.videoRepresentations.map({ VideoRepresentationWithReference(representation: $0, reference: MediaResourceReference.avatarList(peer: peerReference, resource: $0.resource)) }), peer, photo.date, indexData, photo.messageId, photo.image.immediateThumbnailData, nil, photo.image.id == lastEntry?.id))
+                            result.append(.image(photo.image.imageId, photo.image.reference, photo.image.representations.map({ ImageRepresentationWithReference(representation: $0, reference: MediaResourceReference.avatarList(peer: peerReference, resource: $0.resource)) }), photo.image.videoRepresentations.map({ VideoRepresentationWithReference(representation: $0, reference: MediaResourceReference.avatarList(peer: peerReference, resource: $0.resource)) }), peer, photo.date, indexData, photo.messageId, photo.image.immediateThumbnailData, nil, photo.image.id == lastEntry?.id, photo.image.emojiMarkup))
                         }
                         index += 1
                     }
@@ -372,7 +391,7 @@ public class AvatarGalleryController: ViewController, StandalonePresentableContr
     }
     
     private let context: AccountContext
-    private let peer: Peer
+    private let peer: EnginePeer
     private let sourceCorners: SourceCorners
     private let isSuggested: Bool
     
@@ -414,7 +433,7 @@ public class AvatarGalleryController: ViewController, StandalonePresentableContr
     
     private let editDisposable = MetaDisposable ()
     
-    public init(context: AccountContext, peer: Peer, sourceCorners: SourceCorners = .round, remoteEntries: Promise<[AvatarGalleryEntry]>? = nil, isSuggested: Bool = false, skipInitial: Bool = false, centralEntryIndex: Int? = nil, replaceRootController: @escaping (ViewController, Promise<Bool>?) -> Void, synchronousLoad: Bool = false) {
+    public init(context: AccountContext, peer: EnginePeer, sourceCorners: SourceCorners = .round, remoteEntries: Promise<[AvatarGalleryEntry]>? = nil, isSuggested: Bool = false, skipInitial: Bool = false, centralEntryIndex: Int? = nil, replaceRootController: @escaping (ViewController, Promise<Bool>?) -> Void, synchronousLoad: Bool = false) {
         self.context = context
         self.peer = peer
         self.sourceCorners = sourceCorners
@@ -462,8 +481,8 @@ public class AvatarGalleryController: ViewController, StandalonePresentableContr
                     let isFirstTime = strongSelf.entries.isEmpty
                     
                     var entries = entries
-                    if !isFirstTime, let updated = entries.first, case let .image(mediaId, imageReference, _, videoRepresentations, peer, index, indexData, messageId, thumbnailData, caption, _) = updated, !videoRepresentations.isEmpty, let previous = strongSelf.entries.first, case let .topImage(representations, _, _, _, _, _) = previous {
-                        let firstEntry = AvatarGalleryEntry.image(mediaId, imageReference, representations, videoRepresentations, peer, index, indexData, messageId, thumbnailData, caption, false)
+                    if !isFirstTime, let updated = entries.first, case let .image(mediaId, imageReference, _, videoRepresentations, peer, index, indexData, messageId, thumbnailData, caption, _, emojiMarkup) = updated, !videoRepresentations.isEmpty, let previous = strongSelf.entries.first, case let .topImage(representations, _, _, _, _, _) = previous {
+                        let firstEntry = AvatarGalleryEntry.image(mediaId, imageReference, representations, videoRepresentations, peer, index, indexData, messageId, thumbnailData, caption, false, emojiMarkup)
                         entries.remove(at: 0)
                         entries.insert(firstEntry, at: 0)
                     }
@@ -611,6 +630,8 @@ public class AvatarGalleryController: ViewController, StandalonePresentableContr
                 strongSelf.replaceRootController(controller, ready)
             }
         }, editMedia: { _ in
+        }, controller: { [weak self] in
+            return self
         })
         self.displayNode = GalleryControllerNode(controllerInteraction: controllerInteraction)
         self.displayNodeDidLoad()
@@ -745,14 +766,14 @@ public class AvatarGalleryController: ViewController, StandalonePresentableContr
         let canDelete: Bool
         if self.peer.id == self.context.account.peerId {
             canDelete = true
-        } else if let group = self.peer as? TelegramGroup {
+        } else if case let .legacyGroup(group) = self.peer {
             switch group.role {
                 case .creator, .admin:
                     canDelete = true
                 case .member:
                     canDelete = false
             }
-        } else if let channel = self.peer as? TelegramChannel {
+        } else if case let .channel(channel) = self.peer {
             canDelete = channel.hasPermission(.changeInfo)
         } else {
             canDelete = false
@@ -784,13 +805,13 @@ public class AvatarGalleryController: ViewController, StandalonePresentableContr
                 if self.peer.id == self.context.account.peerId {
                 } else {
                 }
-            case let .image(_, reference, _, _, _, _, _, _, _, _, _):
-                if self.peer.id == self.context.account.peerId, let peerReference = PeerReference(self.peer) {
+            case let .image(_, reference, _, _, _, _, _, _, _, _, _, _):
+            if self.peer.id == self.context.account.peerId, let peerReference = PeerReference(self.peer._asPeer()) {
                     if let reference = reference {
                         let _ = (self.context.engine.accountData.updatePeerPhotoExisting(reference: reference)
                         |> deliverOnMainQueue).start(next: { [weak self] photo in
-                            if let strongSelf = self, let photo = photo, let firstEntry = strongSelf.entries.first, case let .image(_, _, _, _, _, index, indexData, messageId, _, caption, _) = firstEntry {
-                                let updatedEntry = AvatarGalleryEntry.image(photo.imageId, photo.reference, photo.representations.map({ ImageRepresentationWithReference(representation: $0, reference: MediaResourceReference.avatar(peer: peerReference, resource: $0.resource)) }), photo.videoRepresentations.map({ VideoRepresentationWithReference(representation: $0, reference: MediaResourceReference.avatarList(peer: peerReference, resource: $0.resource)) }), strongSelf.peer, index, indexData, messageId, photo.immediateThumbnailData, caption, false)
+                            if let strongSelf = self, let photo = photo, let firstEntry = strongSelf.entries.first, case let .image(_, _, _, _, _, index, indexData, messageId, _, caption, _, emojiMarkup) = firstEntry {
+                                let updatedEntry = AvatarGalleryEntry.image(photo.imageId, photo.reference, photo.representations.map({ ImageRepresentationWithReference(representation: $0, reference: MediaResourceReference.avatar(peer: peerReference, resource: $0.resource)) }), photo.videoRepresentations.map({ VideoRepresentationWithReference(representation: $0, reference: MediaResourceReference.avatarList(peer: peerReference, resource: $0.resource)) }), strongSelf.peer, index, indexData, messageId, photo.immediateThumbnailData, caption, false, emojiMarkup)
                                 
                                 for (lhs, rhs) in zip(firstEntry.representations, updatedEntry.representations) {
                                     if lhs.representation.dimensions == rhs.representation.dimensions {
@@ -849,7 +870,7 @@ public class AvatarGalleryController: ViewController, StandalonePresentableContr
         }))
                 
         var isFallback = false
-        if case let .image(_, _, _, _, _, _, _, _, _, _, isFallbackValue) = rawEntry {
+        if case let .image(_, _, _, _, _, _, _, _, _, _, isFallbackValue, _) = rawEntry {
             isFallback = isFallbackValue
         }
         
@@ -913,10 +934,10 @@ public class AvatarGalleryController: ViewController, StandalonePresentableContr
                             }
                         }
                 }
-                case let .image(_, reference, _, _, _, _, _, messageId, _, _, isFallback):
+                case let .image(_, reference, _, _, _, _, _, messageId, _, _, isFallback, _):
                     if self.peer.id == self.context.account.peerId {
                         if isFallback {
-                            let _ = self.context.engine.accountData.updateFallbackPhoto(resource: nil, videoResource: nil, videoStartTimestamp: nil, mapResourceToAvatarSizes: { _, _ in .single([:]) }).start()
+                            let _ = self.context.engine.accountData.updateFallbackPhoto(resource: nil, videoResource: nil, videoStartTimestamp: nil, markup: nil, mapResourceToAvatarSizes: { _, _ in .single([:]) }).start()
                         } else if let reference = reference {
                             let _ = self.context.engine.accountData.removeAccountPhoto(reference: reference).start()
                         }

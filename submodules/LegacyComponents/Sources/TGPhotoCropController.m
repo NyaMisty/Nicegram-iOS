@@ -389,7 +389,7 @@ NSString * const TGPhotoCropOriginalAspectRatio = @"original";
     UIView *parentView = nil;
     
     if (self.beginTransitionOut != nil)
-        referenceView = self.beginTransitionOut(&referenceFrame, &parentView);
+        referenceView = self.beginTransitionOut(&referenceFrame, &parentView, saving);
     
     UIView *toTransitionView = nil;
     CGRect targetFrame = CGRectZero;
@@ -413,9 +413,9 @@ NSString * const TGPhotoCropOriginalAspectRatio = @"original";
     if (saving)
     {
         CGFloat containerHeight = self.view.frame.size.height;
-        if (_forVideo && self.view.frame.size.width < self.view.frame.size.height) {
-            containerHeight -= 44.0;
-        }
+//        if (_forVideo && self.view.frame.size.width < self.view.frame.size.height) {
+//            containerHeight -= 44.0;
+//        }
         CGSize fittedSize = TGScaleToSize(snapshotView.frame.size, self.view.frame.size);
         targetFrame = CGRectMake((self.view.frame.size.width - fittedSize.width) / 2,
                                  (containerHeight - fittedSize.height) / 2,

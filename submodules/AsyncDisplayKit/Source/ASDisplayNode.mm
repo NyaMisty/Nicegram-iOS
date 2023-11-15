@@ -549,9 +549,12 @@ ASSynthesizeLockingMethodsWithMutex(__instanceLock__);
     }
       
     // CAEAGLLayer
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     if([[view.layer class] isSubclassOfClass:[CAEAGLLayer class]]){
       _flags.canClearContentsOfLayer = NO;
     }
+#pragma clang diagnostic pop
   }
 
   return view;
@@ -2998,7 +3001,7 @@ ASDISPLAYNODE_INLINE BOOL subtreeIsRasterized(ASDisplayNode *node) {
         if ([self _implementsDisplay]) {
           if (nowDisplay) {
             [ASDisplayNode scheduleNodeForRecursiveDisplay:self];
-          } else {
+          } else if (!self.disableClearContentsOnHide) {
             [[self asyncLayer] cancelAsyncDisplay];
             //schedule clear contents on next runloop
             dispatch_async(dispatch_get_main_queue(), ^{

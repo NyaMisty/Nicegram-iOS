@@ -13,6 +13,11 @@ import SettingsUI
 import ChatPresentationInterfaceState
 import AttachmentUI
 import ForumCreateTopicScreen
+import LegacyInstantVideoController
+import StoryContainerScreen
+import CameraScreen
+import MediaEditorScreen
+import ChatControllerInteraction
 
 public func navigateToChatControllerImpl(_ params: NavigateToChatControllerParams) {
     if case let .peer(peer) = params.chatLocation, case let .channel(channel) = peer, channel.flags.contains(.isForum) {
@@ -68,11 +73,11 @@ public func navigateToChatControllerImpl(_ params: NavigateToChatControllerParam
                     controller.updateTextInputState(updateTextInputState)
                 }
                 var popAndComplete = true
-                if let subject = params.subject, case let .message(messageSubject, _, timecode) = subject {
+                if let subject = params.subject, case let .message(messageSubject, highlight, timecode) = subject {
                     if case let .id(messageId) = messageSubject {
                         let navigationController = params.navigationController
                         let animated = params.animated
-                        controller.navigateToMessage(messageLocation: .id(messageId, timecode), animated: isFirst, completion: { [weak navigationController, weak controller] in
+                        controller.navigateToMessage(messageLocation: .id(messageId, NavigateToMessageParams(timestamp: timecode, quote: highlight?.quote)), animated: isFirst, completion: { [weak navigationController, weak controller] in
                             if let navigationController = navigationController, let controller = controller {
                                 let _ = navigationController.popToViewController(controller, animated: animated)
                             }
@@ -113,6 +118,9 @@ public func navigateToChatControllerImpl(_ params: NavigateToChatControllerParam
                 if let attachBotStart = params.attachBotStart {
                     controller.presentAttachmentBot(botId: attachBotStart.botId, payload: attachBotStart.payload, justInstalled: attachBotStart.justInstalled)
                 }
+                if let botAppStart = params.botAppStart, case let .peer(peer) = params.chatLocation {
+                    controller.presentBotApp(botApp: botAppStart.botApp, botPeer: peer, payload: botAppStart.payload)
+                }
                 params.setupController(controller)
                 found = true
                 break
@@ -132,8 +140,19 @@ public func navigateToChatControllerImpl(_ params: NavigateToChatControllerParam
             if let attachBotStart = params.attachBotStart {
                 controller.presentAttachmentBot(botId: attachBotStart.botId, payload: attachBotStart.payload, justInstalled: attachBotStart.justInstalled)
             }
+            if let botAppStart = params.botAppStart, case let .peer(peer) = params.chatLocation {
+                Queue.mainQueue().after(0.1) {
+                    controller.presentBotApp(botApp: botAppStart.botApp, botPeer: peer, payload: botAppStart.payload)
+                }
+            }
         } else {
-            controller = ChatControllerImpl(context: params.context, chatLocation: params.chatLocation.asChatLocation, chatLocationContextHolder: params.chatLocationContextHolder, subject: params.subject, botStart: params.botStart, attachBotStart: params.attachBotStart, peekData: params.peekData, peerNearbyData: params.peerNearbyData, chatListFilter: params.chatListFilter, chatNavigationStack: params.chatNavigationStack)
+            controller = ChatControllerImpl(context: params.context, chatLocation: params.chatLocation.asChatLocation, chatLocationContextHolder: params.chatLocationContextHolder, subject: params.subject, botStart: params.botStart, attachBotStart: params.attachBotStart, botAppStart: params.botAppStart, peekData: params.peekData, peerNearbyData: params.peerNearbyData, chatListFilter: params.chatListFilter, chatNavigationStack: params.chatNavigationStack)
+            
+            if let botAppStart = params.botAppStart, case let .peer(peer) = params.chatLocation {
+                Queue.mainQueue().after(0.1) {
+                    controller.presentBotApp(botApp: botAppStart.botApp, botPeer: peer, payload: botAppStart.payload)
+                }
+            }
         }
         controller.purposefulAction = params.purposefulAction
         if let search = params.activateMessageSearch {
@@ -141,17 +160,27 @@ public func navigateToChatControllerImpl(_ params: NavigateToChatControllerParam
         }
         let resolvedKeepStack: Bool
         switch params.keepStack {
-            case .default:
-                resolvedKeepStack = params.context.sharedContext.immediateExperimentalUISettings.keepChatNavigationStack
-            case .always:
+        case .default:
+            if params.navigationController.viewControllers.contains(where: { $0 is StoryContainerScreen }) {
                 resolvedKeepStack = true
-            case .never:
-                resolvedKeepStack = false
+            } else {
+                resolvedKeepStack = params.context.sharedContext.immediateExperimentalUISettings.keepChatNavigationStack
+            }
+        case .always:
+            resolvedKeepStack = true
+        case .never:
+            resolvedKeepStack = false
         }
         if resolvedKeepStack {
-            params.navigationController.pushViewController(controller, animated: params.animated, completion: {
-                params.completion(controller)
-            })
+            if let pushController = params.pushController {
+                pushController(controller, params.animated, {
+                    params.completion(controller)
+                })
+            } else {
+                params.navigationController.pushViewController(controller, animated: params.animated, completion: {
+                    params.completion(controller)
+                })
+            }
         } else {
             let viewControllers = params.navigationController.viewControllers.filter({ controller in
                 if controller is ForumCreateTopicScreen {
@@ -245,7 +274,7 @@ private func findOpaqueLayer(rootLayer: CALayer, layer: CALayer) -> Bool {
 }
 
 public func isInlineControllerForChatNotificationOverlayPresentation(_ controller: ViewController) -> Bool {
-    if controller is InstantPageController {
+    if controller is InstantPageController || controller is MediaEditorScreen || controller is CameraScreen {
         return true
     }
     return false
@@ -288,7 +317,7 @@ public func navigateToForumThreadImpl(context: AccountContext, peerId: EnginePee
                 context: context,
                 chatLocation: .replyThread(result.message),
                 chatLocationContextHolder: result.contextHolder,
-                subject: messageId.flatMap { .message(id: .id($0), highlight: true, timecode: nil) },
+                subject: messageId.flatMap { .message(id: .id($0), highlight: ChatControllerSubject.MessageHighlight(quote: nil), timecode: nil) },
                 activateInput: actualActivateInput,
                 keepStack: keepStack
             )

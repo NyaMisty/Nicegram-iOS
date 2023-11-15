@@ -3,6 +3,7 @@ import UIKit
 import Display
 import AsyncDisplayKit
 import TelegramCore
+import Postbox
 import SwiftSignalKit
 import TelegramPresentationData
 import TelegramStringFormatting
@@ -10,6 +11,9 @@ import PeerOnlineMarkerNode
 import SelectablePeerNode
 import ContextUI
 import AccountContext
+import TelegramUIPreferences
+import AnimationCache
+import MultiAnimationRenderer
 
 public enum HorizontalPeerItemMode {
     case list(compact: Bool)
@@ -22,7 +26,15 @@ public final class HorizontalPeerItem: ListViewItem {
     let theme: PresentationTheme
     let strings: PresentationStrings
     let mode: HorizontalPeerItemMode
-    let context: AccountContext
+    let accountPeerId: EnginePeer.Id
+    let postbox: Postbox
+    let network: Network
+    let energyUsageSettings: EnergyUsageSettings
+    let contentSettings: ContentSettings
+    let animationCache: AnimationCache
+    let animationRenderer: MultiAnimationRenderer
+    let resolveInlineStickers: ([Int64]) -> Signal<[Int64: TelegramMediaFile], NoError>
+    
     public let peer: EnginePeer
     let action: (EnginePeer) -> Void
     let contextAction: ((EnginePeer, ASDisplayNode, ContextGesture?, CGPoint?) -> Void)?
@@ -31,11 +43,37 @@ public final class HorizontalPeerItem: ListViewItem {
     let presence: EnginePeer.Presence?
     let unreadBadge: (Int32, Bool)?
     
-    public init(theme: PresentationTheme, strings: PresentationStrings, mode: HorizontalPeerItemMode, context: AccountContext, peer: EnginePeer, presence: EnginePeer.Presence?, unreadBadge: (Int32, Bool)?, action: @escaping (EnginePeer) -> Void, contextAction: ((EnginePeer, ASDisplayNode, ContextGesture?, CGPoint?) -> Void)?, isPeerSelected: @escaping (EnginePeer.Id) -> Bool, customWidth: CGFloat?) {
+    public init(
+        theme: PresentationTheme,
+        strings: PresentationStrings,
+        mode: HorizontalPeerItemMode,
+        accountPeerId: EnginePeer.Id,
+        postbox: Postbox,
+        network: Network,
+        energyUsageSettings: EnergyUsageSettings,
+        contentSettings: ContentSettings,
+        animationCache: AnimationCache,
+        animationRenderer: MultiAnimationRenderer,
+        resolveInlineStickers: @escaping ([Int64]) -> Signal<[Int64: TelegramMediaFile], NoError>,
+        peer: EnginePeer,
+        presence: EnginePeer.Presence?,
+        unreadBadge: (Int32, Bool)?,
+        action: @escaping (EnginePeer) -> Void,
+        contextAction: ((EnginePeer, ASDisplayNode, ContextGesture?, CGPoint?) -> Void)?,
+        isPeerSelected: @escaping (EnginePeer.Id) -> Bool,
+        customWidth: CGFloat?
+    ) {
         self.theme = theme
         self.strings = strings
         self.mode = mode
-        self.context = context
+        self.accountPeerId = accountPeerId
+        self.postbox = postbox
+        self.network = network
+        self.energyUsageSettings = energyUsageSettings
+        self.contentSettings = contentSettings
+        self.animationCache = animationCache
+        self.animationRenderer = animationRenderer
+        self.resolveInlineStickers = resolveInlineStickers
         self.peer = peer
         self.action = action
         self.contextAction = contextAction
@@ -113,6 +151,10 @@ public final class HorizontalPeerItemNode: ListViewItemNode {
         }
     }
     
+    deinit {
+        assert(true)
+    }
+    
     override public func didLoad() {
         super.didLoad()
         
@@ -186,7 +228,7 @@ public final class HorizontalPeerItemNode: ListViewItemNode {
                     } else {
                         strongSelf.peerNode.compact = false
                     }
-                    strongSelf.peerNode.setup(context: item.context, theme: item.theme, strings: item.strings, peer: EngineRenderedPeer(peer: item.peer), numberOfLines: 1, synchronousLoad: synchronousLoads)
+                    strongSelf.peerNode.setup(accountPeerId: item.accountPeerId, postbox: item.postbox, network: item.network, energyUsageSettings: item.energyUsageSettings, contentSettings: item.contentSettings, animationCache: item.animationCache, animationRenderer: item.animationRenderer, resolveInlineStickers: item.resolveInlineStickers, theme: item.theme, strings: item.strings, peer: EngineRenderedPeer(peer: item.peer), numberOfLines: 1, synchronousLoad: synchronousLoads)
                     strongSelf.peerNode.frame = CGRect(origin: CGPoint(), size: itemLayout.size)
                     strongSelf.peerNode.updateSelection(selected: item.isPeerSelected(item.peer.id), animated: false)
                     
@@ -217,17 +259,15 @@ public final class HorizontalPeerItemNode: ListViewItemNode {
                         strongSelf.badgeBackgroundNode.isHidden = true
                     }
                     
-                    var verticalOffset: CGFloat = 0.0
                     let state: RecentStatusOnlineIconState
                     if case .actionSheet = item.mode {
                         state = .panel
-                        verticalOffset -= 9.0
                     } else {
                         state = .regular
                     }
                     
                     strongSelf.onlineNode.setImage(PresentationResourcesChatList.recentStatusOnlineIcon(item.theme, state: state), color: nil, transition: .immediate)
-                    strongSelf.onlineNode.frame = CGRect(x: itemLayout.size.width - onlineLayout.width - 18.0, y: itemLayout.size.height - onlineLayout.height - 18.0 + verticalOffset, width: onlineLayout.width, height: onlineLayout.height)
+                    strongSelf.onlineNode.frame = CGRect(x: itemLayout.size.width / 2.0 + 14.0, y: itemLayout.size.width - onlineLayout.height - 30.0, width: onlineLayout.width, height: onlineLayout.height)
                     
                     let _ = badgeApply()
                     let _ = onlineApply(animateContent)

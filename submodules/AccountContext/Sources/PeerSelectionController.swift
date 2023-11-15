@@ -1,9 +1,11 @@
 import Foundation
 import Display
 import SwiftSignalKit
-import Postbox
 import TelegramCore
+import Postbox
 import TelegramPresentationData
+import AnimationCache
+import MultiAnimationRenderer
 
 public struct ChatListNodePeersFilter: OptionSet {
     public var rawValue: Int32
@@ -41,24 +43,48 @@ public final class PeerSelectionControllerParams {
     public let context: AccountContext
     public let updatedPresentationData: (initial: PresentationData, signal: Signal<PresentationData, NoError>)?
     public let filter: ChatListNodePeersFilter
+    public let requestPeerType: [ReplyMarkupButtonRequestPeerType]?
     public let forumPeerId: EnginePeer.Id?
+    public let hasFilters: Bool
     public let hasChatListSelector: Bool
     public let hasContactSelector: Bool
     public let hasGlobalSearch: Bool
     public let title: String?
-    public let attemptSelection: ((Peer, Int64?) -> Void)?
+    public let attemptSelection: ((EnginePeer, Int64?) -> Void)?
     public let createNewGroup: (() -> Void)?
     public let pretendPresentedInModal: Bool
     public let multipleSelection: Bool
     public let forwardedMessageIds: [EngineMessage.Id]
     public let hasTypeHeaders: Bool
     public let selectForumThreads: Bool
+    public let hasCreation: Bool
     
-    public init(context: AccountContext, updatedPresentationData: (initial: PresentationData, signal: Signal<PresentationData, NoError>)? = nil, filter: ChatListNodePeersFilter = [.onlyWriteable], forumPeerId: EnginePeer.Id? = nil, hasChatListSelector: Bool = true, hasContactSelector: Bool = true, hasGlobalSearch: Bool = true, title: String? = nil, attemptSelection: ((Peer, Int64?) -> Void)? = nil, createNewGroup: (() -> Void)? = nil, pretendPresentedInModal: Bool = false, multipleSelection: Bool = false, forwardedMessageIds: [EngineMessage.Id] = [], hasTypeHeaders: Bool = false, selectForumThreads: Bool = false) {
+    public init(
+        context: AccountContext,
+        updatedPresentationData: (initial: PresentationData, signal: Signal<PresentationData, NoError>)? = nil,
+        filter: ChatListNodePeersFilter = [.onlyWriteable],
+        requestPeerType: [ReplyMarkupButtonRequestPeerType]? = nil,
+        forumPeerId: EnginePeer.Id? = nil,
+        hasFilters: Bool = false,
+        hasChatListSelector: Bool = true,
+        hasContactSelector: Bool = true,
+        hasGlobalSearch: Bool = true,
+        title: String? = nil,
+        attemptSelection: ((EnginePeer, Int64?) -> Void)? = nil,
+        createNewGroup: (() -> Void)? = nil,
+        pretendPresentedInModal: Bool = false,
+        multipleSelection: Bool = false,
+        forwardedMessageIds: [EngineMessage.Id] = [],
+        hasTypeHeaders: Bool = false,
+        selectForumThreads: Bool = false,
+        hasCreation: Bool = false
+    ) {
         self.context = context
         self.updatedPresentationData = updatedPresentationData
         self.filter = filter
+        self.requestPeerType = requestPeerType
         self.forumPeerId = forumPeerId
+        self.hasFilters = hasFilters
         self.hasChatListSelector = hasChatListSelector
         self.hasContactSelector = hasContactSelector
         self.hasGlobalSearch = hasGlobalSearch
@@ -70,6 +96,7 @@ public final class PeerSelectionControllerParams {
         self.forwardedMessageIds = forwardedMessageIds
         self.hasTypeHeaders = hasTypeHeaders
         self.selectForumThreads = selectForumThreads
+        self.hasCreation = hasCreation
     }
 }
 
@@ -77,11 +104,45 @@ public enum AttachmentTextInputPanelSendMode {
     case generic
     case silent
     case schedule
+    case whenOnline
+}
+
+public enum PeerSelectionControllerContext {
+    public final class Custom {
+        public let accountPeerId: EnginePeer.Id
+        public let postbox: Postbox
+        public let network: Network
+        public let animationCache: AnimationCache
+        public let animationRenderer: MultiAnimationRenderer
+        public let presentationData: PresentationData
+        public let updatedPresentationData: Signal<PresentationData, NoError>
+        
+        public init(
+            accountPeerId: EnginePeer.Id,
+            postbox: Postbox,
+            network: Network,
+            animationCache: AnimationCache,
+            animationRenderer: MultiAnimationRenderer,
+            presentationData: PresentationData,
+            updatedPresentationData: Signal<PresentationData, NoError>
+        ) {
+            self.accountPeerId = accountPeerId
+            self.postbox = postbox
+            self.network = network
+            self.animationCache = animationCache
+            self.animationRenderer = animationRenderer
+            self.presentationData = presentationData
+            self.updatedPresentationData = updatedPresentationData
+        }
+    }
+    
+    case account(AccountContext)
+    case custom(Custom)
 }
 
 public protocol PeerSelectionController: ViewController {
-    var peerSelected: ((Peer, Int64?) -> Void)? { get set }
-    var multiplePeersSelected: (([Peer], [PeerId: Peer], NSAttributedString, AttachmentTextInputPanelSendMode, ChatInterfaceForwardOptionsState?) -> Void)? { get set }
+    var peerSelected: ((EnginePeer, Int64?) -> Void)? { get set }
+    var multiplePeersSelected: (([EnginePeer], [EnginePeer.Id: EnginePeer], NSAttributedString, AttachmentTextInputPanelSendMode, ChatInterfaceForwardOptionsState?) -> Void)? { get set }
     var inProgress: Bool { get set }
     var customDismiss: (() -> Void)? { get set }
 }

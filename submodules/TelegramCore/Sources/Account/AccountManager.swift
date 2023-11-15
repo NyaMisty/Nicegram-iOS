@@ -177,6 +177,8 @@ private var declaredEncodables: Void = {
     declareEncodable(InlineBotMessageAttribute.self, f: { InlineBotMessageAttribute(decoder: $0) })
     declareEncodable(TextEntitiesMessageAttribute.self, f: { TextEntitiesMessageAttribute(decoder: $0) })
     declareEncodable(ReplyMessageAttribute.self, f: { ReplyMessageAttribute(decoder: $0) })
+    declareEncodable(QuotedReplyMessageAttribute.self, f: { QuotedReplyMessageAttribute(decoder: $0) })
+    declareEncodable(ReplyStoryAttribute.self, f: { ReplyStoryAttribute(decoder: $0) })
     declareEncodable(ReplyThreadMessageAttribute.self, f: { ReplyThreadMessageAttribute(decoder: $0) })
     declareEncodable(ReactionsMessageAttribute.self, f: { ReactionsMessageAttribute(decoder: $0) })
     declareEncodable(PendingReactionsMessageAttribute.self, f: { PendingReactionsMessageAttribute(decoder: $0) })
@@ -277,6 +279,16 @@ private var declaredEncodables: Void = {
     declareEncodable(TelegramExtendedMedia.self, f: { TelegramExtendedMedia(decoder: $0) })
     declareEncodable(TelegramPeerUsername.self, f: { TelegramPeerUsername(decoder: $0) })
     declareEncodable(MediaSpoilerMessageAttribute.self, f: { MediaSpoilerMessageAttribute(decoder: $0) })
+    declareEncodable(AuthSessionInfoAttribute.self, f: { AuthSessionInfoAttribute(decoder: $0) })
+    declareEncodable(TranslationMessageAttribute.self, f: { TranslationMessageAttribute(decoder: $0) })
+    declareEncodable(SynchronizeAutosaveItemOperation.self, f: { SynchronizeAutosaveItemOperation(decoder: $0) })
+    declareEncodable(TelegramMediaStory.self, f: { TelegramMediaStory(decoder: $0) })
+    declareEncodable(SynchronizeViewStoriesOperation.self, f: { SynchronizeViewStoriesOperation(decoder: $0) })
+    declareEncodable(SynchronizePeerStoriesOperation.self, f: { SynchronizePeerStoriesOperation(decoder: $0) })
+    declareEncodable(MapVenue.self, f: { MapVenue(decoder: $0) })
+    declareEncodable(TelegramMediaGiveaway.self, f: { TelegramMediaGiveaway(decoder: $0) })
+    declareEncodable(WebpagePreviewMessageAttribute.self, f: { WebpagePreviewMessageAttribute(decoder: $0) })
+    declareEncodable(DerivedDataMessageAttribute.self, f: { DerivedDataMessageAttribute(decoder: $0) })
     return
 }()
 
@@ -545,23 +557,14 @@ private func cleanupAccount(networkArguments: NetworkInitializationArguments, ac
                     return .single(nil)
                 }
                 |> mapToSignal { result -> Signal<Void, NoError> in
-                    let _ = (accountManager.transaction { transaction -> Void in
-                        var tokens = transaction.getStoredLoginTokens()
-                        switch result {
-                        case let .loggedOut(_, futureAuthToken):
-                            if let futureAuthToken = futureAuthToken {
-                                tokens.insert(futureAuthToken.makeData(), at: 0)
-                            }
-                        default:
-                            break
+                    switch result {
+                    case let .loggedOut(_, futureAuthToken):
+                        if let futureAuthToken = futureAuthToken {
+                            storeFutureLoginToken(accountManager: accountManager, token: futureAuthToken.makeData())
                         }
-                        
-                        if tokens.count > 20 {
-                            tokens.removeLast(tokens.count - 20)
-                        }
-                        
-                        transaction.setStoredLoginTokens(tokens)
-                    }).start()
+                    default:
+                        break
+                    }
                     account.shouldBeServiceTaskMaster.set(.single(.never))
                     return accountManager.transaction { transaction -> Void in
                         transaction.updateRecord(id, { _ in

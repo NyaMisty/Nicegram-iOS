@@ -2,21 +2,21 @@ import Foundation
 import UIKit
 import Display
 import AsyncDisplayKit
-import Postbox
 import TelegramCore
 import SwiftSignalKit
 import StickerResources
 import AnimatedStickerNode
 import TelegramAnimatedStickerNode
 import ContextUI
+import AccountContext
 
 final class StickerPreviewPeekContent: PeekControllerContent {
-    let account: Account
+    let context: AccountContext
     let item: ImportStickerPack.Sticker
     let menu: [ContextMenuItem]
     
-    init(account: Account, item: ImportStickerPack.Sticker, menu: [ContextMenuItem]) {
-        self.account = account
+    init(context: AccountContext, item: ImportStickerPack.Sticker, menu: [ContextMenuItem]) {
+        self.context = context
         self.item = item
         self.menu = menu
     }
@@ -34,7 +34,7 @@ final class StickerPreviewPeekContent: PeekControllerContent {
     }
     
     func node() -> PeekControllerContentNode & ASDisplayNode {
-        return StickerPreviewPeekContentNode(account: self.account, item: self.item)
+        return StickerPreviewPeekContentNode(account: self.context.account, item: self.item)
     }
     
     func topAccessoryNode() -> ASDisplayNode? {
@@ -86,7 +86,7 @@ private final class StickerPreviewPeekContentNode: ASDisplayNode, PeekController
                     if case .video = item.content {
                         isVideo = true
                     }
-                    self.animationNode?.setup(source: AnimatedStickerResourceSource(account: account, resource: resource, isVideo: isVideo), width: Int(fittedDimensions.width), height: Int(fittedDimensions.height), playbackMode: .loop, mode: .direct(cachePathPrefix: nil))
+                    self.animationNode?.setup(source: AnimatedStickerResourceSource(account: account, resource: resource._asResource(), isVideo: isVideo), width: Int(fittedDimensions.width), height: Int(fittedDimensions.height), playbackMode: .loop, mode: .direct(cachePathPrefix: nil))
                 }
                 self.animationNode?.visibility = true
         }

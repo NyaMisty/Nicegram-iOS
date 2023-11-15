@@ -8,6 +8,7 @@ import SwiftSignalKit
 import TelegramStringFormatting
 import ChatPresentationInterfaceState
 import TelegramPresentationData
+import ChatInputPanelNode
 
 final class ChatRestrictedInputPanelNode: ChatInputPanelNode {
     private let textNode: ImmediateTextNode
@@ -30,17 +31,17 @@ final class ChatRestrictedInputPanelNode: ChatInputPanelNode {
             self.presentationInterfaceState = interfaceState
         }
         
-        let bannedPermission: (Int32, Bool)?
+        var bannedPermission: (Int32, Bool)?
         if let channel = interfaceState.renderedPeer?.peer as? TelegramChannel {
-            bannedPermission = channel.hasBannedPermission(.banSendMessages)
-        } else if let group = interfaceState.renderedPeer?.peer as? TelegramGroup {
-            if group.hasBannedPermission(.banSendMessages) {
+            if let value = channel.hasBannedPermission(.banSendText) {
+                bannedPermission = value
+            } else if !channel.hasPermission(.sendSomething) {
                 bannedPermission = (Int32.max, false)
-            } else {
-                bannedPermission = nil
             }
-        } else {
-            bannedPermission = nil
+        } else if let group = interfaceState.renderedPeer?.peer as? TelegramGroup {
+            if !group.hasPermission(.sendSomething) {
+                bannedPermission = (Int32.max, false)
+            }
         }
         
         var iconImage: UIImage?

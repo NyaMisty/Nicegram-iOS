@@ -23,6 +23,11 @@ public enum SentSecureValueType: Int32 {
     case temporaryRegistration = 12
 }
 
+public enum BotSendMessageAccessGrantedType: Int32 {
+    case attachMenu = 0
+    case request = 1
+}
+
 public enum TelegramMediaActionType: PostboxCoding, Equatable {
     public enum ForumTopicEditComponent: PostboxCoding, Equatable {
         case title(String)
@@ -86,6 +91,7 @@ public enum TelegramMediaActionType: PostboxCoding, Equatable {
     case paymentSent(currency: String, totalAmount: Int64, invoiceSlug: String?, isRecurringInit: Bool, isRecurringUsed: Bool)
     case customText(text: String, entities: [MessageTextEntity])
     case botDomainAccessGranted(domain: String)
+    case botAppAccessGranted(appName: String?, type: BotSendMessageAccessGrantedType?)
     case botSentSecureValues(types: [SentSecureValueType])
     case peerJoined
     case phoneNumberRequest
@@ -95,11 +101,16 @@ public enum TelegramMediaActionType: PostboxCoding, Equatable {
     case setChatTheme(emoji: String)
     case joinedByRequest
     case webViewData(String)
-    case giftPremium(currency: String, amount: Int64, months: Int32)
+    case giftPremium(currency: String, amount: Int64, months: Int32, cryptoCurrency: String?, cryptoAmount: Int64?)
     case topicCreated(title: String, iconColor: Int32, iconFileId: Int64?)
     case topicEdited(components: [ForumTopicEditComponent])
     case suggestedProfilePhoto(image: TelegramMediaImage?)
     case attachMenuBotAllowed
+    case requestedPeer(buttonId: Int32, peerId: PeerId)
+    case setChatWallpaper(wallpaper: TelegramWallpaper)
+    case setSameChatWallpaper(wallpaper: TelegramWallpaper)
+    case giftCode(slug: String, fromGiveaway: Bool, isUnclaimed: Bool, boostPeerId: PeerId?, months: Int32)
+    case giveawayLaunched
     
     public init(decoder: PostboxDecoder) {
         let rawValue: Int32 = decoder.decodeInt32ForKey("_rawValue", orElse: 0)
@@ -169,7 +180,7 @@ public enum TelegramMediaActionType: PostboxCoding, Equatable {
         case 26:
             self = .webViewData(decoder.decodeStringForKey("t", orElse: ""))
         case 27:
-            self = .giftPremium(currency: decoder.decodeStringForKey("currency", orElse: ""), amount: decoder.decodeInt64ForKey("amount", orElse: 0), months: decoder.decodeInt32ForKey("months", orElse: 0))
+            self = .giftPremium(currency: decoder.decodeStringForKey("currency", orElse: ""), amount: decoder.decodeInt64ForKey("amount", orElse: 0), months: decoder.decodeInt32ForKey("months", orElse: 0), cryptoCurrency: decoder.decodeOptionalStringForKey("cryptoCurrency"), cryptoAmount: decoder.decodeOptionalInt64ForKey("cryptoAmount"))
         case 28:
             self = .topicCreated(title: decoder.decodeStringForKey("title", orElse: ""), iconColor: decoder.decodeInt32ForKey("iconColor", orElse: 0), iconFileId: decoder.decodeOptionalInt64ForKey("iconFileId"))
         case 29:
@@ -178,6 +189,26 @@ public enum TelegramMediaActionType: PostboxCoding, Equatable {
             self = .suggestedProfilePhoto(image: decoder.decodeObjectForKey("image") as? TelegramMediaImage)
         case 31:
             self = .attachMenuBotAllowed
+        case 32:
+            self = .requestedPeer(buttonId: decoder.decodeInt32ForKey("b", orElse: 0), peerId: PeerId(decoder.decodeInt64ForKey("pi", orElse: 0)))
+        case 33:
+            if let wallpaper = decoder.decode(TelegramWallpaperNativeCodable.self, forKey: "wallpaper")?.value {
+                self = .setChatWallpaper(wallpaper: wallpaper)
+            } else {
+                self = .unknown
+            }
+        case 34:
+            if let wallpaper = decoder.decode(TelegramWallpaperNativeCodable.self, forKey: "wallpaper")?.value {
+                self = .setSameChatWallpaper(wallpaper: wallpaper)
+            } else {
+                self = .unknown
+            }
+        case 35:
+            self = .botAppAccessGranted(appName: decoder.decodeOptionalStringForKey("app"), type: decoder.decodeOptionalInt32ForKey("atp").flatMap { BotSendMessageAccessGrantedType(rawValue: $0) })
+        case 36:
+            self = .giftCode(slug: decoder.decodeStringForKey("slug", orElse: ""), fromGiveaway: decoder.decodeBoolForKey("give", orElse: false), isUnclaimed: decoder.decodeBoolForKey("unclaimed", orElse: false), boostPeerId: PeerId(decoder.decodeInt64ForKey("pi", orElse: 0)), months: decoder.decodeInt32ForKey("months", orElse: 0))
+        case 37:
+            self = .giveawayLaunched
         default:
             self = .unknown
         }
@@ -307,11 +338,15 @@ public enum TelegramMediaActionType: PostboxCoding, Equatable {
         case let .webViewData(text):
             encoder.encodeInt32(26, forKey: "_rawValue")
             encoder.encodeString(text, forKey: "t")
-        case let .giftPremium(currency, amount, months):
+        case let .giftPremium(currency, amount, months, cryptoCurrency, cryptoAmount):
             encoder.encodeInt32(27, forKey: "_rawValue")
             encoder.encodeString(currency, forKey: "currency")
             encoder.encodeInt64(amount, forKey: "amount")
             encoder.encodeInt32(months, forKey: "months")
+            if let cryptoCurrency = cryptoCurrency, let cryptoAmount = cryptoAmount {
+                encoder.encodeString(cryptoCurrency, forKey: "cryptoCurrency")
+                encoder.encodeInt64(cryptoAmount, forKey: "cryptoAmount")
+            }
         case let .topicCreated(title, iconColor, iconFileId):
             encoder.encodeInt32(28, forKey: "_rawValue")
             encoder.encodeString(title, forKey: "title")
@@ -331,6 +366,41 @@ public enum TelegramMediaActionType: PostboxCoding, Equatable {
             }
         case .attachMenuBotAllowed:
             encoder.encodeInt32(31, forKey: "_rawValue")
+        case let .requestedPeer(buttonId, peerId):
+            encoder.encodeInt32(32, forKey: "_rawValue")
+            encoder.encodeInt32(buttonId, forKey: "b")
+            encoder.encodeInt64(peerId.toInt64(), forKey: "pi")
+        case let .setChatWallpaper(wallpaper):
+            encoder.encodeInt32(33, forKey: "_rawValue")
+            encoder.encode(TelegramWallpaperNativeCodable(wallpaper), forKey: "wallpaper")
+        case let .setSameChatWallpaper(wallpaper):
+            encoder.encodeInt32(34, forKey: "_rawValue")
+            encoder.encode(TelegramWallpaperNativeCodable(wallpaper), forKey: "wallpaper")
+        case let .botAppAccessGranted(appName, type):
+            encoder.encodeInt32(35, forKey: "_rawValue")
+            if let appName = appName {
+                encoder.encodeString(appName, forKey: "app")
+            } else {
+                encoder.encodeNil(forKey: "app")
+            }
+            if let type = type {
+                encoder.encodeInt32(type.rawValue, forKey: "atp")
+            } else {
+                encoder.encodeNil(forKey: "atp")
+            }
+        case let .giftCode(slug, fromGiveaway, unclaimed, boostPeerId, months):
+            encoder.encodeInt32(36, forKey: "_rawValue")
+            encoder.encodeString(slug, forKey: "slug")
+            encoder.encodeBool(fromGiveaway, forKey: "give")
+            encoder.encodeBool(unclaimed, forKey: "unclaimed")
+            if let boostPeerId = boostPeerId {
+                encoder.encodeInt64(boostPeerId.toInt64(), forKey: "pi")
+            } else {
+                encoder.encodeNil(forKey: "pi")
+            }
+            encoder.encodeInt32(months, forKey: "months")
+        case .giveawayLaunched:
+            encoder.encodeInt32(37, forKey: "_rawValue")
         }
     }
     
@@ -350,13 +420,17 @@ public enum TelegramMediaActionType: PostboxCoding, Equatable {
             return [from, to]
         case let .inviteToGroupPhoneCall(_, _, peerIds):
             return peerIds
+        case let .requestedPeer(_, peerId):
+            return [peerId]
+        case let .giftCode(_, _, _, boostPeerId, _):
+            return boostPeerId.flatMap { [$0] } ?? []
         default:
             return []
         }
     }
 }
 
-public final class TelegramMediaAction: Media {
+public final class TelegramMediaAction: Media, Equatable {
     public let id: MediaId? = nil
     public var peerIds: [PeerId] {
         return self.action.peerIds
@@ -381,6 +455,10 @@ public final class TelegramMediaAction: Media {
     
     public func encode(_ encoder: PostboxEncoder) {
         self.action.encode(encoder)
+    }
+    
+    public static func ==(lhs: TelegramMediaAction, rhs: TelegramMediaAction) -> Bool {
+        return lhs.isEqual(to: rhs)
     }
     
     public func isEqual(to other: Media) -> Bool {

@@ -1,5 +1,9 @@
 load("@build_bazel_rules_swift//swift:swift.bzl", "swift_library")
 
+NGDEPS = [
+    "@swiftpkg_nicegram_assistant_ios//:Sources_FeatPartners",
+]
+
 swift_library(
     name = "EntityKeyboard",
     module_name = "EntityKeyboard",
@@ -9,7 +13,7 @@ swift_library(
     copts = [
         "-warnings-as-errors",
     ],
-    deps = [
+    deps = NGDEPS + [
         "//submodules/SSignalKit/SwiftSignalKit:SwiftSignalKit",
         "//submodules/Display:Display",
         "//submodules/ComponentFlow:ComponentFlow",
@@ -30,6 +34,8 @@ swift_library(
         "//submodules/TelegramUI/Components/MultiAnimationRenderer:MultiAnimationRenderer",
         "//submodules/TelegramUI/Components/EmojiTextAttachmentView:EmojiTextAttachmentView",
         "//submodules/TelegramUI/Components/EmojiStatusComponent:EmojiStatusComponent",
+        "//submodules/TelegramUI/Components/LottieComponent",
+        "//submodules/TelegramUI/Components/LottieComponentEmojiContent",
         "//submodules/SoftwareVideo:SoftwareVideo",
         "//submodules/ShimmerEffect:ShimmerEffect",
         "//submodules/PhotoResources:PhotoResources",
@@ -41,6 +47,10 @@ swift_library(
         "//submodules/Components/LottieAnimationComponent:LottieAnimationComponent",
         "//submodules/LocalizedPeerData:LocalizedPeerData",
         "//submodules/TelegramNotices:TelegramNotices",
+        "//submodules/GZip",
+        "//submodules/rlottie:RLottieBinding",
+        "//submodules/lottie-ios:Lottie",
+        "//submodules/TelegramUI/Components/Utils/GenerateStickerPlaceholderImage",
     ],
     visibility = [
         "//visibility:public",

@@ -20,11 +20,11 @@ swift_library(
         "//submodules/TelegramCore:TelegramCore",
         "//submodules/AccountContext:AccountContext",
         "//submodules/TelegramPresentationData:TelegramPresentationData",
-        "//submodules/ChatPresentationInterfaceState:ChatPresentationInterfaceState",
         "//submodules/ContextUI:ContextUI",
         "//submodules/AppBundle:AppBundle",
         "//submodules/TextFormat:TextFormat",
         "//submodules/TelegramUI/Components/EmojiTextAttachmentView:EmojiTextAttachmentView",
+        "//submodules/TelegramUI/Components/Chat/ChatInputTextNode",
     ],
     visibility = [
         "//visibility:public",

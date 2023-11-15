@@ -3,7 +3,6 @@ import AsyncDisplayKit
 import Display
 import ComponentFlow
 import SwiftSignalKit
-import Postbox
 import TelegramCore
 import AccountContext
 import TelegramPresentationData
@@ -21,25 +20,12 @@ public func reactionStaticImage(context: AccountContext, animation: TelegramMedi
         return Signal { subscriber in
             let fetchDisposable = fetchedMediaResource(mediaBox: context.account.postbox.mediaBox, userLocation: .other, userContentType: .image, reference: MediaResourceReference.standalone(resource: animation.resource)).start()
             
-            let type: AnimationCacheAnimationType
-            if animation.isVideoSticker || animation.isVideoEmoji {
-                type = .video
-            } else if animation.isAnimatedSticker {
-                type = .lottie
-            } else {
-                type = .still
-            }
-            
             var customColor: UIColor?
-            for attribute in animation.attributes {
-                if case let .CustomEmoji(_, isSingleColor, _, _) = attribute {
-                    if isSingleColor {
-                        customColor = nil
-                    }
-                }
+            if animation.isCustomTemplateEmoji {
+                customColor = nil
             }
             
-            let fetchFrame = animationCacheFetchFile(context: context, userLocation: .other, userContentType: .sticker, resource: MediaResourceReference.standalone(resource: animation.resource), type: type, keyframeOnly: true, customColor: customColor)
+            let fetchFrame = animationCacheFetchFile(context: context, userLocation: .other, userContentType: .sticker, resource: MediaResourceReference.standalone(resource: animation.resource), type: AnimationCacheAnimationType(file: animation), keyframeOnly: true, customColor: customColor)
             
             class AnimationCacheItemWriterImpl: AnimationCacheItemWriter {
                 let queue: Queue
@@ -77,7 +63,7 @@ public func reactionStaticImage(context: AccountContext, animation: TelegramMedi
                     return
                 }
                 
-                let tempFile = TempBox.shared.tempFile(fileName: "image.png")
+                let tempFile = EngineTempBox.shared.tempFile(fileName: "image.png")
                 guard let _ = try? pngData.write(to: URL(fileURLWithPath: tempFile.path)) else {
                     return
                 }
@@ -165,7 +151,7 @@ public final class ReactionImageNode: ASDisplayNode {
                         strongSelf.iconNode.image = image
                     }
                 }
-            })
+            }).strict()
         } else if let file = file {
             self.size = file.dimensions?.cgSize ?? displayPixelSize
             self.isAnimation = false
@@ -183,7 +169,7 @@ public final class ReactionImageNode: ASDisplayNode {
                         strongSelf.iconNode.image = image
                     }
                 }
-            })
+            }).strict()
         } else {
             self.size = displayPixelSize
             self.isAnimation = false

@@ -59,6 +59,7 @@ bazel-telegram-ios
 bazel-telegram-ios/*
 bazel-testlogs
 bazel-testlogs/*
+xcodeproj.bazelrc
 */*.swp
 *.swp
 build-input/*
@@ -70,3 +71,5 @@ ci/fastlane/report.xml
 ci/Gemfile.lock
 !Telegram/Telegram-iOS/Resources/Nicegram/**/*.mp4
 ci/fastlane-env.sh
+ci/working_dir
+.build

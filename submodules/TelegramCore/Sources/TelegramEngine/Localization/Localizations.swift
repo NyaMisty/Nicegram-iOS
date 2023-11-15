@@ -3,20 +3,19 @@ import Postbox
 import TelegramApi
 import SwiftSignalKit
 
-
 func _internal_currentlySuggestedLocalization(network: Network, extractKeys: [String]) -> Signal<SuggestedLocalizationInfo?, NoError> {
     return network.request(Api.functions.help.getConfig())
-        |> retryRequest
-        |> mapToSignal { result -> Signal<SuggestedLocalizationInfo?, NoError> in
-            switch result {
-                case let .config(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, suggestedLangCode, _, _, _):
-                    if let suggestedLangCode = suggestedLangCode {
-                        return _internal_suggestedLocalizationInfo(network: network, languageCode: suggestedLangCode, extractKeys: extractKeys) |> map(Optional.init)
-                    } else {
-                        return .single(nil)
-                    }
+    |> retryRequest
+    |> mapToSignal { result -> Signal<SuggestedLocalizationInfo?, NoError> in
+        switch result {
+        case let .config(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, suggestedLangCode, _, _, _, _):
+            if let suggestedLangCode = suggestedLangCode {
+                return _internal_suggestedLocalizationInfo(network: network, languageCode: suggestedLangCode, extractKeys: extractKeys) |> map(Optional.init)
+            } else {
+                return .single(nil)
             }
         }
+    }
 }
 
 func _internal_suggestedLocalizationInfo(network: Network, languageCode: String, extractKeys: [String]) -> Signal<SuggestedLocalizationInfo, NoError> {
@@ -124,10 +123,6 @@ func _internal_downloadAndApplyLocalization(accountManager: AccountManager<Teleg
             if let secondaryCode = preview.baseLanguageCode, components.count > 1 {
                 secondaryComponent = LocalizationComponent(languageCode: secondaryCode, localizedName: "", localization: components[1], customPluralizationCode: nil)
             }
-            // MARK: Nicegram Translate
-            let baseLanguageCode = preview.baseLanguageCode ?? languageCode
-            setSavedTranslationTargetLanguage(code: baseLanguageCode)
-            //
             return accountManager.transaction { transaction -> Signal<Void, DownloadAndApplyLocalizationError> in
                 transaction.updateSharedData(SharedDataKeys.localizationSettings, { _ in
                     return PreferencesEntry(LocalizationSettings(primaryComponent: LocalizationComponent(languageCode: preview.languageCode, localizedName: preview.localizedTitle, localization: primaryLocalization, customPluralizationCode: preview.customPluralizationCode), secondaryComponent: secondaryComponent))

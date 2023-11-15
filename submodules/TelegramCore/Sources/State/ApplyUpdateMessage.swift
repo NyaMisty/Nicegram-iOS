@@ -26,7 +26,10 @@ func applyMediaResourceChanges(from: Media, to: Media, postbox: Postbox, force: 
             }
         }
         if let fromLargestRepresentation = largestImageRepresentation(fromImage.representations), let toLargestRepresentation = largestImageRepresentation(toImage.representations) {
-            copyOrMoveResourceData(from: fromLargestRepresentation.resource, to: toLargestRepresentation.resource, mediaBox: postbox.mediaBox)
+            if fromLargestRepresentation.resource is CloudPeerPhotoSizeMediaResource {
+            } else {
+                copyOrMoveResourceData(from: fromLargestRepresentation.resource, to: toLargestRepresentation.resource, mediaBox: postbox.mediaBox)
+            }
         }
     } else if let fromFile = from as? TelegramMediaFile, let toFile = to as? TelegramMediaFile {
         if let fromPreview = smallestImageRepresentation(fromFile.previewRepresentations), let toPreview = smallestImageRepresentation(toFile.previewRepresentations) {
@@ -35,13 +38,19 @@ func applyMediaResourceChanges(from: Media, to: Media, postbox: Postbox, force: 
         if let fromVideoThumbnail = fromFile.videoThumbnails.first, let toVideoThumbnail = toFile.videoThumbnails.first, fromVideoThumbnail.resource.id != toVideoThumbnail.resource.id {
             copyOrMoveResourceData(from: fromVideoThumbnail.resource, to: toVideoThumbnail.resource, mediaBox: postbox.mediaBox)
         }
+        let videoFirstFrameFromPath = postbox.mediaBox.cachedRepresentationCompletePath(fromFile.resource.id, keepDuration: .general, representationId: "first-frame")
+        let videoFirstFrameToPath = postbox.mediaBox.cachedRepresentationCompletePath(toFile.resource.id, keepDuration: .general, representationId: "first-frame")
+        if FileManager.default.fileExists(atPath: videoFirstFrameFromPath) {
+            let _ = try? FileManager.default.copyItem(atPath: videoFirstFrameFromPath, toPath: videoFirstFrameToPath)
+        }
+        
         if (force || fromFile.size == toFile.size || fromFile.resource.size == toFile.resource.size) && fromFile.mimeType == toFile.mimeType {
             copyOrMoveResourceData(from: fromFile.resource, to: toFile.resource, mediaBox: postbox.mediaBox)
         }
     }
 }
 
-func applyUpdateMessage(postbox: Postbox, stateManager: AccountStateManager, message: Message, result: Api.Updates, accountPeerId: PeerId) -> Signal<Void, NoError> {
+func applyUpdateMessage(postbox: Postbox, stateManager: AccountStateManager, message: Message, cacheReferenceKey: CachedSentMediaReferenceKey?, result: Api.Updates, accountPeerId: PeerId) -> Signal<Void, NoError> {
     return postbox.transaction { transaction -> Void in
         let messageId: Int32?
         var apiMessage: Api.Message?
@@ -148,7 +157,7 @@ func applyUpdateMessage(postbox: Postbox, stateManager: AccountStateManager, mes
                 text = updatedMessage.text
                 forwardInfo = updatedMessage.forwardInfo
             } else if case let .updateShortSentMessage(_, _, _, _, _, apiMedia, entities, ttlPeriod) = result {
-                let (mediaValue, _, nonPremium, hasSpoiler) = textMediaAndExpirationTimerFromApiMedia(apiMedia, currentMessage.id.peerId)
+                let (mediaValue, _, nonPremium, hasSpoiler, _) = textMediaAndExpirationTimerFromApiMedia(apiMedia, currentMessage.id.peerId)
                 if let mediaValue = mediaValue {
                     media = [mediaValue]
                 } else {
@@ -284,6 +293,27 @@ func applyUpdateMessage(postbox: Postbox, stateManager: AccountStateManager, mes
                     }
                 }
             }
+            
+            if updatedMessage.id.namespace == Namespaces.Message.Cloud, let cacheReferenceKey = cacheReferenceKey {
+                var storeMedia: Media?
+                var mediaCount = 0
+                for media in updatedMessage.media {
+                    if let image = media as? TelegramMediaImage {
+                        storeMedia = image
+                        mediaCount += 1
+                    } else if let file = media as? TelegramMediaFile {
+                        storeMedia = file
+                        mediaCount += 1
+                    }
+                }
+                if mediaCount > 1 {
+                    storeMedia = nil
+                }
+                
+                if let storeMedia = storeMedia {
+                    storeCachedSentMediaReference(transaction: transaction, key: cacheReferenceKey, media: storeMedia)
+                }
+            }
         }
         for file in sentStickers {
             if let entry = CodableEntry(RecentMediaItem(file)) {
@@ -349,7 +379,7 @@ func applyUpdateGroupMessages(postbox: Postbox, stateManager: AccountStateManage
                         mapping.append((message, MessageIndex(id: id, timestamp: storeMessage.timestamp), storeMessage))
                     }
                 } else {
-                    assertionFailure()
+                  //  assertionFailure()
                 }
             } else {
                 assertionFailure()

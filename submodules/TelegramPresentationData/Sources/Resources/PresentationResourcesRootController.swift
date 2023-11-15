@@ -128,12 +128,6 @@ public struct PresentationResourcesRootController {
         })
     }
     
-    public static func navigationPlayerPlayIcon(_ theme: PresentationTheme) -> UIImage? {
-        return theme.image(PresentationResourceKey.navigationPlayerPlayIcon.rawValue, { theme in
-            return generateTintedImage(image: UIImage(bundleImageName: "GlobalMusicPlayer/MinimizedPlay"), color: theme.rootController.navigationBar.accentTextColor)
-        })
-    }
-    
     public static func navigationPlayerRateActiveIcon(_ theme: PresentationTheme) -> UIImage? {
         return theme.image(PresentationResourceKey.navigationPlayerRateActiveIcon.rawValue, { theme in
             return generatePlayerRateIcon(theme.rootController.navigationBar.accentTextColor)
@@ -158,12 +152,6 @@ public struct PresentationResourcesRootController {
         })
     }
     
-    public static func navigationPlayerPauseIcon(_ theme: PresentationTheme) -> UIImage? {
-        return theme.image(PresentationResourceKey.navigationPlayerPauseIcon.rawValue, { theme in
-            return generateTintedImage(image: UIImage(bundleImageName: "GlobalMusicPlayer/MinimizedPause"), color: theme.rootController.navigationBar.accentTextColor)
-        })
-    }
-    
     public static func navigationLiveLocationIcon(_ theme: PresentationTheme) -> UIImage? {
         return theme.image(PresentationResourceKey.navigationLiveLocationIcon.rawValue, { theme in
             return generateTintedImage(image: UIImage(bundleImageName: "Chat List/LiveLocationPanelIcon"), color: theme.rootController.navigationBar.accentTextColor)
@@ -182,9 +170,9 @@ public struct PresentationResourcesRootController {
         })
     }
     
-    public static func inAppNotificationSecretChatIcon(_ theme: PresentationTheme) -> UIImage? {
-        return theme.image(PresentationResourceKey.inAppNotificationSecretChatIcon.rawValue, { theme in
-            return generateTintedImage(image: UIImage(bundleImageName: "Notification/SecretLock"), color: theme.inAppNotification.primaryTextColor)
+    public static func navigationPostStoryIcon(_ theme: PresentationTheme) -> UIImage? {
+        return theme.image(PresentationResourceKey.navigationPostStoryIcon.rawValue, { theme in
+            return generateTintedImage(image: UIImage(bundleImageName: "Chat List/AddStoryIcon"), color: theme.rootController.navigationBar.accentTextColor)
         })
     }
 }

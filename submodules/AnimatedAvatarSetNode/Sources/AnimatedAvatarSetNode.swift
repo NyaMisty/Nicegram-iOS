@@ -66,6 +66,7 @@ public final class AnimatedAvatarSetContext {
 private let avatarFont = avatarPlaceholderFont(size: 12.0)
 
 private final class ContentNode: ASDisplayNode {
+    private let context: AccountContext
     private var audioLevelView: VoiceBlobView?
     private var audioLevelBlobOverlay: UIImageView?
     private let unclippedNode: ASImageNode
@@ -77,6 +78,7 @@ private final class ContentNode: ASDisplayNode {
     private var disposable: Disposable?
     
     init(context: AccountContext, peer: EnginePeer?, placeholderColor: UIColor, synchronousLoad: Bool, size: CGSize, spacing: CGFloat) {
+        self.context = context
         self.size = size
         self.spacing = spacing
 
@@ -98,7 +100,7 @@ private final class ContentNode: ASDisplayNode {
                 self.updateImage(image: image, size: size, spacing: spacing)
 
                 let disposable = (signal
-                |> deliverOnMainQueue).start(next: { [weak self] imageVersions in
+                |> deliverOnMainQueue).startStrict(next: { [weak self] imageVersions in
                     guard let strongSelf = self else {
                         return
                     }
@@ -111,7 +113,7 @@ private final class ContentNode: ASDisplayNode {
             } else {
                 let image = generateImage(size, rotatedContext: { size, context in
                     context.clear(CGRect(origin: CGPoint(), size: size))
-                    drawPeerAvatarLetters(context: context, size: size, font: avatarFont, letters: peer.displayLetters, peerId: peer.id)
+                    drawPeerAvatarLetters(context: context, size: size, font: avatarFont, letters: peer.displayLetters, peerId: peer.id, nameColor: peer.nameColor)
                 })!
                 self.updateImage(image: image, size: size, spacing: spacing)
             }
@@ -162,7 +164,7 @@ private final class ContentNode: ASDisplayNode {
     }
     
     func updateAudioLevel(color: UIColor, backgroundColor: UIColor, value: Float) {
-        if self.audioLevelView == nil, value > 0.0 {
+        if self.audioLevelView == nil, value > 0.0, self.context.sharedContext.energyUsageSettings.fullTranslucency {
             let blobFrame = self.unclippedNode.bounds.insetBy(dx: -8.0, dy: -8.0)
             
             let audioLevelView = VoiceBlobView(
@@ -275,10 +277,14 @@ public final class AnimatedAvatarSetNode: ASDisplayNode {
             guard let itemNode = self.contentNodes.removeValue(forKey: key) else {
                 continue
             }
-            itemNode.layer.animateAlpha(from: 1.0, to: 0.0, duration: 0.2, removeOnCompletion: false, completion: { [weak itemNode] _ in
-                itemNode?.removeFromSupernode()
-            })
-            itemNode.layer.animateScale(from: 1.0, to: 0.1, duration: 0.2, removeOnCompletion: false)
+            if animated {
+                itemNode.layer.animateAlpha(from: 1.0, to: 0.0, duration: 0.2, removeOnCompletion: false, completion: { [weak itemNode] _ in
+                    itemNode?.removeFromSupernode()
+                })
+                itemNode.layer.animateScale(from: 1.0, to: 0.1, duration: 0.2, removeOnCompletion: false)
+            } else {
+                itemNode.removeFromSupernode()
+            }
         }
         
         return CGSize(width: contentWidth, height: contentHeight)
@@ -327,7 +333,7 @@ public final class AnimatedAvatarSetView: UIView {
                     self.updateImage(image: image, size: size, spacing: spacing)
 
                     let disposable = (signal
-                    |> deliverOnMainQueue).start(next: { [weak self] imageVersions in
+                    |> deliverOnMainQueue).startStrict(next: { [weak self] imageVersions in
                         guard let strongSelf = self else {
                             return
                         }
@@ -340,7 +346,7 @@ public final class AnimatedAvatarSetView: UIView {
                 } else {
                     let image = generateImage(size, rotatedContext: { size, context in
                         context.clear(CGRect(origin: CGPoint(), size: size))
-                        drawPeerAvatarLetters(context: context, size: size, font: avatarFont, letters: peer.displayLetters, peerId: peer.id)
+                        drawPeerAvatarLetters(context: context, size: size, font: avatarFont, letters: peer.displayLetters, peerId: peer.id, nameColor: peer.nameColor)
                     })!
                     self.updateImage(image: image, size: size, spacing: spacing)
                 }

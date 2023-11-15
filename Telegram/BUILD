@@ -25,12 +25,24 @@ load("@build_bazel_rules_swift//swift:swift.bzl",
     "swift_library",
 )
 
+load(
+    "@rules_xcodeproj//xcodeproj:defs.bzl",
+    "top_level_target",
+    "top_level_targets",
+    "xcodeproj",
+    "xcode_provisioning_profile",
+)
+
+load("@build_bazel_rules_apple//apple:apple.bzl", "local_provisioning_profile")
+
 load("//build-system/bazel-utils:plist_fragment.bzl",
     "plist_fragment",
 )
 
 load(
     "@build_configuration//:variables.bzl",
+    "telegram_bazel_path",
+    "telegram_use_xcode_managed_codesigning",
     "telegram_bundle_id",
     "telegram_aps_environment",
     "telegram_team_id",
@@ -63,6 +75,12 @@ bool_flag(
     visibility = ["//visibility:public"],
 )
 
+bool_flag(
+    name = "projectIncludeRelease",
+    build_setting_default = False,
+    visibility = ["//visibility:public"],
+)
+
 config_setting(
     name = "disableExtensionsSetting",
     flag_values = {
@@ -74,6 +92,13 @@ config_setting(
     name = "disableProvisioningProfilesSetting",
     flag_values = {
         ":disableProvisioningProfiles": "True",
+    },
+)
+
+config_setting(
+    name = "projectIncludeReleaseSetting",
+    flag_values = {
+        ":projectIncludeRelease": "True",
     },
 )
 
@@ -116,7 +141,7 @@ genrule(
     ],
 )
 
-minimum_os_version = "11.0"
+minimum_os_version = "12.0"
 minimum_watchos_version="9.0"
 
 empty_languages = [
@@ -229,7 +254,6 @@ filegroup(
     ] + glob(
         [
             "Telegram-iOS/*.lproj/NiceLocalizable.strings",
-            "Telegram-iOS/*.lproj/NicegramLocalizable.strings"
         ]
     )
 )
@@ -239,7 +263,6 @@ filegroup(
     srcs = glob([
         "Telegram-iOS/*.lproj/Localizable.strings",
         "Telegram-iOS/*.lproj/NiceLocalizable.strings",
-        "Telegram-iOS/*.lproj/NicegramLocalizable.strings",
     ], exclude = ["Telegram-iOS/*.lproj/**/.*"]),
 )
 
@@ -308,7 +331,6 @@ filegroup(
 
 # MARK: Nicegram AltIcons
 # removed BlackClassicIcon, BlueClassicIcon
-# added New3, NicegramBetaIcon
 alternate_icon_folders = [
     "BlackIcon",
     "BlackFilledIcon",
@@ -318,10 +340,15 @@ alternate_icon_folders = [
     "New1",
     "New2",
     "New3",
+    "NicegramAlt",
+    "NicegramBetaIcon",
+    "CommunityClassic",
+    "CommunityOnyx",
+    "CommunityRuby",
+    "CommunityWatercolor",
     "Premium",
     "PremiumBlack",
-    "PremiumTurbo",
-    "NicegramBetaIcon"
+    "PremiumTurbo"
 ]
 
 [
@@ -445,6 +472,7 @@ official_apple_pay_merchants = [
     "merchant.org.telegram.billinenet.test",
     "merchant.org.telegram.billinenet.prod",
     "merchant.org.telegram.portmone.test",
+    "merchant.org.telegram.ecommpay.test",
 ]
 
 official_bundle_ids = [
@@ -496,9 +524,12 @@ icloud_fragment = "" if not telegram_enable_icloud else """
 <array>
     <string>iCloud.{telegram_bundle_id}</string>
 </array>
+<key>com.apple.developer.ubiquity-kvstore-identifier</key>
+<string>{telegram_team_id}.*</string>
 <key>com.apple.developer.icloud-container-environment</key>
 <string>{telegram_icloud_environment}</string>
 """.format(
+    telegram_team_id=telegram_team_id,
     telegram_bundle_id=telegram_bundle_id,
     telegram_icloud_environment="Production" if telegram_aps_environment == "production" else "Development"
 )
@@ -536,20 +567,17 @@ app_groups_fragment = """
     telegram_bundle_id=telegram_bundle_id
 )
 
-communication_notifications_fragment = """
+official_communication_notifications_fragment = """
 <key>com.apple.developer.usernotifications.communication</key>
 <true/>
 """
-
-filtering_notifications_fragment = """
-<key>com.apple.developer.usernotifications.filtering</key>
-<true/>
-"""
+# MARK: Nicegram, change 'official_bundle_ids' to 'nicegram_bundle_ids'
+communication_notifications_fragment = official_communication_notifications_fragment if telegram_bundle_id in nicegram_bundle_ids else ""
 
 store_signin_fragment = """
 <key>com.apple.developer.applesignin</key>
 <array>
-<string>Default</string>
+    <string>Default</string>
 </array>
 """
 signin_fragment = store_signin_fragment if telegram_bundle_id in store_bundle_ids else ""
@@ -567,32 +595,7 @@ plist_fragment(
         unrestricted_voip_fragment,
         carplay_fragment,
         communication_notifications_fragment,
-        filtering_notifications_fragment,
         signin_fragment,
-    ])
-)
-
-watch_extension_app_id_fragment = """
-    <key>application-identifier</key>
-    <string>{telegram_team_id}.{telegram_bundle_id}.watchkitapp.watchkitextension</string>
-""".format(
-    telegram_team_id=telegram_team_id,
-    telegram_bundle_id=telegram_bundle_id
-)
-
-watch_extension_associated_domains_fragment = """
-<key>com.apple.developer.associated-domains</key>
-<array>
-    <string>applinks:nicegram.app</string>
-</array>
-"""
-
-plist_fragment(
-    name = "TelegramWatchEntitlements",
-    extension = "entitlements",
-    template = "".join([
-        watch_extension_app_id_fragment,
-        watch_extension_associated_domains_fragment,
     ])
 )
 
@@ -624,8 +627,6 @@ filegroup(
     ]),
 )
 
-FLICK_TYPE_SRCS = glob(["Watch/FlickTypeKit/**/*.m"])
-
 objc_library(
     name = "TelegramWatchLib",
     srcs = glob([
@@ -637,7 +638,7 @@ objc_library(
         "Watch/SSignalKit/**/*.h",
         "Watch/Bridge/**/*.h",
         "Watch/WatchCommonWatch/**/*.h",
-    ]) + FLICK_TYPE_SRCS,
+    ]),
     copts = [
         "-DTARGET_OS_WATCH=1",
         "-ITelegram/Watch",
@@ -771,7 +772,6 @@ watchos_extension(
         telegram_bundle_id = telegram_bundle_id,
     ),
     bundle_name = "TelegramWatchExtension",
-    entitlements = ":TelegramWatchEntitlements.entitlements",
     infoplists = [
         ":WatchExtensionInfoPlist",
         ":VersionInfoPlist",
@@ -1077,29 +1077,6 @@ plist_fragment(
     )
 )
 
-ios_framework(
-    name = "AsyncDisplayKitFramework",
-    bundle_id = "{telegram_bundle_id}.AsyncDisplayKit".format(
-        telegram_bundle_id = telegram_bundle_id,
-    ),
-    families = [
-        "iphone",
-        "ipad",
-    ],
-    infoplists = [
-        ":AsyncDisplayKitInfoPlist",
-        ":BuildNumberInfoPlist",
-        ":VersionInfoPlist",
-        ":RequiredDeviceCapabilitiesPlist",
-    ],
-    minimum_os_version = minimum_os_version,
-    extension_safe = True,
-    ipa_post_processor = strip_framework,
-    deps = [
-        "//submodules/AsyncDisplayKit:AsyncDisplayKit",
-    ],
-)
-
 plist_fragment(
     name = "DisplayInfoPlist",
     extension = "plist",
@@ -1161,33 +1138,6 @@ sh_binary(
     srcs = [":GenerateAddAlternateIcons"],
 )
 
-ios_framework(
-    name = "DisplayFramework",
-    bundle_id = "{telegram_bundle_id}.Display".format(
-        telegram_bundle_id = telegram_bundle_id,
-    ),
-    families = [
-        "iphone",
-        "ipad",
-    ],
-    infoplists = [
-        ":DisplayInfoPlist",
-        ":BuildNumberInfoPlist",
-        ":VersionInfoPlist",
-        ":RequiredDeviceCapabilitiesPlist",
-    ],
-    frameworks = [
-        ":SwiftSignalKitFramework",
-        ":AsyncDisplayKitFramework",
-    ],
-    minimum_os_version = minimum_os_version,
-    extension_safe = True,
-    ipa_post_processor = strip_framework,
-    deps = [
-        "//submodules/Display:Display",
-    ],
-)
-
 plist_fragment(
     name = "TelegramUIInfoPlist",
     extension = "plist",
@@ -1226,8 +1176,6 @@ ios_framework(
         ":SwiftSignalKitFramework",
         ":PostboxFramework",
         ":TelegramCoreFramework",
-        ":AsyncDisplayKitFramework",
-        ":DisplayFramework",
     ],
     minimum_os_version = minimum_os_version,
     extension_safe = True,
@@ -1297,7 +1245,8 @@ swift_library(
         "-warnings-as-errors",
     ],
     deps = [
-        "//submodules/TelegramUI:TelegramUI"
+        "//submodules/TelegramUI",
+        "//submodules/TelegramUI/Components/ShareExtensionContext"
     ],
 )
 
@@ -2031,6 +1980,18 @@ plist_fragment(
     )
 )
 
+local_provisioning_profile(
+    name = "Telegram_local_profile",
+    profile_name = "iOS Team Provisioning Profile: {}".format(telegram_bundle_id),
+    team_id = telegram_team_id,
+)
+
+xcode_provisioning_profile(
+   name = "Telegram_xcode_profile",
+   managed_by_xcode = True,
+   provisioning_profile = ":Telegram_local_profile",
+)
+
 ios_application(
     name = "Telegram",
     bundle_id = "{telegram_bundle_id}".format(
@@ -2040,7 +2001,7 @@ ios_application(
     minimum_os_version = minimum_os_version,
     provisioning_profile = select({
         ":disableProvisioningProfilesSetting": None,
-        "//conditions:default": "@build_configuration//provisioning:Telegram.mobileprovision",
+        "//conditions:default": ":Telegram_xcode_profile" if telegram_use_xcode_managed_codesigning else "@build_configuration//provisioning:Telegram.mobileprovision",
     }),
     entitlements = ":TelegramEntitlements.entitlements",
     infoplists = [
@@ -2064,8 +2025,6 @@ ios_application(
         ":SwiftSignalKitFramework",
         ":PostboxFramework",
         ":TelegramCoreFramework",
-        ":AsyncDisplayKitFramework",
-        ":DisplayFramework",
         ":TelegramUIFramework",
     ],
     settings_bundle = "//Nicegram/NGSettingsBundle:NGSettingsBundle",
@@ -2091,6 +2050,31 @@ ios_application(
         ":Main",
         ":Lib",
     ],
+    visibility = ["//visibility:public"],
+)
+
+xcodeproj(
+    name = "Telegram_xcodeproj",
+    build_mode = "bazel",
+    bazel_path = telegram_bazel_path,
+    project_name = "Telegram",
+    tags = ["manual"],
+    top_level_targets = top_level_targets(
+        labels = [
+            ":Telegram",
+        ],
+        target_environments = ["device", "simulator"],
+    ),
+    xcode_configurations = {
+        "Debug": {
+            "//command_line_option:compilation_mode": "dbg",
+        },
+        #"Release": {
+        #    "//command_line_option:compilation_mode": "opt",
+        #},
+    },
+    default_xcode_configuration = "Debug"
+
 )
 
 # Temporary targets used to simplify webrtc build tests

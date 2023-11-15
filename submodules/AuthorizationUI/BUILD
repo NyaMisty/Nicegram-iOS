@@ -1,5 +1,9 @@
 load("@build_bazel_rules_swift//swift:swift.bzl", "swift_library")
 
+NGDEPS = [
+    "@swiftpkg_nicegram_assistant_ios//:Sources_NGAuth",
+]
+
 swift_library(
     name = "AuthorizationUI",
     module_name = "AuthorizationUI",
@@ -9,7 +13,7 @@ swift_library(
     copts = [
         "-warnings-as-errors",
     ],
-    deps = [
+    deps = NGDEPS + [
         "//submodules/AsyncDisplayKit:AsyncDisplayKit",
         "//submodules/TelegramCore:TelegramCore",
         "//submodules/Postbox:Postbox",
@@ -38,6 +42,8 @@ swift_library(
         "//submodules/InvisibleInkDustNode:InvisibleInkDustNode",
         "//submodules/AuthorizationUtils:AuthorizationUtils",
         "//submodules/ManagedAnimationNode:ManagedAnimationNode",
+        "//submodules/AlertUI:AlertUI",
+        "//submodules/TelegramUI/Components/TextNodeWithEntities:TextNodeWithEntities",
     ],
     visibility = [
         "//visibility:public",

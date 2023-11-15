@@ -7,30 +7,41 @@ import UniversalMediaPlayer
 import SwiftSignalKit
 
 public final class AudioWaveformComponent: Component {
+    public enum Style {
+        case bottom
+        case middle
+    }
+    
     public let backgroundColor: UIColor
     public let foregroundColor: UIColor
     public let shimmerColor: UIColor?
+    public let style: Style
     public let samples: Data
     public let peak: Int32
     public let status: Signal<MediaPlayerStatus, NoError>
-    public let seek: (Double) -> Void
+    public let seek: ((Double) -> Void)?
+    public let updateIsSeeking: ((Bool) -> Void)?
     
     public init(
         backgroundColor: UIColor,
         foregroundColor: UIColor,
         shimmerColor: UIColor?,
+        style: Style,
         samples: Data,
         peak: Int32,
         status: Signal<MediaPlayerStatus, NoError>,
-        seek: @escaping (Double) -> Void
+        seek: ((Double) -> Void)?,
+        updateIsSeeking: ((Bool) -> Void)?
     ) {
         self.backgroundColor = backgroundColor
         self.foregroundColor = foregroundColor
         self.shimmerColor = shimmerColor
+        self.style = style
         self.samples = samples
         self.peak = peak
         self.status = status
         self.seek = seek
+        self.updateIsSeeking = updateIsSeeking
     }
     
     public static func ==(lhs: AudioWaveformComponent, rhs: AudioWaveformComponent) -> Bool {
@@ -41,6 +52,9 @@ public final class AudioWaveformComponent: Component {
             return false
         }
         if lhs.shimmerColor != rhs.shimmerColor {
+            return false
+        }
+        if lhs.style != rhs.style {
             return false
         }
         if lhs.samples != rhs.samples {
@@ -58,6 +72,9 @@ public final class AudioWaveformComponent: Component {
             var foregroundColor: UIColor
         }
         
+        public final class CloneLayer: SimpleLayer {
+        }
+        
         private final class LayerImpl: SimpleLayer {
             private var shimmerNode: ShimmerEffectNode?
             private var shimmerMask: SimpleLayer?
@@ -68,7 +85,7 @@ public final class AudioWaveformComponent: Component {
                         if self.shimmerParams != nil {
                             if self.shimmerNode == nil {
                                 let shimmerNode = ShimmerEffectNode()
-                                shimmerNode.isLayerBacked = true
+                                shimmerNode.isUserInteractionEnabled = false
                                 self.shimmerNode = shimmerNode
                                 self.addSublayer(shimmerNode.layer)
                                 
@@ -144,6 +161,22 @@ public final class AudioWaveformComponent: Component {
                     }
                 }
             }
+            
+            weak var cloneLayer: CloneLayer? {
+                didSet {
+                    if let cloneLayer = self.cloneLayer {
+                        cloneLayer.contents = self.contents
+                    }
+                }
+            }
+            
+            override public var contents: Any? {
+                didSet {
+                    if let cloneLayer = self.cloneLayer {
+                        cloneLayer.contents = self.contents
+                    }
+                }
+            }
         }
         
         override public static var layerClass: AnyClass {
@@ -199,7 +232,6 @@ public final class AudioWaveformComponent: Component {
             let panRecognizer = UIPanGestureRecognizer(target: self, action: #selector(self.panGesture(_:)))
             panRecognizer.delegate = self
             self.addGestureRecognizer(panRecognizer)
-            panRecognizer.isEnabled = false
             self.panRecognizer = panRecognizer
         }
         
@@ -209,6 +241,12 @@ public final class AudioWaveformComponent: Component {
         
         deinit {
             self.statusDisposable?.dispose()
+        }
+        
+        public var cloneLayer: CloneLayer? {
+            didSet {
+                (self.layer as! LayerImpl).cloneLayer = self.cloneLayer
+            }
         }
         
         @objc private func panGesture(_ recognizer: UIPanGestureRecognizer) {
@@ -261,6 +299,7 @@ public final class AudioWaveformComponent: Component {
             if let statusValue = self.playbackStatus, statusValue.duration > 0.0 {
                 self.scrubbingBeginTimestamp = statusValue.timestamp
                 self.scrubbingTimestampValue = statusValue.timestamp
+                self.component?.updateIsSeeking?(true)
                 self.setNeedsDisplay()
             }
         }
@@ -280,7 +319,8 @@ public final class AudioWaveformComponent: Component {
             })
             
             if let scrubbingTimestampValue = scrubbingTimestampValue, apply {
-                self.component?.seek(scrubbingTimestampValue)
+                self.component?.seek?(scrubbingTimestampValue)
+                self.component?.updateIsSeeking?(false)
             }
         }
         
@@ -377,7 +417,7 @@ public final class AudioWaveformComponent: Component {
                 }
             }
         }
-        
+    
         override public func draw(_ rect: CGRect) {
             guard let component = self.component else {
                 return
@@ -523,16 +563,18 @@ public final class AudioWaveformComponent: Component {
                     diff = sampleWidth * 1.5
                     
                     let gravityMultiplierY: CGFloat
-                    gravityMultiplierY = 1.0
-                    
-                    /*switch parameters.gravity ?? .bottom {
+                    switch component.style {
                     case .bottom:
-                        return 1
-                    case .center:
-                        return 0.5
-                    }*/
+                        gravityMultiplierY = 1.0
+                    case .middle:
+                        gravityMultiplierY = 0.5
+                    }
                     
-                    context.setFillColor(component.backgroundColor.mixedWith(component.foregroundColor, alpha: colorMixFraction).cgColor)
+                    if component.backgroundColor.alpha > 0.0 {
+                        context.setFillColor(component.backgroundColor.mixedWith(component.foregroundColor, alpha: colorMixFraction).cgColor)
+                    } else {
+                        context.setFillColor(component.foregroundColor.cgColor)
+                    }
                     context.setBlendMode(.copy)
                     
                     let adjustedSampleHeight = sampleHeight - diff

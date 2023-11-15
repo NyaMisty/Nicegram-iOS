@@ -1,6 +1,6 @@
 import Postbox
 
-public enum EngineMedia {
+public enum EngineMedia: Equatable {
     public typealias Id = MediaId
 
     case image(TelegramMediaImage)
@@ -16,6 +16,8 @@ public enum EngineMedia {
     case unsupported(TelegramMediaUnsupported)
     case webFile(TelegramMediaWebFile)
     case webpage(TelegramMediaWebpage)
+    case story(TelegramMediaStory)
+    case giveaway(TelegramMediaGiveaway)
 }
 
 public extension EngineMedia {
@@ -47,6 +49,10 @@ public extension EngineMedia {
             return webFile.id
         case let .webpage(webpage):
             return webpage.id
+        case let .story(story):
+            return story.id
+        case let .giveaway(giveaway):
+            return giveaway.id
         }
     }
 }
@@ -80,6 +86,10 @@ public extension EngineMedia {
             self = .webFile(webFile)
         case let webpage as TelegramMediaWebpage:
             self = .webpage(webpage)
+        case let story as TelegramMediaStory:
+            self = .story(story)
+        case let giveaway as TelegramMediaGiveaway:
+            self = .giveaway(giveaway)
         default:
             preconditionFailure()
         }
@@ -113,6 +123,10 @@ public extension EngineMedia {
             return webFile
         case let .webpage(webpage):
             return webpage
+        case let .story(story):
+            return story
+        case let .giveaway(giveaway):
+            return giveaway
         }
     }
 }

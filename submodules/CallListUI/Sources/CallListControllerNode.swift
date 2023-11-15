@@ -329,7 +329,7 @@ final class CallListControllerNode: ASDisplayNode {
             let _ = (context.engine.data.get(
                 TelegramEngine.EngineData.Item.Peer.Peer(id: peerId)
             )
-            |> deliverOnMainQueue).start(next: { peer in
+            |> deliverOnMainQueue).startStandalone(next: { peer in
                 guard let strongSelf = self, let peer = peer else {
                     return
                 }
@@ -342,7 +342,7 @@ final class CallListControllerNode: ASDisplayNode {
                     guard let strongSelf = self else {
                         return
                     }
-                    let _ = strongSelf.context.engine.messages.deleteMessagesInteractively(messageIds: messageIds, type: .forEveryone).start()
+                    let _ = strongSelf.context.engine.messages.deleteMessagesInteractively(messageIds: messageIds, type: .forEveryone).startStandalone()
                 }))
                 
                 items.append(ActionSheetButtonItem(title: strongSelf.presentationData.strings.Conversation_DeleteMessagesForMe, color: .destructive, action: { [weak actionSheet] in
@@ -352,7 +352,7 @@ final class CallListControllerNode: ASDisplayNode {
                         return
                     }
                     
-                    let _ = strongSelf.context.engine.messages.deleteMessagesInteractively(messageIds: messageIds, type: .forLocalPeer).start()
+                    let _ = strongSelf.context.engine.messages.deleteMessagesInteractively(messageIds: messageIds, type: .forLocalPeer).startStandalone()
                 }))
                     
                 actionSheet.setItemGroups([
@@ -369,10 +369,10 @@ final class CallListControllerNode: ASDisplayNode {
             if let strongSelf = self {
                 let _ = updateCallListSettingsInteractively(accountManager: strongSelf.context.sharedContext.accountManager, {
                     $0.withUpdatedShowTab(value)
-                }).start()
+                }).startStandalone()
                 
                 if value {
-                    let _ = ApplicationSpecificNotice.incrementCallsTabTips(accountManager: strongSelf.context.sharedContext.accountManager, count: 4).start()
+                    let _ = ApplicationSpecificNotice.incrementCallsTabTips(accountManager: strongSelf.context.sharedContext.accountManager, count: 4).startStandalone()
                 }
             }
         }, openGroupCall: { [weak self] peerId in
@@ -596,7 +596,7 @@ final class CallListControllerNode: ASDisplayNode {
             }
         }
         
-        self.callListDisposable.set(appliedTransition.start())
+        self.callListDisposable.set(appliedTransition.startStrict())
         
         self.callListLocationAndType.set(self.currentLocationAndType)
 
@@ -606,7 +606,7 @@ final class CallListControllerNode: ASDisplayNode {
         }
         |> distinctUntilChanged
         
-        self.emptyStateDisposable.set((combineLatest(emptySignal, typeSignal, self.statePromise.get()) |> deliverOnMainQueue).start(next: { [weak self] isEmpty, type, state in
+        self.emptyStateDisposable.set((combineLatest(emptySignal, typeSignal, self.statePromise.get()) |> deliverOnMainQueue).startStrict(next: { [weak self] isEmpty, type, state in
             if let strongSelf = self {
                 strongSelf.updateEmptyPlaceholder(theme: state.presentationData.theme, strings: state.presentationData.strings, type: type, isHidden: !isEmpty)
             }
@@ -690,13 +690,13 @@ final class CallListControllerNode: ASDisplayNode {
         let alpha: CGFloat = isHidden ? 0.0 : 1.0
         let previousAlpha = self.emptyTextNode.alpha
         self.emptyTextNode.alpha = alpha
-        self.emptyTextNode.layer.animateAlpha(from: previousAlpha, to: alpha, duration: 0.2)
+        self.emptyTextNode.layer.animateAlpha(from: previousAlpha, to: alpha, duration: 0.25)
         
         if previousAlpha.isZero && !alpha.isZero {
             self.emptyAnimationNode.visibility = true
         }
         self.emptyAnimationNode.alpha = alpha
-        self.emptyAnimationNode.layer.animateAlpha(from: previousAlpha, to: alpha, duration: 0.2, completion: { [weak self] _ in
+        self.emptyAnimationNode.layer.animateAlpha(from: previousAlpha, to: alpha, duration: 0.25, completion: { [weak self] _ in
             if let strongSelf = self {
                 if !previousAlpha.isZero && strongSelf.emptyAnimationNode.alpha.isZero {
                     strongSelf.emptyAnimationNode.visibility = false
@@ -705,10 +705,13 @@ final class CallListControllerNode: ASDisplayNode {
         })
         
         self.emptyButtonIconNode.alpha = alpha
-        self.emptyButtonIconNode.layer.animateAlpha(from: previousAlpha, to: alpha, duration: 0.2)
+        self.emptyButtonIconNode.layer.animateAlpha(from: previousAlpha, to: alpha, duration: 0.25)
         self.emptyButtonTextNode.alpha = alpha
-        self.emptyButtonTextNode.layer.animateAlpha(from: previousAlpha, to: alpha, duration: 0.2)
+        self.emptyButtonTextNode.layer.animateAlpha(from: previousAlpha, to: alpha, duration: 0.25)
         self.emptyButtonNode.isUserInteractionEnabled = !isHidden
+        
+        self.listNode.alpha = 1.0 - alpha
+        self.listNode.layer.animateAlpha(from: 1.0 - previousAlpha, to: 1.0 - alpha, duration: 0.25)
         
         if !isHidden {
             let type = self.currentLocationAndType.scope
@@ -733,7 +736,6 @@ final class CallListControllerNode: ASDisplayNode {
             }
             
             self.emptyTextNode.attributedText = NSAttributedString(string: emptyText, font: textFont, textColor: color, paragraphAlignment: .center)
-            
             self.emptyButtonTextNode.attributedText = NSAttributedString(string: buttonText, font: buttonFont, textColor: theme.list.itemAccentColor, paragraphAlignment: .center)
             
             if let layout = self.containerLayout {

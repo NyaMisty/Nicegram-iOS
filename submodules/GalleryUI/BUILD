@@ -1,6 +1,9 @@
 load("@build_bazel_rules_swift//swift:swift.bzl", "swift_library")
 
-NGDEPS = ["//Nicegram/NGData:NGData"]
+NGDEPS = [
+    "//Nicegram/NGCopyProtectedContent:NGCopyProtectedContent",
+    "//Nicegram/NGData:NGData",
+]
 
 swift_library(
     name = "GalleryUI",
@@ -11,7 +14,7 @@ swift_library(
     copts = [
         "-warnings-as-errors",
     ],
-    deps = [
+    deps = NGDEPS + [
         "//submodules/SSignalKit/SwiftSignalKit:SwiftSignalKit",
         "//submodules/AsyncDisplayKit:AsyncDisplayKit",
         "//submodules/Display:Display",
@@ -42,11 +45,16 @@ swift_library(
         "//submodules/UndoUI:UndoUI",
         "//submodules/InvisibleInkDustNode:InvisibleInkDustNode",
         "//submodules/TranslateUI:TranslateUI",
+        "//submodules/ShimmerEffect:ShimmerEffect",
         "//submodules/Utils/RangeSet:RangeSet",
         "//submodules/TelegramUI/Components/TextNodeWithEntities:TextNodeWithEntities",
         "//submodules/TelegramUI/Components/AnimationCache:AnimationCache",
         "//submodules/TelegramUI/Components/MultiAnimationRenderer:MultiAnimationRenderer",
-    ] + NGDEPS,
+        "//submodules/TelegramUI/Components/SliderContextItem:SliderContextItem",
+        "//submodules/TooltipUI",
+        "//submodules/TelegramNotices",
+        "//submodules/Pasteboard",
+    ],
     visibility = [
         "//visibility:public",
     ],

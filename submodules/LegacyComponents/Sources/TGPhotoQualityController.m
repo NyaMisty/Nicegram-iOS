@@ -451,12 +451,7 @@ const NSTimeInterval TGPhotoQualityPreviewDuration = 15.0f;
 
 - (CGRect)transitionOutSourceFrameForReferenceFrame:(CGRect)referenceFrame orientation:(UIInterfaceOrientation)orientation
 {
-    bool hasOnScreenNavigation = false;
-    if (@available(iOS 11.0, *)) {
-        hasOnScreenNavigation = (self.viewLoaded && self.view.safeAreaInsets.bottom > FLT_EPSILON) || self.context.safeAreaInset.bottom > FLT_EPSILON;
-    }
-    
-    CGRect containerFrame = [TGPhotoQualityController photoContainerFrameForParentViewFrame:self.view.frame toolbarLandscapeSize:self.toolbarLandscapeSize orientation:orientation panelSize:TGPhotoEditorQualityPanelSize hasOnScreenNavigation:hasOnScreenNavigation];
+    CGRect containerFrame = [TGPhotoQualityController photoContainerFrameForParentViewFrame:self.view.frame toolbarLandscapeSize:self.toolbarLandscapeSize orientation:orientation panelSize:TGPhotoEditorQualityPanelSize hasOnScreenNavigation:self.hasOnScreenNavigation];
     CGSize fittedSize = TGScaleToSize(referenceFrame.size, containerFrame.size);
     CGRect sourceFrame = CGRectMake(containerFrame.origin.x + (containerFrame.size.width - fittedSize.width) / 2, containerFrame.origin.y + (containerFrame.size.height - fittedSize.height) / 2, fittedSize.width, fittedSize.height);
     
@@ -466,20 +461,7 @@ const NSTimeInterval TGPhotoQualityPreviewDuration = 15.0f;
 - (CGRect)_targetFrameForTransitionInFromFrame:(CGRect)fromFrame
 {
     CGSize referenceSize = [self referenceViewSize];
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-    UIInterfaceOrientation orientation = self.interfaceOrientation;
-#pragma clang diagnostic pop
-    
-    if ([UIDevice currentDevice].userInterfaceIdiom == UIUserInterfaceIdiomPad)
-        orientation = UIInterfaceOrientationPortrait;
-    
-    bool hasOnScreenNavigation = false;
-    if (@available(iOS 11.0, *)) {
-        hasOnScreenNavigation = (self.viewLoaded && self.view.safeAreaInsets.bottom > FLT_EPSILON) || self.context.safeAreaInset.bottom > FLT_EPSILON;
-    }
-    
-    CGRect containerFrame = [TGPhotoQualityController photoContainerFrameForParentViewFrame:CGRectMake(0, 0, referenceSize.width, referenceSize.height) toolbarLandscapeSize:self.toolbarLandscapeSize orientation:orientation panelSize:TGPhotoEditorQualityPanelSize hasOnScreenNavigation:hasOnScreenNavigation];
+    CGRect containerFrame = [TGPhotoQualityController photoContainerFrameForParentViewFrame:CGRectMake(0, 0, referenceSize.width, referenceSize.height) toolbarLandscapeSize:self.toolbarLandscapeSize orientation:self.effectiveOrientation panelSize:TGPhotoEditorQualityPanelSize hasOnScreenNavigation:self.hasOnScreenNavigation];
     CGSize fittedSize = TGScaleToSize(fromFrame.size, containerFrame.size);
     CGRect toFrame = CGRectMake(containerFrame.origin.x + (containerFrame.size.width - fittedSize.width) / 2, containerFrame.origin.y + (containerFrame.size.height - fittedSize.height) / 2, fittedSize.width, fittedSize.height);
     
@@ -648,6 +630,11 @@ const NSTimeInterval TGPhotoQualityPreviewDuration = 15.0f;
     [(TGPhotoEditorController *)self.parentViewController setInfoString:fileSize];
 }
 
++ (NSString *)_randomTemporaryPath
+{
+    return [NSTemporaryDirectory() stringByAppendingPathComponent:[[NSString alloc] initWithFormat:@"%x.mp4", (int)arc4random()]];
+}
+
 - (void)generateVideoPreview
 {
     if (self.preset == _currentPreset)
@@ -665,6 +652,8 @@ const NSTimeInterval TGPhotoQualityPreviewDuration = 15.0f;
     TGVideoEditAdjustments *adjustments = [self.photoEditor exportAdjustments];
     adjustments = [adjustments editAdjustmentsWithPreset:self.preset maxDuration:TGPhotoQualityPreviewDuration];
     
+    NSString *path = [TGPhotoQualityController _randomTemporaryPath];
+    
     __block NSTimeInterval delay = 0.0;
     __weak TGPhotoQualityController *weakSelf = self;
     SSignal *convertSignal = [[assetSignal onNext:^(AVAsset *next) {
@@ -680,7 +669,7 @@ const NSTimeInterval TGPhotoQualityPreviewDuration = 15.0f;
     {
         return [[[[[SSignal single:avAsset] delay:delay onQueue:[SQueue concurrentDefaultQueue]] mapToSignal:^SSignal *(AVAsset *avAsset)
         {
-            return [TGMediaVideoConverter convertAVAsset:avAsset adjustments:adjustments watcher:nil inhibitAudio:true entityRenderer:nil];
+            return [TGMediaVideoConverter convertAVAsset:avAsset adjustments:adjustments path:path watcher:nil inhibitAudio:true entityRenderer:nil];
         }] onError:^(__unused id error) {
             delay = 1.0;
         }] retryIf:^bool(__unused id error)
@@ -719,7 +708,7 @@ const NSTimeInterval TGPhotoQualityPreviewDuration = 15.0f;
         }];
     }
     
-    [_disposable setDisposable:[[urlSignal deliverOn:[SQueue mainQueue]] startWithNext:^(id next)
+    [_disposable setDisposable:[[urlSignal deliverOn:[SQueue mainQueue]] startStrictWithNext:^(id next)
     {
         __strong TGPhotoQualityController *strongSelf = weakSelf;
         if (strongSelf == nil)
@@ -792,7 +781,7 @@ const NSTimeInterval TGPhotoQualityPreviewDuration = 15.0f;
         }
     } error:^(id error) {
         TGLegacyLog(@"Video Quality Preview Error: %@", error);
-    } completed:nil]];
+    } completed:nil file:__FILE_NAME__ line:__LINE__]];
 }
 
 - (void)_setupPlaybackReachedEndObserver

@@ -19,7 +19,7 @@ public extension TelegramEngine {
         }
         
         public func fetchBotPaymentForm(source: BotPaymentInvoiceSource, themeParams: [String: Any]?) -> Signal<BotPaymentForm, BotPaymentFormRequestError> {
-            return _internal_fetchBotPaymentForm(postbox: self.account.postbox, network: self.account.network, source: source, themeParams: themeParams)
+            return _internal_fetchBotPaymentForm(accountPeerId: self.account.peerId, postbox: self.account.postbox, network: self.account.network, source: source, themeParams: themeParams)
         }
         
         public func validateBotPaymentForm(saveInfo: Bool, source: BotPaymentInvoiceSource, formInfo: BotPaymentRequestedInfo) -> Signal<BotPaymentValidatedFormInfo, ValidateBotPaymentFormError> {
@@ -44,6 +44,26 @@ public extension TelegramEngine {
         
         public func canPurchasePremium(purpose: AppStoreTransactionPurpose) -> Signal<Bool, NoError> {
             return _internal_canPurchasePremium(account: self.account, purpose: purpose)
+        }
+        
+        public func checkPremiumGiftCode(slug: String) -> Signal<PremiumGiftCodeInfo?, NoError> {
+            return _internal_checkPremiumGiftCode(account: self.account, slug: slug)
+        }
+        
+        public func applyPremiumGiftCode(slug: String) -> Signal<Never, NoError> {
+            return _internal_applyPremiumGiftCode(account: self.account, slug: slug)
+        }
+        
+        public func premiumGiftCodeOptions(peerId: EnginePeer.Id) -> Signal<[PremiumGiftCodeOption], NoError> {
+            return _internal_premiumGiftCodeOptions(account: self.account, peerId: peerId)
+        }
+        
+        public func premiumGiveawayInfo(peerId: EnginePeer.Id, messageId: EngineMessage.Id) -> Signal<PremiumGiveawayInfo?, NoError> {
+            return _internal_getPremiumGiveawayInfo(account: self.account, peerId: peerId, messageId: messageId)
+        }
+        
+        public func launchPrepaidGiveaway(peerId: EnginePeer.Id, id: Int64, additionalPeerIds: [EnginePeer.Id], countries: [String], onlyNewSubscribers: Bool, randomId: Int64, untilDate: Int32) -> Signal<Never, NoError> {
+            return _internal_launchPrepaidGiveaway(account: self.account, peerId: peerId, id: id, additionalPeerIds: additionalPeerIds, countries: countries, onlyNewSubscribers: onlyNewSubscribers, randomId: randomId, untilDate: untilDate)
         }
     }
 }
